@@ -1,0 +1,101 @@
+[
+  {
+    "name": "Magic Eden",
+    "url": "https://magiceden.io/",
+    "image_url": "https://i.ibb.co/WNh22sv/m1-VYi5m-H-400x400.jpg",
+    "category": "Secondary Market",
+    "recomended": "No",
+    "extension_support": "Yes",
+    "description": "A platform offering simple processes to buy, create and sell NFTs"
+  },
+  {
+    "name": "Solanart",
+    "url": "https://solanart.io/",
+    "image_url": "https://i.ibb.co/SVNrVvz/b1-R0dmnf-400x400.jpg",
+    "category": "Secondary Market",
+    "recomended": "No",
+    "extension_support": "Yes",
+    "description": "The first and largest NFT marketplace on Solana"
+  },
+  {
+    "name": "Raydium DropZone",
+    "url": "https://dropzone.raydium.io/",
+    "image_url": "https://i.ibb.co/0Bwh6DY/glv2-HQ1o-400x400.jpg",
+    "category": "Secondary Market",
+    "recomended": "No",
+    "extension_support": "Yes",
+    "description": "An initiative to promote the growth of NFTs on Solana"
+  },
+  {
+    "name": "Solrise",
+    "url": "https://app.solrise.finance/",
+    "image_url": "https://i.ibb.co/q9t1Ncv/F9QaSC9.png",
+    "category": "DeFi",
+    "recomended": "Yes",
+    "extension_support": "Yes",
+    "description": "A decentralized fund management and investment protocol on Solana"
+  },
+  {
+    "name": "Raydium",
+    "url": "https://raydium.io/swap/",
+    "image_url": "https://pbs.twimg.com/profile_images/1432652054665723904/glv2HQ1o_400x400.jpg",
+    "category": "DeFi",
+    "recomended": "Yes",
+    "extension_support": "Yes",
+    "description": "An avenue for the evolution of DeFi"
+  },
+  {
+    "name": "Mango",
+    "url": "https://trade.mango.markets/",
+    "image_url": "https://i.ibb.co/StcGLQz/w83-Qozh-N-400x400.jpg",
+    "category": "DeFi",
+    "recomended": "Yes",
+    "extension_support": "Yes",
+    "description": "Decentralized, cross-margin trading with up to 10X leverage"
+  },
+  {
+    "name": "Invictus",
+    "url": "https://invictusdao.fi/",
+    "image_url": "https://i.ibb.co/mRQLdvF/jv2xo-Ox-J-400x400.jpg",
+    "category": "DeFi",
+    "recomended": "No",
+    "extension_support": "Yes",
+    "description": "$IN is the decentralized reserve currency of Solana"
+  },
+  {
+    "name": "Tulip",
+    "url": "https://tulip.garden/vaults",
+    "image_url": "https://i.ibb.co/cv4fDcG/r3-JS-Px-O-400x400.jpg",
+    "category": "DeFi",
+    "recomended": "No",
+    "extension_support": "Yes",
+    "description": "The Efficient Solana Yield Aggregator"
+  },
+  {
+    "name": "Jet",
+    "url": "https://app.jetprotocol.io/",
+    "image_url": "https://i.ibb.co/hFCgykx/Qv-Jg-Vko3-400x400.jpg",
+    "category": "DeFi",
+    "recomended": "No",
+    "extension_support": "Yes",
+    "description": "A borrowing and lending protocol built on Solana"
+  },
+  {
+    "name": "DefiLand",
+    "url": "https://play.defiland.app/",
+    "image_url": "https://i.ibb.co/9YykjN2/Yb8-U-u-F5-400x400.jpg",
+    "category": "GameFi",
+    "recomended": "No",
+    "extension_support": "Yes",
+    "description": "A multi-chain agriculture-simulation web-game created to gamify decentralized finance."
+  },
+  {
+    "name": "Star Atlas",
+    "url": "https://play.staratlas.com/",
+    "image_url": "https://i.ibb.co/85qJ5TZ/VAPg-Kv9-O-400x400.jpg",
+    "category": "GameFi",
+    "recomended": "No",
+    "extension_support": "Yes",
+    "description": "A grand strategy game of space exploration, territorial conquest, political domination, and more."
+  }
+]
