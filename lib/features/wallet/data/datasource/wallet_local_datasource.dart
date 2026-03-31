@@ -27,6 +27,9 @@ abstract class WalletLocalDataSource {
 
   /// Get the stored wallet address.
   Future<String?> getSavedAddress();
+
+  /// Clear all wallet data from secure storage.
+  Future<void> clearWallet();
 }
 
 class WalletLocalDataSourceImpl implements WalletLocalDataSource {
@@ -68,14 +71,40 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
       final privateKeyBytes = keyData.key;
 
       // Derive the public key from the private key
-      final publicKey = await ED25519_HD_KEY.getPublicKey(privateKeyBytes);
+      final publicKeyList = await ED25519_HD_KEY.getPublicKey(privateKeyBytes);
+      var publicKey = Uint8List.fromList(publicKeyList);
+
+      // Handle case where library returns 33 bytes (with prefix byte)
+      // Ed25519 public keys should be 32 bytes, so take the last 32 bytes if 33
+      if (publicKey.length == 33) {
+        // Take the last 32 bytes (skip the first byte which is likely a prefix)
+        publicKey = publicKey.sublist(1);
+      } else if (publicKey.length != 32) {
+        // If it's not 32 or 33 bytes, something is wrong
+        throw KeyDerivationException(
+          'Invalid public key length: ${publicKey.length} bytes, expected 32 bytes. This may indicate a corrupted key derivation.',
+        );
+      }
 
       // Public key → Base58-encoded Solana address
-      final address = base58.encode(Uint8List.fromList(publicKey));
+      final address = base58.encode(publicKey);
+      
+      // Validate address decodes back to 32 bytes
+      try {
+        final decodedBytes = base58.decode(address);
+        if (decodedBytes.length != 32) {
+          throw KeyDerivationException(
+            'Address validation failed: decoded length is ${decodedBytes.length} bytes, expected 32 bytes',
+          );
+        }
+      } catch (e) {
+        if (e is KeyDerivationException) rethrow;
+        throw KeyDerivationException('Failed to validate address: $e');
+      }
 
       return WalletModel.fromKeyData(
         address: address,
-        publicKey: Uint8List.fromList(publicKey),
+        publicKey: publicKey,
         mnemonic: mnemonic,
       );
     } catch (e) {
@@ -87,9 +116,30 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
   @override
   Future<void> saveWallet(WalletModel wallet) async {
     try {
+      // Validate public key is exactly 32 bytes (Ed25519 standard)
+      if (wallet.publicKey.length != 32) {
+        throw LocalStorageException(
+          'Invalid public key: length is ${wallet.publicKey.length} bytes, expected 32 bytes',
+        );
+      }
+      
+      // Validate address decodes to 32 bytes
+      try {
+        final decodedBytes = base58.decode(wallet.address);
+        if (decodedBytes.length != 32) {
+          throw LocalStorageException(
+            'Invalid address: decoded length is ${decodedBytes.length} bytes, expected 32 bytes',
+          );
+        }
+      } catch (e) {
+        if (e is LocalStorageException) rethrow;
+        throw LocalStorageException('Invalid address format: $e');
+      }
+      
       await _secureStorage.write(key: _mnemonicKey, value: wallet.mnemonic);
       await _secureStorage.write(key: _addressKey, value: wallet.address);
     } catch (e) {
+      if (e is LocalStorageException) rethrow;
       throw LocalStorageException('Failed to save wallet: $e');
     }
   }
@@ -97,10 +147,38 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
   @override
   Future<bool> hasWallet() async {
     try {
+      // Check both mnemonic and address exist and are valid
       final mnemonic = await _secureStorage.read(key: _mnemonicKey);
-      return mnemonic != null && mnemonic.isNotEmpty;
+      final address = await _secureStorage.read(key: _addressKey);
+      
+      // Both must exist and be non-empty
+      if (mnemonic == null || mnemonic.isEmpty) {
+        return false;
+      }
+      
+      if (address == null || address.isEmpty) {
+        return false;
+      }
+      
+      // Validate mnemonic format (should be 12 or 24 words)
+      final words = mnemonic.trim().split(RegExp(r'\s+'));
+      if (words.length != 12 && words.length != 24) {
+        // Invalid mnemonic format - treat as no wallet
+        return false;
+      }
+      
+      // Validate address format (should be base58, 32-50 chars)
+      final trimmedAddress = address.trim();
+      if (trimmedAddress.length < 32 || trimmedAddress.length > 50) {
+        // Invalid address format - treat as no wallet
+        return false;
+      }
+      
+      // Both exist and appear valid
+      return true;
     } catch (e) {
-      throw LocalStorageException('Failed to check wallet: $e');
+      // If any error occurs, treat as no wallet (safer default)
+      return false;
     }
   }
 
@@ -110,6 +188,17 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
       return await _secureStorage.read(key: _addressKey);
     } catch (e) {
       throw LocalStorageException('Failed to read address: $e');
+    }
+  }
+
+  @override
+  Future<void> clearWallet() async {
+    try {
+      // Delete all wallet-related keys from secure storage
+      await _secureStorage.delete(key: _mnemonicKey);
+      await _secureStorage.delete(key: _addressKey);
+    } catch (e) {
+      throw LocalStorageException('Failed to clear wallet: $e');
     }
   }
 }

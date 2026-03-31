@@ -22,6 +22,7 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
     on<VerifyPasscodeEvent>(_onVerifyPasscode);
     on<SavePasscodeEvent>(_onSavePasscode);
     on<ResetPasscodeEvent>(_onResetPasscode);
+    on<PasscodeWrongEvent>(_onPasscodeWrong);
   }
 
   /// Handle digit entry
@@ -32,15 +33,20 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
     final currentState = state;
     
     if (currentState is PasscodeEntering) {
+      // Don't allow more digits if passcode is already complete
+      if (currentState.passcode.length >= 6) {
+        return;
+      }
+      
       final newPasscode = currentState.passcode + event.digit;
       
-      // If passcode is complete, emit state with isComplete flag
+      // Emit state with updated passcode
       emit(PasscodeEntering(
         passcode: newPasscode,
         isWrong: false,
       ));
     } else {
-      // Start entering passcode
+      // Start entering passcode (from initial or other states)
       emit(PasscodeEntering(
         passcode: event.digit,
         isWrong: false,
@@ -106,7 +112,9 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
   ) async {
     try {
       await _secureStorage.write(key: _passcodeKey, value: event.passcode);
+      // Emit saved state - this will trigger navigation
       emit(const PasscodeSaved());
+      // Don't reset here - let the UI handle navigation first
     } catch (e) {
       emit(PasscodeError(e.toString()));
     }
@@ -118,5 +126,26 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
     Emitter<PasscodeState> emit,
   ) {
     emit(const PasscodeInitial());
+  }
+
+  /// Handle wrong passcode (for confirm mode)
+  Future<void> _onPasscodeWrong(
+    PasscodeWrongEvent event,
+    Emitter<PasscodeState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is PasscodeEntering) {
+      // Show wrong state
+      emit(PasscodeEntering(
+        passcode: currentState.passcode,
+        isWrong: true,
+      ));
+      
+      // Reset after delay
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (state is PasscodeEntering) {
+        emit(const PasscodeInitial());
+      }
+    }
   }
 }

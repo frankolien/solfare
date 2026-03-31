@@ -17,4 +17,7 @@ abstract class WalletRepository {
 
   /// Retrieve the stored wallet address.
   Future<String?> getSavedAddress();
+
+  /// Clear all wallet data from secure storage.
+  Future<void> clearWallet();
 }

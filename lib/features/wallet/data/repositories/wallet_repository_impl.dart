@@ -62,4 +62,13 @@ class WalletRepositoryImpl implements WalletRepository {
       throw StorageFailure(e.message);
     }
   }
+
+  @override
+  Future<void> clearWallet() async {
+    try {
+      await _localDataSource.clearWallet();
+    } on LocalStorageException catch (e) {
+      throw StorageFailure(e.message);
+    }
+  }
 }

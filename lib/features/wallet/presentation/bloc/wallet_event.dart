@@ -30,7 +30,41 @@ class CheckWalletExistsEvent extends WalletEvent {
   const CheckWalletExistsEvent();
 }
 
+/// Event to request airdrop (devnet/testnet only)
+class RequestAirdropEvent extends WalletEvent {
+  final String address;
+  final int lamports; // Amount in lamports (default: 1 SOL = 1,000,000,000)
+
+  const RequestAirdropEvent({
+    required this.address,
+    this.lamports = 1000000000, // 1 SOL
+  });
+
+  @override
+  List<Object?> get props => [address, lamports];
+}
+
+/// Event to fetch wallet balance
+class FetchBalanceEvent extends WalletEvent {
+  final String address;
+
+  const FetchBalanceEvent(this.address);
+
+  @override
+  List<Object?> get props => [address];
+}
+
 /// Event to reset wallet state
 class ResetWalletEvent extends WalletEvent {
   const ResetWalletEvent();
+}
+
+/// Event to clear all wallet data from storage
+class ClearWalletEvent extends WalletEvent {
+  const ClearWalletEvent();
+}
+
+/// Event to fetch SOL price
+class FetchSolPriceEvent extends WalletEvent {
+  const FetchSolPriceEvent();
 }

@@ -25,6 +25,22 @@ class PasscodeScreen extends StatefulWidget {
 }
 
 class _PasscodeScreenState extends State<PasscodeScreen> {
+  bool _hasNavigated = false; // Prevent multiple navigations
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // Reset passcode state when entering confirm mode
+    // This ensures the state is clean when navigating from enter to confirm
+    if (widget.mode == PasscodeMode.confirm) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.read<PasscodeBloc>().add(const ResetPasscodeEvent());
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,16 +74,27 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
               // Handle side effects (navigation) in listener
               if (state is PasscodeVerified) {
                 // Passcode verified - navigate to homepage
-                Future.microtask(() {
-                  if (mounted) {
-                    context.go(AppRoutes.homepage);
-                  }
-                });
+                if (!_hasNavigated && mounted) {
+                  _hasNavigated = true;
+                  Future.microtask(() {
+                    if (mounted) {
+                      context.go(AppRoutes.homepage);
+                    }
+                  });
+                }
               } else if (state is PasscodeSaved) {
                 // Passcode saved - navigate to biometric setup
-                context.push(AppRoutes.biometricSetup);
-              } else if (state is PasscodeEntering && state.isComplete) {
+                if (!_hasNavigated && mounted) {
+                  _hasNavigated = true;
+                  Future.microtask(() {
+                    if (mounted) {
+                      context.go(AppRoutes.biometricSetup);
+                    }
+                  });
+                }
+              } else if (state is PasscodeEntering && state.isComplete && !_hasNavigated) {
                 // Passcode is complete - handle based on mode
+                // Only process if we haven't navigated yet
                 if (widget.mode == PasscodeMode.unlock) {
                   // Verify passcode
                   context.read<PasscodeBloc>().add(
@@ -76,7 +103,7 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
                 } else if (widget.mode == PasscodeMode.enter) {
                   // Navigate to confirm screen
                   Future.delayed(const Duration(milliseconds: 300), () {
-                    if (mounted) {
+                    if (mounted && !_hasNavigated) {
                       context.push(
                         AppRoutes.confirmPasscode,
                         extra: state.passcode,
@@ -86,12 +113,15 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
                 } else if (widget.mode == PasscodeMode.confirm) {
                   // Check if it matches initial passcode
                   if (state.passcode == widget.initialPasscode) {
-                    // Save passcode
+                    // Save passcode - this will emit PasscodeSaved state
                     context.read<PasscodeBloc>().add(
                           SavePasscodeEvent(state.passcode),
                         );
                   } else {
-                    // Wrong passcode - handled by BLoC
+                    // Wrong passcode - show error and reset
+                    context.read<PasscodeBloc>().add(
+                          const PasscodeWrongEvent(),
+                        );
                   }
                 }
               }

@@ -47,3 +47,8 @@ class SavePasscodeEvent extends PasscodeEvent {
 class ResetPasscodeEvent extends PasscodeEvent {
   const ResetPasscodeEvent();
 }
+
+/// Event to show wrong passcode error
+class PasscodeWrongEvent extends PasscodeEvent {
+  const PasscodeWrongEvent();
+}

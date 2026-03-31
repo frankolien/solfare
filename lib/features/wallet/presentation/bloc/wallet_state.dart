@@ -45,6 +45,56 @@ class WalletExistsChecked extends WalletState {
   List<Object?> get props => [exists];
 }
 
+/// Balance fetched successfully
+class BalanceFetched extends WalletState {
+  final int balance; // Balance in lamports
+  final String address;
+
+  const BalanceFetched({
+    required this.balance,
+    required this.address,
+  });
+
+  @override
+  List<Object?> get props => [balance, address];
+
+  /// Convert lamports to SOL
+  double get balanceInSol => balance / 1000000000;
+}
+
+/// Airdrop requested successfully
+class AirdropRequested extends WalletState {
+  final String transactionSignature;
+  final String address;
+
+  const AirdropRequested({
+    required this.transactionSignature,
+    required this.address,
+  });
+
+  @override
+  List<Object?> get props => [transactionSignature, address];
+}
+
+/// Wallet cleared successfully
+class WalletCleared extends WalletState {
+  const WalletCleared();
+}
+
+/// SOL price fetched successfully
+class SolPriceFetched extends WalletState {
+  final double priceUsd;
+  final double priceChange24h;
+
+  const SolPriceFetched({
+    required this.priceUsd,
+    required this.priceChange24h,
+  });
+
+  @override
+  List<Object?> get props => [priceUsd, priceChange24h];
+}
+
 /// Error state - something went wrong
 class WalletError extends WalletState {
   final String message;
