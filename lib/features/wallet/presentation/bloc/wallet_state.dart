@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:solfare/features/wallet/domain/entities/transactions.dart';
 import 'package:solfare/features/wallet/domain/entities/wallet.dart';
 
 /// States that WalletBloc can emit
@@ -23,11 +24,12 @@ class WalletLoading extends WalletState {
 /// Wallet created successfully
 class WalletCreated extends WalletState {
   final Wallet wallet;
+  final bool isImported;
 
-  const WalletCreated(this.wallet);
+  const WalletCreated(this.wallet, this.isImported);
 
   @override
-  List<Object?> get props => [wallet];
+  List<Object?> get props => [wallet, isImported];
 }
 
 /// Wallet saved successfully
@@ -103,4 +105,22 @@ class WalletError extends WalletState {
 
   @override
   List<Object?> get props => [message];
+}
+ class WalletAddressLoaded extends WalletState {
+  final String address;
+
+  const WalletAddressLoaded(this.address);
+
+  @override
+  List<Object?> get props => [address];
+}
+
+/// Transaction history fetched successfully
+class TransactionsFetched extends WalletState {
+  final List<Transaction> transactions;
+
+  const TransactionsFetched(this.transactions);
+
+  @override
+  List<Object?> get props => [transactions];
 }

@@ -12,3 +12,4 @@ class ImportWalletUseCase {
     return await _repository.importWallet(mnemonic);
   }
 }
+  

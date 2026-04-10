@@ -68,3 +68,27 @@ class ClearWalletEvent extends WalletEvent {
 class FetchSolPriceEvent extends WalletEvent {
   const FetchSolPriceEvent();
 }
+
+class LoadWalletAddressEvent extends WalletEvent {
+  const LoadWalletAddressEvent();
+
+}
+
+class ImportWalletEvent extends WalletEvent {
+  final String mnemonic;
+  const ImportWalletEvent(this.mnemonic);
+
+  @override
+  List<Object?> get props => [mnemonic];
+}
+
+/// Event to fetch transaction history
+class FetchTransactionsEvent extends WalletEvent {
+  final String address;
+
+  const FetchTransactionsEvent(this.address);
+  
+
+  @override
+  List<Object?> get props => [address];
+}

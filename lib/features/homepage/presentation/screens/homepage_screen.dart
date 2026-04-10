@@ -1,4 +1,3 @@
-import 'package:bs58/bs58.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -7,11 +6,11 @@ import 'package:solfare/core/router/app_router.dart';
 import 'package:solfare/features/homepage/presentation/bloc/homepage_bloc.dart';
 import 'package:solfare/features/homepage/presentation/bloc/homepage_event.dart';
 import 'package:solfare/features/homepage/presentation/bloc/homepage_state.dart';
-import 'package:solfare/features/wallet/data/repositories/wallet_repository_impl.dart';
-import 'package:solfare/features/wallet/data/datasource/wallet_local_datasource.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_event.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_state.dart';
+import 'package:solfare/features/homepage/presentation/widgets/bottom_nav_bar.dart';
+import 'package:lottie/lottie.dart';
 
 class HomepageScreen extends StatefulWidget {
   const HomepageScreen({super.key});
@@ -25,6 +24,9 @@ class _HomepageScreenState extends State<HomepageScreen> {
   bool _hasFetchedPrice = false;
   double _cachedBalanceInSol = 0.0;
   String? _cachedAddress;
+  double _cachedSolPriceUsd = 0.0;
+  double _cachedSolPriceChange24h = 0.0;
+  bool _isRefreshing = false;
 
   @override
   void initState() {
@@ -33,101 +35,20 @@ class _HomepageScreenState extends State<HomepageScreen> {
   }
 
   Future<void> _loadWalletAddress() async {
-    try {
-      final repository = WalletRepositoryImpl(
-        localDataSource: WalletLocalDataSourceImpl(),
-      );
-      final address = await repository.getSavedAddress();
-      if (address != null && address.isNotEmpty && mounted) {
-        // Trim and validate address format
-        // Solana addresses are base58-encoded, typically 32-50 characters
-        final trimmedAddress = address.trim();
-        
-        // Remove any non-printable characters
-        final cleanAddress = trimmedAddress.replaceAll(RegExp(r'[^\x20-\x7E]'), '');
-        
-        // Validate: Solana addresses are typically 32-50 characters (base58)
-        if (cleanAddress.length >= 32 && cleanAddress.length <= 50) {
-          // Validate it's base58 (only contains valid base58 characters)
-          final base58Regex = RegExp(r'^[1-9A-HJ-NP-Za-km-z]+$');
-          if (base58Regex.hasMatch(cleanAddress)) {
-            // Decode and validate the address is exactly 32 bytes (Solana public key size)
-            try {
-              final decodedBytes = base58.decode(cleanAddress);
-              if (decodedBytes.length != 32) {
-                // Invalid address - not 32 bytes when decoded
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('Invalid wallet address detected. Tap "Clear Wallet" to fix.'),
-                      backgroundColor: Colors.red,
-                      duration: const Duration(seconds: 5),
-                      action: SnackBarAction(
-                        label: 'Clear Wallet',
-                        textColor: Colors.white,
-                        onPressed: () {
-                          context.read<WalletBloc>().add(const ClearWalletEvent());
-                        },
-                      ),
-                    ),
-                  );
-                  debugPrint('Invalid wallet address: decoded length is ${decodedBytes.length} bytes, expected 32 bytes');
-                }
-                return;
-              }
-              
-              // Address is valid - use it
-              setState(() {
-                _walletAddress = cleanAddress;
-              });
-              // Fetch balance when address is loaded
-              context.read<WalletBloc>().add(FetchBalanceEvent(cleanAddress));
-              debugPrint('Wallet address loaded: ${cleanAddress.substring(0, 8)}... (length: ${cleanAddress.length}, decoded: 32 bytes)');
-            } catch (e) {
-              // Failed to decode base58
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Invalid wallet address: failed to decode - $e. Please recreate your wallet.'),
-                    backgroundColor: Colors.red,
-                    duration: const Duration(seconds: 5),
-                  ),
-                );
-                debugPrint('Invalid wallet address: failed to decode base58 - $e');
-              }
-            }
-          } else {
-            // Invalid base58 characters
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Invalid wallet address: contains invalid characters'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-              debugPrint('Invalid wallet address: contains non-base58 characters');
-            }
-          }
-        } else {
-          // Invalid address length
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Invalid wallet address format (length: ${cleanAddress.length}, expected 32-50)'),
-                backgroundColor: Colors.red,
-              ),
-            );
-            debugPrint('Invalid wallet address format (length: ${cleanAddress.length})');
-            debugPrint('Address preview: ${cleanAddress.substring(0, cleanAddress.length > 20 ? 20 : cleanAddress.length)}...');
-          }
-        }
-      }
-    } catch (e) {
-      // Handle error silently or show debug message
-      if (mounted) {
-        debugPrint('Error loading wallet address: $e');
-      }
+   context.read<WalletBloc>().add(const LoadWalletAddressEvent());
+
+  }
+
+  void _onRefresh(String? address) {
+    if (_isRefreshing) return;
+    setState(() => _isRefreshing = true);
+    if (address != null) {
+      context.read<WalletBloc>().add(FetchBalanceEvent(address));
     }
+    context.read<WalletBloc>().add(const FetchSolPriceEvent());
+    Future.delayed(const Duration(milliseconds: 2000), () {
+      if (mounted) setState(() => _isRefreshing = false);
+    });
   }
 
   void _requestAirdrop() {
@@ -167,6 +88,12 @@ class _HomepageScreenState extends State<HomepageScreen> {
                   );
             }
           });
+        } else if (state is WalletAddressLoaded) {
+          setState(() {
+            _walletAddress = state.address;
+          });
+          // Now fetch the balance
+          context.read<WalletBloc>().add(FetchBalanceEvent(state.address));
         } else if (state is WalletError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -181,8 +108,8 @@ class _HomepageScreenState extends State<HomepageScreen> {
         double balanceInSol = _cachedBalanceInSol; // Use cached balance as default
         bool isLoadingBalance = false;
         String? addressFromState = _cachedAddress ?? _walletAddress;
-        double solPriceUsd = 0.0;
-        double solPriceChange24h = 0.0;
+        double solPriceUsd = _cachedSolPriceUsd;
+        double solPriceChange24h = _cachedSolPriceChange24h;
 
         // Handle different states - can handle multiple states in sequence
         if (walletState is WalletCreated) {
@@ -209,10 +136,10 @@ class _HomepageScreenState extends State<HomepageScreen> {
         }
         
         if (walletState is SolPriceFetched) {
-          // Price fetched - don't lose the cached balance
           solPriceUsd = walletState.priceUsd;
           solPriceChange24h = walletState.priceChange24h;
-          // Keep using cached balance
+          _cachedSolPriceUsd = solPriceUsd;
+          _cachedSolPriceChange24h = solPriceChange24h;
           balanceInSol = _cachedBalanceInSol;
         }
         
@@ -246,33 +173,48 @@ class _HomepageScreenState extends State<HomepageScreen> {
                 : 0;
 
             return Scaffold(
-              backgroundColor: Colors.black,
+              backgroundColor: Color(0xFF0a0b12),
               body: SafeArea(
+                bottom: false,
                 child: Column(
                   children: [
                     // Scrollable content with pull-to-refresh
                     Expanded(
-                      child: RefreshIndicator(
-                        onRefresh: () async {
-                          print('🔄 [Homepage] Pull-to-refresh triggered');
-                          final address = currentAddress;
-                          // Refresh balance if address is available
-                          if (address != null) {
-                            context.read<WalletBloc>().add(FetchBalanceEvent(address));
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: (notification) {
+                          if (notification is ScrollUpdateNotification &&
+                              notification.metrics.pixels < -80 &&
+                              !_isRefreshing) {
+                            _onRefresh(currentAddress);
                           }
-                          // Refresh SOL price
-                          context.read<WalletBloc>().add(const FetchSolPriceEvent());
-                          // Wait a bit for the requests to complete
-                          await Future.delayed(const Duration(milliseconds: 500));
+                          return false;
                         },
-                        color: Colors.yellow,
-                        backgroundColor: Colors.grey[900],
                         child: SingleChildScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(), // Enable scrolling even when content is small
+                          physics: const BouncingScrollPhysics(
+                            parent: AlwaysScrollableScrollPhysics(),
+                          ),
                           child: Column(
                             children: [
+                              // Lottie refresh indicator
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 300),
+                                height: _isRefreshing ? 50 : 0,
+                                child: _isRefreshing
+                                    ? Center(
+                                        child: SizedBox(
+                                          width: 22,
+                                          height: 22,
+                                          child: Lottie.asset(
+                                            'assets/assets/lottie/loading_indicator.json',
+                                            repeat: true,
+                                          ),
+                                        ),
+                                      )
+                                    : const SizedBox.shrink(),
+                              ),
+
                               // Balance section (includes header)
-                              _buildBalanceSection(balanceInSol, isLoadingBalance, currentAddress, solPriceUsd),
+                              _buildBalanceSection(balanceInSol, isLoadingBalance, currentAddress, solPriceUsd, solPriceChange24h),
 
                               // Action buttons
                               _buildActionButtons(),
@@ -289,7 +231,12 @@ class _HomepageScreenState extends State<HomepageScreen> {
                     ),
 
                     // Bottom navigation (fixed at bottom)
-                    _buildBottomNav(context, selectedIndex),
+                    BottomNavBar(
+                      selectedIndex: selectedIndex,
+                      onTap: (index) => context.read<HomepageBloc>().add(
+                            TabSelectedEvent(index),
+                          ),
+                    ),
                   ],
                 ),
               ),
@@ -300,12 +247,19 @@ class _HomepageScreenState extends State<HomepageScreen> {
     );
   }
 
-  Widget _buildBalanceSection(double balanceInSol, bool isLoading, String? walletAddress, double solPriceUsd) {
+  Widget _buildBalanceSection(double balanceInSol, bool isLoading, String? walletAddress, double solPriceUsd, double solPriceChange24h) {
+    final usdValue = solPriceUsd > 0
+    ? (balanceInSol * solPriceUsd).toStringAsFixed(2)
+    : (balanceInSol * 86.29).toStringAsFixed(2);
+    final parts = usdValue.split('.');
+    final priceChange = solPriceChange24h;
+    final isPositive = priceChange >= 0;
+    
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 16),
       constraints: const BoxConstraints(
-        minHeight: 180,
+        minHeight: 190,
       ),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
@@ -333,7 +287,7 @@ class _HomepageScreenState extends State<HomepageScreen> {
           ),
           // Content overlay
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -343,8 +297,8 @@ class _HomepageScreenState extends State<HomepageScreen> {
                   children: [
                     // Wallet icon and name
                     Container(
-                      width: 40,
-                      height: 40,
+                      width: 32,
+                      height: 32,
                       decoration: BoxDecoration(
                         color: Colors.grey[800]?.withOpacity(0.7),
                         shape: BoxShape.circle,
@@ -354,58 +308,88 @@ class _HomepageScreenState extends State<HomepageScreen> {
                           'MW',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 14,
+                            fontSize: 11,
+                            fontFamily: 'FKGrotesk',
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 7),
+                    const SizedBox(width: 6),
                     const Text(
                       'Main Wallet',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        fontFamily: 'FKGrotesk',
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
+                     if (walletAddress != null) ...[
+                  GestureDetector(
+                    onTap: () => _copyWalletAddress(walletAddress),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Icon(
+                        Icons.copy,
+                        color: Colors.grey[400],
+                        size: 12,
+                      ),
+                    ),
+                  ),
+                ],
                     const Spacer(),
-                    // Menu icon with notification dot
-                    Stack(
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
+                        Stack(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.wallet, color: Colors.white),
+                              onPressed: () {},
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                            Positioned(
+                              right: 9,
+                              top: 10,
+                              child: Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Colors.yellow,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        //const SizedBox(width: 2),
                         IconButton(
                           icon: const Icon(Icons.more_vert, color: Colors.white),
                           onPressed: () {},
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         ),
-                        Positioned(
-                          right: 8,
-                          top: 8,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: Colors.yellow,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+
+                //    -------------------------------------------------------------  //
+                 SizedBox(height:MediaQuery.of(context).size.height * 0.06),
+               
                 Text(
                   'BALANCE',
                   style: TextStyle(
                     color: Colors.grey[400],
                     fontSize: 12,
+                    fontFamily: 'FKGrotesk',
                     fontWeight: FontWeight.w600,
                     letterSpacing: 1.2,
                   ),
                 ),
-                const SizedBox(height: 6),
+                //const SizedBox(height: 6),
                 isLoading
                     ? const SizedBox(
                         height: 32,
@@ -415,48 +399,69 @@ class _HomepageScreenState extends State<HomepageScreen> {
                           color: Colors.white,
                         ),
                       )
-                    : Text(
-                        solPriceUsd > 0
-                            ? '\$${(balanceInSol * solPriceUsd).toStringAsFixed(2)}'
-                            : '\$${(balanceInSol * 86.29).toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          
-                        ),
-                      ),
+                    : Text.rich(
+  TextSpan(
+    text: '\$${parts[0]}.',
+    style: const TextStyle(
+      color: Colors.white,
+      fontSize: 32,
+      fontFamily: 'FKGroteskSemiMono',
+      fontWeight: FontWeight.bold,
+    ),
+    children: [
+      TextSpan(
+        text: parts[1],
+        style: const TextStyle(
+          color: Color(0xFFb8bbc1),
+          fontSize: 32,
+          fontFamily: 'FKGroteskSemiMono',
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    ],
+  ),
+),
+                      
                 //const SizedBox(height: 2),
-                
-                // Wallet address section (if available)
-                if (walletAddress != null) ...[
-                  const SizedBox(height: 16),
-                  GestureDetector(
-                    onTap: () => _copyWalletAddress(walletAddress),
-                    child: Row(
+                Builder(
+                  builder: (context) {
+                    final price = solPriceUsd > 0 ? solPriceUsd : 86.29;
+                    final dollarChange = balanceInSol * price * (solPriceChange24h / 100);
+                    final isPositive = dollarChange >= 0;
+                    final changeColor = isPositive
+                        ? const Color(0xFFb8bbc1)
+                        : const Color(0xFFFF5252);
+
+                    return Row(
                       children: [
-                        Expanded(
-                          child: Text(
-                            walletAddress,
-                            style: TextStyle(
-                              color: Colors.grey[300],
-                              fontSize: 11,
-                              letterSpacing: 0.5,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        Text(
+                          '${isPositive ? '+' : ''}\$${dollarChange.abs().toStringAsFixed(2)}',
+                          style: TextStyle(
+                            color: changeColor,
+                            fontSize: 13,
+                            fontFamily: 'FKGroteskSemiMono',
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.copy,
-                          color: Colors.grey[400],
-                          size: 16,
+                        const SizedBox(width: 6),
+                        Text(
+                          '${isPositive ? '+' : ''}${solPriceChange24h.toStringAsFixed(2)}%',
+                          style: TextStyle(
+                            color: changeColor,
+                            fontSize: 13,
+                            fontFamily: 'FKGroteskSemiMono',
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ],
-                    ),
-                  ),
-                ],
+                    );
+                  },
+                ),
+                // Price change section
+              
+
+
+               
               ],
             ),
           ),
@@ -467,26 +472,75 @@ class _HomepageScreenState extends State<HomepageScreen> {
 
   void _copyWalletAddress(String address) {
     Clipboard.setData(ClipboardData(text: address));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Wallet address copied to clipboard'),
-        backgroundColor: Colors.green,
-        duration: Duration(seconds: 2),
+    _showCopiedToast();
+  }
+
+  void _showCopiedToast() {
+    final overlay = Overlay.of(context);
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (context) => Positioned(
+        bottom: 100,
+        left: 0,
+        right: 0,
+        child: Center(
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 200),
+            builder: (context, value, child) {
+              return Opacity(
+                opacity: value,
+                child: Transform.translate(
+                  offset: Offset(0, 10 * (1 - value)),
+                  child: child,
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1C1F26),
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.copy, color: Colors.white, size: 18),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Copied to clipboard',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontFamily: 'FKGrotesk',
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
+    overlay.insert(entry);
+    Future.delayed(const Duration(seconds: 2), () {
+      entry.remove();
+    });
   }
 
   Widget _buildActionButtons() {
     final actions = [
-      {'icon': Icons.arrow_downward, 'label': 'Receive', 'isImage': false},
-      {'icon': Icons.add_card, 'label': 'Buy', 'isImage': false},
+      {'icon': Icons.arrow_downward, 'label': 'Deposit', 'isImage': false},
+      //{'icon': Icons.add_card, 'label': 'Buy', 'isImage': false},
       {'icon': Icons.swap_horiz, 'label': 'Swap', 'isImage': false},
-      {'icon': Icons.savings, 'label': 'Stake', 'isImage': true, 'imagePath': 'assets/assets/images/piggy_bank.png'},
+      {'icon': Icons.savings, 'label': 'Stake', 'isImage': false},
       {'icon': Icons.send, 'label': 'Send', 'isImage': false},
     ];
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      padding: const EdgeInsets.fromLTRB(9, 8, 9, 0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: actions.map((action) {
@@ -496,16 +550,15 @@ class _HomepageScreenState extends State<HomepageScreen> {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: Colors.grey[900],
+                  color: Color(0xFF23262B),
                   shape: BoxShape.circle,
                 ),
                 child: action['isImage'] == true
-                    ? ClipOval(
+                    ? Padding(
+                        padding: const EdgeInsets.all(1),
                         child: Image.asset(
                           action['imagePath'] as String,
-                          width: 56,
-                          height: 56,
-                          fit: BoxFit.cover,
+                          fit: BoxFit.contain,
                         ),
                       )
                     : Icon(
@@ -531,71 +584,172 @@ class _HomepageScreenState extends State<HomepageScreen> {
 
   Widget _buildPortfolioContent(double balanceInSol, String? walletAddress, double solPriceUsd, double solPriceChange24h) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 60),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 24),
-          // Tokens section
+          // Tokens section header
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Tokens ${balanceInSol.toStringAsFixed(2)} SOL',
-                style: const TextStyle(
+              const Text(
+                'Tokens',
+                style: TextStyle(
                   color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  fontFamily: 'FKGrotesk',
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              TextButton(
-                onPressed: () {},
-                child: const Text(
-                  'View all >',
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 14,
-                  ),
+              Container(
+                width: 1,
+                height: 16,
+                margin: const EdgeInsets.symmetric(horizontal: 10),
+                color: Colors.white24,
+              ),
+              Text(
+                '\$${(balanceInSol * (solPriceUsd > 0 ? solPriceUsd : 86.29)).toStringAsFixed(2)}',
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontSize: 13,
+                  fontFamily: 'FKGroteskSemiMono',
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () {},
+                child: Row(
+                  children: [
+                    Text(
+                      'View all',
+                      style: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 11,
+                        fontFamily: 'FKGrotesk',
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.chevron_right,
+                      color: Colors.grey[500],
+                      size: 16,
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          const Divider(
+            color: Colors.white10,
+            height: 1,
+          ),
           const SizedBox(height: 16),
           // Solana token card
           _buildTokenCard(balanceInSol, solPriceUsd, solPriceChange24h),
+
           const SizedBox(height: 32),
-          const SizedBox(height: 40), // Extra padding at bottom
+
+          // Stocks section
+          _buildSectionHeader('Stocks'),
+          const SizedBox(height: 16),
+          _buildSectionRow(
+            icon: Icons.bar_chart,
+            text: 'No assets yet',
+            buttonText: 'Explore',
+           buttonColor: Color(0xFFCCBF00),
+            textColor: Colors.black,
+            onTap: () {},
+          ),
+
+          const SizedBox(height: 32),
+
+          // Staking section
+          _buildSectionHeader('Staking'),
+          const SizedBox(height: 16),
+          _buildSectionRow(
+            icon: Icons.savings,
+            text: 'No SOL staked yet',
+            buttonText: 'Start staking',
+            buttonColor: Color(0xFFCCBF00),
+            textColor: Colors.black,
+            onTap: () {},
+          ),
+
+          const SizedBox(height: 32),
+
+          // Activity section
+          _buildSectionHeader('Activity'),
+          const SizedBox(height: 16),
+          _buildSectionRow(
+            icon: Icons.history,
+            text: 'Transaction history',
+            buttonText: 'View',
+            buttonColor: const Color(0xFF2A2D35),
+            textColor: Colors.white,
+            onTap: () {
+              if (_walletAddress != null) {
+                context.push(AppRoutes.transactionHistory, extra: _walletAddress);
+              }
+            },
+          ),
+
+          const SizedBox(height: 32),
+
+          // Customize portfolio button
+          Center(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2A2D35),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
+              onPressed: () {},
+              child: const Text(
+                'Customize portfolio',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontFamily: 'FKGrotesk',
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 40),
         ],
       ),
     );
   }
 
   Widget _buildTokenCard(double balanceInSol, double solPriceUsd, double solPriceChange24h) {
-    // Use real price if available, otherwise fallback to approximate
     final price = solPriceUsd > 0 ? solPriceUsd : 86.29;
     final priceChange = solPriceChange24h;
     final isPositive = priceChange >= 0;
     final totalValueUsd = balanceInSol * price;
-    
+
     return Row(
       children: [
-        // Solana logo
+        // Solana logo — circular black bg
         Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
+          width: 44,
+          height: 44,
+          decoration: const BoxDecoration(
+            color: Colors.black,
+            shape: BoxShape.circle,
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+          child: ClipOval(
             child: Image.network(
-             "https://assets.coingecko.com/coins/images/4128/large/solana.png",
-              
-              width: 40,
-              height: 40,
+              "https://assets.coingecko.com/coins/images/4128/large/solana.png",
+              width: 44,
+              height: 44,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) {
-                // Fallback to gradient if image doesn't exist
                 return Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -603,7 +757,6 @@ class _HomepageScreenState extends State<HomepageScreen> {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Center(
                     child: Text(
@@ -611,6 +764,7 @@ class _HomepageScreenState extends State<HomepageScreen> {
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 12,
+                        fontFamily: 'FKGrotesk',
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -621,6 +775,7 @@ class _HomepageScreenState extends State<HomepageScreen> {
           ),
         ),
         const SizedBox(width: 12),
+        // Name + price row
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -629,34 +784,31 @@ class _HomepageScreenState extends State<HomepageScreen> {
                 'Solana',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  fontFamily: 'FKGrotesk',
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 3),
               Row(
                 children: [
                   Text(
                     '\$${price.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      color: Colors.grey,
-                      fontSize: 12,
+                    style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 11,
+                      fontFamily: 'FKGroteskSemiMono',
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: (isPositive ? Colors.green : Colors.red).withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      '${isPositive ? '+' : ''}${priceChange.toStringAsFixed(2)}%',
-                      style: TextStyle(
-                        color: isPositive ? Colors.green : Colors.red,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${isPositive ? '+' : ''}${priceChange.toStringAsFixed(2)}%',
+                    style: TextStyle(
+                      color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFFF5252),
+                      fontSize: 11,
+                      fontFamily: 'FKGroteskSemiMono',
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
@@ -664,6 +816,7 @@ class _HomepageScreenState extends State<HomepageScreen> {
             ],
           ),
         ),
+        // Value + amount
         Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -671,19 +824,104 @@ class _HomepageScreenState extends State<HomepageScreen> {
               '\$${totalValueUsd.toStringAsFixed(2)}',
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                fontFamily: 'FKGroteskSemiMono',
+                fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             Text(
-              '${balanceInSol.toStringAsFixed(8)} SOL',
+              '${balanceInSol % 1 == 0 ? balanceInSol.toInt() : balanceInSol.toStringAsFixed(2)} SOL',
               style: TextStyle(
-                color: Colors.grey[400],
-                fontSize: 12,
+                color: Colors.grey[500],
+                fontSize: 11,
+                fontFamily: 'FKGroteskSemiMono',
+                fontWeight: FontWeight.w400,
               ),
             ),
           ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontFamily: 'FKGrotesk',
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Divider(
+          color: Colors.white10,
+          height: 1,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionRow({
+    required IconData icon,
+    required String text,
+    required String buttonText,
+    required Color buttonColor,
+    required Color textColor,
+    required VoidCallback onTap,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: Colors.grey[800],
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 16,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontFamily: 'FKGrotesk',
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: buttonColor,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            minimumSize: Size.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            elevation: 0,
+          ),
+          onPressed: onTap,
+          child: Text(
+            buttonText,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 11,
+              fontFamily: 'FKGrotesk',
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
       ],
     );
@@ -744,64 +982,4 @@ class _HomepageScreenState extends State<HomepageScreen> {
     );
   }
 
-  Widget _buildBottomNav(BuildContext context, int selectedIndex) {
-    final navItems = [
-      {'icon': Icons.description_outlined, 'label': 'Portfolio'},
-      {'icon': Icons.bar_chart, 'label': 'Market'},
-      {'icon': Icons.swap_horiz, 'label': 'Swap'},
-      {'icon': Icons.explore, 'label': 'Explore'},
-      {'icon': Icons.settings, 'label': 'Settings'},
-    ];
-
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.grey[900]?.withOpacity(0.5),
-        border: Border(
-          top: BorderSide(color: Colors.white10, width: 1),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: navItems.asMap().entries.map((entry) {
-          final index = entry.key;
-          final item = entry.value;
-          final isSelected = index == selectedIndex;
-
-          return GestureDetector(
-            // Dispatch event to BLoC when tab is tapped
-            onTap: () => context.read<HomepageBloc>().add(
-                  TabSelectedEvent(index),
-                ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  item['icon'] as IconData,
-                  color: isSelected ? Colors.white : Colors.grey[600],
-                  size: 24,
-                ),
-                const SizedBox(height: 4),
-                // Yellow underline that extends beyond text
-                Container(
-                  height: 2,
-                  width: (item['label'] as String).length * 6.0 + 8, // Extends beyond text
-                  color: isSelected ? Colors.yellow : Colors.transparent,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  item['label'] as String,
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.grey[600],
-                    fontSize: 11,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
 }

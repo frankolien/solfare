@@ -22,6 +22,8 @@ dependencies:
   lottie: ^3.3.2
   video_player: ^2.10.1
   flutter_keyboard_visibility: ^6.0.0
+  url_launcher: ^6.3.2
+  share_plus: ^12.0.2
 
 dev_dependencies:
   flutter_test:
@@ -39,4 +41,26 @@ flutter:
     - assets/assets/images/svg/
     - assets/assets/images/wallet_background/
 
-    
+  fonts:
+    - family: FKGrotesk
+      fonts:
+        - asset: assets/fonts/FKGrotesk-Thin.ttf
+          weight: 100
+        - asset: assets/fonts/FKGrotesk-Light.ttf
+          weight: 300
+        - asset: assets/fonts/FKGrotesk-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/FKGrotesk-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/FKGrotesk-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/FKGrotesk-Black.ttf
+          weight: 900
+    - family: FKGroteskSemiMono
+      fonts:
+        - asset: assets/fonts/FKGroteskSemiMono-Regular.otf
+          weight: 400
+        - asset: assets/fonts/FKGroteskSemiMono-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/FKGroteskSemiMono-Bold.otf
+          weight: 700

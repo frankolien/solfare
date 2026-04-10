@@ -17,11 +17,12 @@ import 'package:solfare/features/wallet/presentation/bloc/wallet_state.dart';
 /// 
 /// Flow: Event → Bloc → State → UI
 class WalletBloc extends Bloc<WalletEvent, WalletState> {
-  final WalletRepositoryImpl _repository;
-  final CreateWalletUseCase _createWallet;
-  final SaveWalletUseCase _saveWallet;
+  late final WalletRepositoryImpl _repository;
+  late final CreateWalletUseCase _createWallet;
+  late final SaveWalletUseCase _saveWallet;
   final SolanaRpcDataSource _rpcDataSource;
   final CryptoPriceDataSource _priceDataSource;
+  
 
   WalletBloc({
     WalletRepositoryImpl? repository,
@@ -31,23 +32,17 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
             WalletRepositoryImpl(
               localDataSource: WalletLocalDataSourceImpl(),
             ),
-        _createWallet = CreateWalletUseCase(
-          repository: repository ??
-              WalletRepositoryImpl(
-                localDataSource: WalletLocalDataSourceImpl(),
-              ),
-        ),
-        _saveWallet = SaveWalletUseCase(
-          repository: repository ??
-              WalletRepositoryImpl(
-                localDataSource: WalletLocalDataSourceImpl(),
-              ),
-        ),
         _rpcDataSource = rpcDataSource ?? SolanaRpcDataSourceImpl(),
         _priceDataSource = priceDataSource ?? CryptoPriceDataSourceImpl(),
         super(const WalletInitial()) {
+    // Now _repository is set, so we can reuse the SAME instance
+    _createWallet = CreateWalletUseCase(repository: _repository);
+    _saveWallet = SaveWalletUseCase(repository: _repository);
+    
+    
+    
+
     // Register event handlers
-    // When CreateWalletEvent is dispatched, handle it with _onCreateWallet
     on<CreateWalletEvent>(_onCreateWallet);
     on<SaveWalletEvent>(_onSaveWallet);
     on<CheckWalletExistsEvent>(_onCheckWalletExists);
@@ -56,6 +51,41 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     on<ResetWalletEvent>(_onResetWallet);
     on<ClearWalletEvent>(_onClearWallet);
     on<FetchSolPriceEvent>(_onFetchSolPrice);
+    on<LoadWalletAddressEvent>(_onLoadWalletAddress);
+    on<ImportWalletEvent>(_onImportWallet);
+    on<FetchTransactionsEvent>(_onFetchTransactions);
+  }
+
+  Future<void> _onImportWallet(
+    ImportWalletEvent event,
+    Emitter<WalletState> emit,
+  ) async {
+    print('[BLoC] ImportWallet — mnemonic words: ${event.mnemonic.split(' ').length}');
+    emit(const WalletLoading());
+    try {
+      final wallet = await _repository.importWallet(event.mnemonic);
+      print('[BLoC] ImportWallet — success! Address: ${wallet.address}');
+      emit(WalletCreated(wallet, true));
+    } catch (e) {
+      print('[BLoC] ImportWallet — FAILED: $e');
+      emit(WalletError(e.toString()));
+    }
+  }
+
+  Future<void> _onLoadWalletAddress(
+    LoadWalletAddressEvent event,
+    Emitter<WalletState> emit,
+  ) async {
+    try {
+      final address = await _repository.getSavedAddress();
+      if (address != null && address.isNotEmpty) {
+        emit(WalletAddressLoaded(address));
+      } else {
+        emit(const WalletError('No wallet address found'));
+      }
+    } catch (e) {
+      emit(WalletError(e.toString()));
+    }
   }
 
   /// Handle wallet creation event
@@ -69,9 +99,10 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     try {
       // Create wallet using use case
       final wallet = await _createWallet();
+      final isImported = false;
 
       // Emit success state with wallet data
-      emit(WalletCreated(wallet));
+      emit(WalletCreated(wallet, isImported));
     } catch (e) {
       // Emit error state if something goes wrong
       emit(WalletError(e.toString()));
@@ -190,6 +221,20 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       // Don't emit error state for price fetch failures - just log it
       // Price is not critical for app functionality
       print('Failed to fetch SOL price: $e');
+    }
+  }
+
+  /// Fetch transaction history
+  Future<void> _onFetchTransactions(
+    FetchTransactionsEvent event,
+    Emitter<WalletState> emit,
+  ) async {
+    emit(const WalletLoading());
+    try {
+      final transactions = await _rpcDataSource.getTransactionHistory(event.address);
+      emit(TransactionsFetched(transactions));
+    } catch (e) {
+      emit(WalletError(e.toString()));
     }
   }
 }

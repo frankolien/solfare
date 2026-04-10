@@ -13,6 +13,7 @@ class Wallet {
   /// The 12/24-word mnemonic recovery phrase.
   /// Only available during creation; never persisted in memory long-term.
   final String mnemonic;
+  
 
   const Wallet({
     required this.address,
