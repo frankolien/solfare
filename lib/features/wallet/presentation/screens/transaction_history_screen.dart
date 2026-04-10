@@ -20,10 +20,22 @@ class TransactionHistoryScreen extends StatefulWidget {
 }
 
 class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
+  bool _isRefreshing = false;
+  List<Transaction> _cachedTransactions = [];
+
   @override
   void initState() {
     super.initState();
     context.read<WalletBloc>().add(FetchTransactionsEvent(widget.address));
+  }
+
+  void _onRefresh() {
+    if (_isRefreshing) return;
+    setState(() => _isRefreshing = true);
+    context.read<WalletBloc>().add(FetchTransactionsEvent(widget.address));
+    Future.delayed(const Duration(milliseconds: 2000), () {
+      if (mounted) setState(() => _isRefreshing = false);
+    });
   }
 
   Map<String, List<Transaction>> _groupByDate(List<Transaction> transactions) {
@@ -85,39 +97,57 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             color: Colors.white,
             fontFamily: 'FKGrotesk',
             fontWeight: FontWeight.bold,
-            fontSize: 16,
+            fontSize: 12,
           ),
         ),
         centerTitle: true,
       ),
-      body: BlocBuilder<WalletBloc, WalletState>(
-        builder: (context, state) {
-          if (state is WalletLoading) {
-            return _buildLoadingState();
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification is ScrollUpdateNotification &&
+              notification.metrics.pixels < -80 &&
+              !_isRefreshing) {
+            _onRefresh();
           }
+          return false;
+        },
+        child: BlocBuilder<WalletBloc, WalletState>(
+          builder: (context, state) {
+            // Cache transactions when they arrive
+            if (state is TransactionsFetched) {
+              _cachedTransactions = state.transactions;
+            }
 
-          if (state is TransactionsFetched) {
-            if (state.transactions.isEmpty) {
+            // First load — no cached data yet
+            if (state is WalletLoading && _cachedTransactions.isEmpty) {
+              return _buildLoadingState();
+            }
+
+            // Show cached transactions (even during refresh)
+            if (_cachedTransactions.isNotEmpty) {
+              return _buildTransactionList(_cachedTransactions);
+            }
+
+            if (state is TransactionsFetched && state.transactions.isEmpty) {
               return _buildEmptyState();
             }
-            return _buildTransactionList(state.transactions);
-          }
 
-          if (state is WalletError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  state.message,
-                  style: TextStyle(color: Colors.grey[400], fontSize: 12, fontFamily: 'FKGrotesk'),
-                  textAlign: TextAlign.center,
+            if (state is WalletError && _cachedTransactions.isEmpty) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    state.message,
+                    style: TextStyle(color: Colors.grey[400], fontSize: 12, fontFamily: 'FKGrotesk'),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
-              ),
-            );
-          }
+              );
+            }
 
-          return const SizedBox.shrink();
-        },
+            return const SizedBox.shrink();
+          },
+        ),
       ),
     );
   }
@@ -229,18 +259,38 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   Widget _buildTransactionList(List<Transaction> transactions) {
     final grouped = _groupByDate(transactions);
 
-    return ListView.builder(
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      itemCount: grouped.length,
-      itemBuilder: (context, index) {
-        final label = grouped.keys.elementAt(index);
-        final txs = grouped[label]!;
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Lottie refresh indicator
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            height: _isRefreshing ? 50 : 0,
+            child: _isRefreshing
+                ? Center(
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: Lottie.asset(
+                        'assets/assets/lottie/loading_indicator.json',
+                        repeat: true,
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+          ...grouped.entries.map((entry) {
+            final label = entry.key;
+            final txs = entry.value;
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 20, bottom: 12),
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 20, bottom: 12),
               child: Text(
                 label,
                 style: TextStyle(
@@ -255,7 +305,9 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             ...txs.map((tx) => _buildTransactionRow(tx)),
           ],
         );
-      },
+          }),
+        ],
+      ),
     );
   }
 
@@ -271,7 +323,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       onLongPress: () => _showContextMenu(tx),
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: [
             // SOL logo
