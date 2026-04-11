@@ -71,4 +71,13 @@ class WalletRepositoryImpl implements WalletRepository {
       throw StorageFailure(e.message);
     }
   }
+  
+  @override
+  Future<String?> getStoredMnemonic() async {
+    try {
+      return await _localDataSource.getStoredMnemonic();
+    } on LocalStorageException catch (e) {
+      throw StorageFailure(e.message);
+    }
+  }
 }

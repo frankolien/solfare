@@ -30,6 +30,9 @@ abstract class WalletLocalDataSource {
 
   /// Clear all wallet data from secure storage.
   Future<void> clearWallet();
+
+  /// Get the stored mnemonic phrase.
+  Future<String?> getStoredMnemonic();
 }
 
 class WalletLocalDataSourceImpl implements WalletLocalDataSource {
@@ -199,6 +202,15 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
       await _secureStorage.delete(key: _addressKey);
     } catch (e) {
       throw LocalStorageException('Failed to clear wallet: $e');
+    }
+  }
+
+  @override
+  Future<String?> getStoredMnemonic() async {
+    try {
+      return await _secureStorage.read(key: _mnemonicKey);
+    } catch (e) {
+      throw LocalStorageException('Failed to read mnemonic: $e');
     }
   }
 }

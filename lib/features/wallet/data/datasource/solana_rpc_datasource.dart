@@ -15,6 +15,12 @@ abstract class SolanaRpcDataSource {
 
   /// Get transaction history for a Solana address
   Future<List<TransactionModel>> getTransactionHistory(String address, {int limit});
+
+  /// Get a recent blockhash (needed to build transactions)
+  Future<Map<String, dynamic>> getLatestBlockhash();
+
+  /// Send a signed transaction (base64 encoded)
+  Future<String> sendTransaction(String signedTransaction);
 }
 
 class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
@@ -190,6 +196,36 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
       return transactions;
     } catch (e) {
       throw Exception('Failed to get transaction history: $e');
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> getLatestBlockhash() async {
+    try {
+      final result = await _rpcCall('getLatestBlockhash', [
+        {'commitment': 'finalized'},
+      ]);
+      return {
+        'blockhash': result['value']['blockhash'] as String,
+        'lastValidBlockHeight': result['value']['lastValidBlockHeight'] as int,
+      };
+    } catch (e) {
+      throw Exception('Failed to get latest blockhash: $e');
+    }
+  }
+
+  @override
+  Future<String> sendTransaction(String signedTransaction) async {
+    try {
+      print('[RPC] Sending transaction...');
+      final result = await _rpcCall('sendTransaction', [
+        signedTransaction,
+        {'encoding': 'base64'},
+      ]);
+      print('[RPC] Transaction sent! Signature: $result');
+      return result as String;
+    } catch (e) {
+      throw Exception('Failed to send transaction: $e');
     }
   }
 }

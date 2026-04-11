@@ -87,8 +87,21 @@ class FetchTransactionsEvent extends WalletEvent {
   final String address;
 
   const FetchTransactionsEvent(this.address);
-  
 
   @override
   List<Object?> get props => [address];
+}
+
+/// Event to send SOL to another address
+class SendSolEvent extends WalletEvent {
+  final String recipientAddress;
+  final double amountInSol;
+
+  const SendSolEvent({
+    required this.recipientAddress,
+    required this.amountInSol,
+  });
+
+  @override
+  List<Object?> get props => [recipientAddress, amountInSol];
 }

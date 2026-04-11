@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:solfare/core/router/app_router.dart';
 import 'package:solfare/features/homepage/presentation/bloc/homepage_bloc.dart';
+import 'package:solfare/features/market/presentation/bloc/market_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/passcode_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
 
@@ -29,6 +30,10 @@ class MainApp extends StatelessWidget {
         // Homepage BLoC - for navigation state
         BlocProvider(
           create: (context) => HomepageBloc(),
+        ),
+        // Market BLoC - for market data
+        BlocProvider(
+          create: (context) => MarketBloc(),
         ),
       ],
       child: MaterialApp.router(

@@ -10,6 +10,10 @@ import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_event.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_state.dart';
 import 'package:solfare/features/homepage/presentation/widgets/bottom_nav_bar.dart';
+import 'package:solfare/features/market/presentation/screens/market_screen.dart';
+import 'package:solfare/features/swap/presentation/screens/swap_screen.dart';
+import 'package:solfare/features/explore/presentation/screens/explore_screen.dart';
+import 'package:solfare/features/settings/presentation/screens/settings_screen.dart';
 import 'package:lottie/lottie.dart';
 
 class HomepageScreen extends StatefulWidget {
@@ -178,9 +182,17 @@ class _HomepageScreenState extends State<HomepageScreen> {
                 bottom: false,
                 child: Column(
                   children: [
-                    // Scrollable content with pull-to-refresh
+                    // Content based on selected tab
                     Expanded(
-                      child: NotificationListener<ScrollNotification>(
+                      child: selectedIndex == 1
+                          ? const MarketScreen()
+                          : selectedIndex == 2
+                              ? const SwapScreen()
+                              : selectedIndex == 3
+                                  ? const ExploreScreen()
+                                  : selectedIndex == 4
+                                      ? const SettingsScreen()
+                                      : NotificationListener<ScrollNotification>(
                         onNotification: (notification) {
                           if (notification is ScrollUpdateNotification &&
                               notification.metrics.pixels < -80 &&
@@ -532,11 +544,23 @@ class _HomepageScreenState extends State<HomepageScreen> {
 
   Widget _buildActionButtons() {
     final actions = [
-      {'icon': Icons.arrow_downward, 'label': 'Deposit', 'isImage': false},
-      //{'icon': Icons.add_card, 'label': 'Buy', 'isImage': false},
-      {'icon': Icons.swap_horiz, 'label': 'Swap', 'isImage': false},
-      {'icon': Icons.savings, 'label': 'Stake', 'isImage': false},
-      {'icon': Icons.send, 'label': 'Send', 'isImage': false},
+      {'icon': Icons.arrow_downward, 'label': 'Deposit', 'isImage': false, 'onTap': () {}},
+      {'icon': Icons.swap_horiz, 'label': 'Swap', 'isImage': false, 'onTap': () {}},
+      {'icon': Icons.savings, 'label': 'Stake', 'isImage': false, 'onTap': () {}},
+      {
+        'icon': Icons.send,
+        'label': 'Send',
+        'isImage': false,
+        'onTap': () {
+          if (_walletAddress != null) {
+            context.push(AppRoutes.sendSol, extra: {
+              'address': _walletAddress,
+              'balance': _cachedBalanceInSol,
+              'priceUsd': _cachedSolPriceUsd,
+            });
+          }
+        },
+      },
     ];
 
     return Padding(
@@ -544,7 +568,9 @@ class _HomepageScreenState extends State<HomepageScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: actions.map((action) {
-          return Column(
+          return GestureDetector(
+            onTap: action['onTap'] as VoidCallback?,
+            child: Column(
             children: [
               Container(
                 width: 56,
@@ -576,6 +602,7 @@ class _HomepageScreenState extends State<HomepageScreen> {
                 ),
               ),
             ],
+          ),
           );
         }).toList(),
       ),
@@ -946,9 +973,7 @@ class _HomepageScreenState extends State<HomepageScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            walletAddress != null
-                ? 'Request free test SOL on devnet to start trading, staking, and exploring. You\'ll need a tiny amount of SOL for each Solana transaction.'
-                : 'Buy SOL to start trading, staking, and exploring. You\'ll need a tiny amount of SOL for each Solana transaction.',
+           'Buy SOL to start trading, staking, and exploring. You\'ll need a tiny amount of SOL for each Solana transaction.',
             style: TextStyle(
               color: Colors.grey[400],
               fontSize: 12,
@@ -957,7 +982,7 @@ class _HomepageScreenState extends State<HomepageScreen> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          SizedBox(
+          /*SizedBox(
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.yellow,
@@ -976,7 +1001,7 @@ class _HomepageScreenState extends State<HomepageScreen> {
                 ),
               ),
             ),
-          ),
+          ),*/
         ],
       ),
     );

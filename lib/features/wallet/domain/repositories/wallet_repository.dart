@@ -20,4 +20,7 @@ abstract class WalletRepository {
 
   /// Clear all wallet data from secure storage.
   Future<void> clearWallet();
+
+  /// Get the stored mnemonic phrase (needed for signing transactions).
+  Future<String?> getStoredMnemonic();
 }

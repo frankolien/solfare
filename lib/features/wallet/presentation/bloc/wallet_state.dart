@@ -124,3 +124,24 @@ class TransactionsFetched extends WalletState {
   @override
   List<Object?> get props => [transactions];
 }
+
+/// SOL is being sent (in-flight)
+class SendingSol extends WalletState {
+  const SendingSol();
+}
+
+/// SOL sent successfully
+class SolSent extends WalletState {
+  final String signature;
+  final double amountInSol;
+  final String recipientAddress;
+
+  const SolSent({
+    required this.signature,
+    required this.amountInSol,
+    required this.recipientAddress,
+  });
+
+  @override
+  List<Object?> get props => [signature, amountInSol, recipientAddress];
+}

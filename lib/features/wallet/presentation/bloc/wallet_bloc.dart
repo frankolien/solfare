@@ -1,4 +1,9 @@
+import 'package:bip39/bip39.dart' as bip39;
 import 'package:bloc/bloc.dart';
+import 'package:ed25519_hd_key/ed25519_hd_key.dart';
+import 'package:solana/solana.dart' as solana;
+import 'package:solana/src/rpc/dto/latest_blockhash.dart';
+import 'package:solfare/core/constant/solana_path.dart';
 import 'package:solfare/features/wallet/data/datasource/crypto_price_datasource.dart';
 import 'package:solfare/features/wallet/data/datasource/solana_rpc_datasource.dart';
 import 'package:solfare/features/wallet/data/datasource/wallet_local_datasource.dart';
@@ -54,6 +59,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     on<LoadWalletAddressEvent>(_onLoadWalletAddress);
     on<ImportWalletEvent>(_onImportWallet);
     on<FetchTransactionsEvent>(_onFetchTransactions);
+    on<SendSolEvent>(_onSendSol);
   }
 
   Future<void> _onImportWallet(
@@ -234,6 +240,82 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       final transactions = await _rpcDataSource.getTransactionHistory(event.address);
       emit(TransactionsFetched(transactions));
     } catch (e) {
+      emit(WalletError(e.toString()));
+    }
+  }
+
+  /// Send SOL to another address
+  Future<void> _onSendSol(
+    SendSolEvent event,
+    Emitter<WalletState> emit,
+  ) async {
+    emit(const SendingSol());
+    try {
+      // 1. Get stored mnemonic to derive the keypair
+      final mnemonic = await _repository.getStoredMnemonic();
+      if (mnemonic == null) {
+        throw Exception('No wallet found. Please create or import a wallet first.');
+      }
+
+      // 2. Derive the keypair from mnemonic
+      final seed = bip39.mnemonicToSeed(mnemonic);
+      final keyData = await ED25519_HD_KEY.derivePath(
+        SolanaPath.defaultPath,
+        seed,
+      );
+      final privateKeyBytes = keyData.key;
+
+      // 3. Create Solana keypair from private key
+      final senderKeyPair = await solana.Ed25519HDKeyPair.fromPrivateKeyBytes(
+        privateKey: privateKeyBytes,
+      );
+
+      print('[BLoC] SendSol — from: ${senderKeyPair.address}');
+      print('[BLoC] SendSol — to: ${event.recipientAddress}');
+      print('[BLoC] SendSol — amount: ${event.amountInSol} SOL');
+
+      // 4. Convert SOL to lamports
+      final lamports = (event.amountInSol * 1000000000).toInt();
+
+      // 5. Get recent blockhash
+      final blockhashData = await _rpcDataSource.getLatestBlockhash();
+      final latestBlockhash = LatestBlockhash(
+        blockhash: blockhashData['blockhash'] as String,
+        lastValidBlockHeight: blockhashData['lastValidBlockHeight'] as int,
+      );
+
+      // 6. Build the transfer instruction
+      final instruction = solana.SystemInstruction.transfer(
+        fundingAccount: senderKeyPair.publicKey,
+        recipientAccount: solana.Ed25519HDPublicKey.fromBase58(event.recipientAddress),
+        lamports: lamports,
+      );
+
+      // 7. Build the transaction message
+      final message = solana.Message(
+        instructions: [instruction],
+      );
+
+      // 8. Sign the transaction
+      final signedTx = await solana.signTransaction(
+        latestBlockhash,
+        message,
+        [senderKeyPair],
+      );
+
+      // 9. Encode to base64 and send
+      final base64Tx = signedTx.encode();
+      final signature = await _rpcDataSource.sendTransaction(base64Tx);
+
+      print('[BLoC] SendSol — SUCCESS! Signature: $signature');
+
+      emit(SolSent(
+        signature: signature,
+        amountInSol: event.amountInSol,
+        recipientAddress: event.recipientAddress,
+      ));
+    } catch (e) {
+      print('[BLoC] SendSol — FAILED: $e');
       emit(WalletError(e.toString()));
     }
   }
