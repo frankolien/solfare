@@ -4,6 +4,7 @@ import 'package:solfare/features/market/domain/entities/market_token.dart';
 import 'package:solfare/features/market/presentation/bloc/market_bloc.dart';
 import 'package:solfare/features/market/presentation/bloc/market_event.dart';
 import 'package:solfare/features/market/presentation/bloc/market_state.dart';
+import 'package:solfare/features/market/presentation/screens/token_detail_screen.dart';
 
 class MarketScreen extends StatefulWidget {
   const MarketScreen({super.key});
@@ -352,7 +353,14 @@ class _MarketScreenState extends State<MarketScreen> {
     final isPositive = token.priceChangePercentage24h >= 0;
     final changeColor = isPositive ? const Color(0xFF4CAF50) : const Color(0xFFFF5252);
 
-    return Padding(
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => TokenDetailScreen(token: token)),
+        );
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
       padding: const EdgeInsets.only(bottom: 36),
       child: Row(
         children: [
@@ -434,6 +442,7 @@ class _MarketScreenState extends State<MarketScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
