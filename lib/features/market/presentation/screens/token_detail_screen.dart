@@ -1,5 +1,9 @@
+import 'dart:convert';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:webview_flutter/webview_flutter.dart';
 import 'package:solfare/features/market/domain/entities/market_token.dart';
 
 class TokenDetailScreen extends StatefulWidget {
@@ -13,7 +17,70 @@ class TokenDetailScreen extends StatefulWidget {
 
 class _TokenDetailScreenState extends State<TokenDetailScreen> {
   int _selectedTimeframe = 2; // 0=1m, 1=1H, 2=1D, 3=1W, 4=1M
+  bool _isLineChart = true;
   final _timeframes = ['1m', '1H', '1D', '1W', '1M'];
+  // Maps timeframe index to CoinGecko 'days' param
+  final _timeframeDays = ['0.04', '0.08', '1', '7', '30'];
+  String? _mintAddress;
+  List<double> _chartData = [];
+  bool _isLoadingChart = false;
+  double? _touchedPrice;
+  int? _touchedIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _chartData = widget.token.sparklineData;
+    _fetchMintAddress();
+    _fetchChartData();
+  }
+
+  Future<void> _fetchChartData() async {
+    setState(() => _isLoadingChart = true);
+    try {
+      final days = _timeframeDays[_selectedTimeframe];
+      final response = await http.get(
+        Uri.parse('https://api.coingecko.com/api/v3/coins/${widget.token.id}/market_chart?vs_currency=usd&days=$days'),
+        headers: {'Accept': 'application/json', 'User-Agent': 'Solfare-Wallet/1.0'},
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final prices = data['prices'] as List;
+        if (mounted) {
+          setState(() {
+            _chartData = prices.map((p) => (p[1] as num).toDouble()).toList();
+            _isLoadingChart = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _isLoadingChart = false);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingChart = false);
+    }
+  }
+
+  Future<void> _fetchMintAddress() async {
+    try {
+      final response = await http.get(
+        Uri.parse('https://api.coingecko.com/api/v3/coins/${widget.token.id}?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false'),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final platforms = data['platforms'] as Map<String, dynamic>?;
+        if (platforms != null && platforms.containsKey('solana')) {
+          if (mounted) {
+            setState(() => _mintAddress = platforms['solana'] as String?);
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  String _truncateMint(String address) {
+    if (address.length <= 8) return address;
+    return '${address.substring(0, 4)}...${address.substring(address.length - 4)}';
+  }
 
   String _formatLargeNumber(double value) {
     if (value >= 1e12) return '\$${(value / 1e12).toStringAsFixed(2)}T';
@@ -91,7 +158,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _formatPrice(token.currentPrice),
+                    _formatPrice(_touchedPrice ?? token.currentPrice),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 28,
@@ -100,6 +167,57 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
+                  if (_touchedPrice != null)
+                    Builder(builder: (context) {
+                      final pctChange = ((_touchedPrice! - token.currentPrice) / token.currentPrice * 100);
+                      final touchChangeColor = pctChange >= 0 ? const Color(0xFF4CAF50) : const Color(0xFFFF5252);
+                      final arrow = pctChange >= 0 ? '↗' : '↘';
+
+                      // Estimate timestamp from index
+                      final totalPoints = _chartData.length;
+                      final daysMap = {'0.04': 0.04, '0.08': 0.08, '1': 1.0, '7': 7.0, '30': 30.0};
+                      final totalDays = daysMap[_timeframeDays[_selectedTimeframe]] ?? 1.0;
+                      final now = DateTime.now();
+                      final pointTime = now.subtract(Duration(
+                        minutes: ((totalDays * 24 * 60) * (1 - (_touchedIndex ?? 0) / totalPoints)).toInt(),
+                      ));
+                      final hour = pointTime.hour.toString().padLeft(2, '0');
+                      final minute = pointTime.minute.toString().padLeft(2, '0');
+                      final isToday = pointTime.day == now.day && pointTime.month == now.month;
+                      final dateStr = isToday ? 'Today, $hour:$minute' : '${pointTime.day}/${pointTime.month}, $hour:$minute';
+
+                      return Row(
+                        children: [
+                          Text(arrow, style: TextStyle(color: touchChangeColor, fontSize: 13)),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${pctChange.abs().toStringAsFixed(2)}%',
+                            style: TextStyle(
+                              color: touchChangeColor,
+                              fontSize: 13,
+                              fontFamily: 'FKGroteskSemiMono',
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '•',
+                            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            dateStr,
+                            style: TextStyle(
+                              color: Colors.grey[500],
+                              fontSize: 13,
+                              fontFamily: 'FKGrotesk',
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      );
+                    })
+                  else
                   Row(
                     children: [
                       Text(
@@ -122,13 +240,38 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
               ),
             ),
 
-            // Chart
+            // Chart with glow
             const SizedBox(height: 16),
-            SizedBox(
-              height: 220,
-              child: _buildChart(chartColor),
+            Stack(
+              children: [
+                // Glow behind chart
+                Positioned.fill(
+                  child: Center(
+                    child: Container(
+                      width: 250,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        boxShadow: [
+                          BoxShadow(
+                            color: chartColor.withValues(alpha: 0.18),
+                            blurRadius: 100,
+                            spreadRadius:50,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Chart
+                SizedBox(
+                  height: 250,
+                  child: _isLineChart
+                      ? _buildChart(chartColor)
+                      : _buildTradingViewChart(),
+                ),
+              ],
             ),
-
+            
             // Timeframe selector
             const SizedBox(height: 12),
             Padding(
@@ -138,7 +281,10 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                   ...List.generate(_timeframes.length, (i) {
                     final isSelected = _selectedTimeframe == i;
                     return GestureDetector(
-                      onTap: () => setState(() => _selectedTimeframe = i),
+                      onTap: () {
+                        setState(() => _selectedTimeframe = i);
+                        _fetchChartData();
+                      },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                         margin: const EdgeInsets.only(right: 6),
@@ -167,17 +313,27 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                     ),
                     child: Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[800],
-                            borderRadius: BorderRadius.circular(8),
+                        GestureDetector(
+                          onTap: () => setState(() => _isLineChart = true),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: _isLineChart ? Colors.grey[800] : Colors.transparent,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(Icons.show_chart, color: _isLineChart ? Colors.white : Colors.grey[600], size: 16),
                           ),
-                          child: Icon(Icons.show_chart, color: Colors.white, size: 16),
                         ),
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          child: Icon(Icons.candlestick_chart, color: Colors.grey[600], size: 16),
+                        GestureDetector(
+                          onTap: () => setState(() => _isLineChart = false),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: !_isLineChart ? Colors.grey[800] : Colors.transparent,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(Icons.candlestick_chart, color: !_isLineChart ? Colors.white : Colors.grey[600], size: 16),
+                          ),
                         ),
                       ],
                     ),
@@ -190,7 +346,9 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
             const SizedBox(height: 20),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
+              child: Row( 
+                mainAxisAlignment: MainAxisAlignment.center,
+                
                 children: [
                   _buildStat('Market cap', _formatLargeNumber(token.marketCap)),
                   const SizedBox(width: 24),
@@ -216,10 +374,10 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildActionButton(Icons.arrow_downward, 'Deposit'),
-                  _buildActionButton(Icons.swap_horiz, 'Swap'),
-                  _buildActionButton(Icons.trending_up, 'Limit'),
-                  _buildActionButton(Icons.send, 'Send'),
+                  _buildActionButton(Icons.arrow_downward, 'Deposit', enabled: false),
+                  _buildActionButton(Icons.swap_horiz, 'Swap', enabled: false),
+                  _buildActionButton(Icons.trending_up, 'Limit', enabled: false),
+                  _buildActionButton(Icons.send, 'Send', enabled: token.id == 'solana'),
                 ],
               ),
             ),
@@ -227,7 +385,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
             // About section
             const SizedBox(height: 24),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 30),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -284,7 +442,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                           Row(
                             children: [
                               Text(
-                                '1111...1111',
+                                _mintAddress != null ? _truncateMint(_mintAddress!) : '...',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 12,
@@ -335,7 +493,17 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   }
 
   Widget _buildChart(Color color) {
-    final data = widget.token.sparklineData;
+    if (_isLoadingChart) {
+      return const Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white24),
+        ),
+      );
+    }
+
+    final data = _chartData;
     if (data.isEmpty) {
       return Center(
         child: Text(
@@ -353,7 +521,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.only(right: 30,left: 10),
       child: LineChart(
         LineChartData(
           gridData: const FlGridData(show: false),
@@ -375,6 +543,20 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
               }).toList(),
             ),
             handleBuiltInTouches: true,
+            touchCallback: (event, response) {
+              if (response?.lineBarSpots != null && response!.lineBarSpots!.isNotEmpty) {
+                setState(() {
+                  _touchedPrice = response.lineBarSpots!.first.y;
+                  _touchedIndex = response.lineBarSpots!.first.spotIndex;
+                });
+              }
+              if (event is FlPanEndEvent || event is FlTapUpEvent || event is FlLongPressEnd) {
+                setState(() {
+                  _touchedPrice = null;
+                  _touchedIndex = null;
+                });
+              }
+            },
             getTouchedSpotIndicator: (barData, spotIndexes) {
               return spotIndexes.map((index) {
                 return TouchedSpotIndicatorData(
@@ -403,22 +585,88 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
               barWidth: 2,
               isStrokeCapRound: true,
               dotData: const FlDotData(show: false),
-              belowBarData: BarAreaData(
-                show: true,
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    color.withValues(alpha: 0.15),
-                    color.withValues(alpha: 0.0),
-                  ],
-                ),
-              ),
+              belowBarData: BarAreaData(show: false),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildTradingViewChart() {
+    final html = '''
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+      </style>
+    </head>
+    <body>
+      <div id="chart" style="width:100%;height:250px;"></div>
+      <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+      <script>
+        const chart = LightweightCharts.createChart(document.getElementById('chart'), {
+          width: window.innerWidth,
+          height: 250,
+          layout: { background: { color: 'transparent' }, textColor: '#666' },
+          grid: { vertLines: { color: '#1a1a1a' }, horzLines: { color: '#1a1a1a' } },
+          crosshair: { mode: 0 },
+          rightPriceScale: { borderColor: '#333' },
+          timeScale: { borderColor: '#333', timeVisible: true },
+        });
+
+        const candleSeries = chart.addCandlestickSeries({
+          upColor: '#4CAF50',
+          downColor: '#FF5252',
+          borderUpColor: '#4CAF50',
+          borderDownColor: '#FF5252',
+          wickUpColor: '#4CAF50',
+          wickDownColor: '#FF5252',
+        });
+
+        // Fetch real candlestick data from Binance
+        fetch('https://api.binance.com/api/v3/klines?symbol=${widget.token.symbol.toUpperCase()}USDT&interval=15m&limit=96')
+          .then(r => r.json())
+          .then(data => {
+            const candles = data.map(d => ({
+              time: d[0] / 1000,
+              open: parseFloat(d[1]),
+              high: parseFloat(d[2]),
+              low: parseFloat(d[3]),
+              close: parseFloat(d[4]),
+            }));
+            candleSeries.setData(candles);
+            chart.timeScale().fitContent();
+          })
+          .catch(e => console.error(e));
+
+        window.addEventListener('resize', () => chart.applyOptions({ width: window.innerWidth }));
+      </script>
+    </body>
+    </html>
+    ''';
+
+    try {
+      final controller = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setBackgroundColor(Colors.transparent)
+        ..loadHtmlString(html);
+
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: WebViewWidget(controller: controller),
+      );
+    } catch (_) {
+      // Fallback for simulator or unsupported platforms
+      return Center(
+        child: Text(
+          'Candlestick chart requires a real device',
+          style: TextStyle(color: Colors.grey[600], fontSize: 12, fontFamily: 'FKGrotesk'),
+        ),
+      );
+    }
   }
 
   Widget _buildStat(String label, String value) {
@@ -486,8 +734,10 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     );
   }
 
-  Widget _buildActionButton(IconData icon, String label) {
-    return Column(
+  Widget _buildActionButton(IconData icon, String label, {bool enabled = true}) {
+    return Opacity(
+      opacity: enabled ? 1.0 : 0.3,
+      child: Column(
       children: [
         Container(
           width: 50,
@@ -508,6 +758,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
           ),
         ),
       ],
+    ),
     );
   }
 
@@ -537,3 +788,4 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     );
   }
 }
+
