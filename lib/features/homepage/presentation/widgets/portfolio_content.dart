@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:solfare/features/market/domain/entities/market_token.dart';
 import 'package:solfare/features/market/presentation/screens/token_detail_screen.dart';
+import 'package:solfare/l10n/app_localizations.dart';
 
 /// Portfolio content shown when user has a balance — token list, staking, activity sections.
 class PortfolioContent extends StatelessWidget {
@@ -26,6 +27,8 @@ class PortfolioContent extends StatelessWidget {
     final isPositive = priceChange >= 0;
     final totalValueUsd = balanceInSol * price;
 
+    final l = AppLocalizations.of(context)!;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 60),
       child: Column(
@@ -34,7 +37,7 @@ class PortfolioContent extends StatelessWidget {
           const SizedBox(height: 24),
 
           // Token section header
-          _buildTokenHeader(totalValueUsd),
+          _buildTokenHeader(totalValueUsd, l),
           const SizedBox(height: 12),
           const Divider(color: Colors.white10, height: 1),
           const SizedBox(height: 16),
@@ -45,23 +48,23 @@ class PortfolioContent extends StatelessWidget {
           const SizedBox(height: 32),
 
           // Stocks section
-          _buildSectionHeader('Stocks'),
+          _buildSectionHeader(l.stocks),
           const SizedBox(height: 16),
-          _buildSectionRow(icon: Icons.bar_chart, text: 'No assets yet', buttonText: 'Explore', buttonColor: Colors.yellow, textColor: Colors.black, onTap: () {}),
+          _buildSectionRow(icon: Icons.bar_chart, text: l.noAssetsYet, buttonText: l.explore, buttonColor: Colors.yellow, textColor: Colors.black, onTap: () {}),
 
           const SizedBox(height: 32),
 
           // Staking section
-          _buildSectionHeader('Staking'),
+          _buildSectionHeader(l.staking),
           const SizedBox(height: 16),
-          _buildSectionRow(icon: Icons.savings, text: 'No SOL staked yet', buttonText: 'Start staking', buttonColor: Colors.yellow, textColor: Colors.black, onTap: () {}),
+          _buildSectionRow(icon: Icons.savings, text: l.noSolStaked, buttonText: l.startStaking, buttonColor: Colors.yellow, textColor: Colors.black, onTap: () {}),
 
           const SizedBox(height: 32),
 
           // Activity section
-          _buildSectionHeader('Activity'),
+          _buildSectionHeader(l.activity),
           const SizedBox(height: 16),
-          _buildSectionRow(icon: Icons.history, text: 'Transaction history', buttonText: 'View', buttonColor: const Color(0xFF2A2D35), textColor: Colors.white, onTap: onViewTransactions ?? () {}),
+          _buildSectionRow(icon: Icons.history, text: l.transactionHistory, buttonText: l.view, buttonColor: const Color(0xFF2A2D35), textColor: Colors.white, onTap: onViewTransactions ?? () {}),
 
           const SizedBox(height: 32),
 
@@ -74,7 +77,7 @@ class PortfolioContent extends StatelessWidget {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               ),
               onPressed: () {},
-              child: const Text('Customize portfolio', style: TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500)),
+              child: Text(l.customizePortfolio, style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500)),
             ),
           ),
 
@@ -84,10 +87,10 @@ class PortfolioContent extends StatelessWidget {
     );
   }
 
-  Widget _buildTokenHeader(double totalValueUsd) {
+  Widget _buildTokenHeader(double totalValueUsd, AppLocalizations l) {
     return Row(
       children: [
-        const Text('Tokens', style: TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500)),
+        Text(l.tokens, style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500)),
         Container(width: 1, height: 16, margin: const EdgeInsets.symmetric(horizontal: 10), color: Colors.white24),
         Text('\$${totalValueUsd.toStringAsFixed(2)}', style: TextStyle(color: Colors.grey[400], fontSize: 13, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w500)),
         const Spacer(),
@@ -95,7 +98,7 @@ class PortfolioContent extends StatelessWidget {
           onTap: () {},
           child: Row(
             children: [
-              Text('View all', style: TextStyle(color: Colors.grey[500], fontSize: 11, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w400)),
+              Text(l.viewAll, style: TextStyle(color: Colors.grey[500], fontSize: 11, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w400)),
               const SizedBox(width: 4),
               Icon(Icons.chevron_right, color: Colors.grey[500], size: 16),
             ],

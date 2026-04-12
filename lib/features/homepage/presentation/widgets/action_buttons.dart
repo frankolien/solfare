@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:solfare/l10n/app_localizations.dart';
 
 /// Homepage action buttons row (Deposit, Swap, Stake, Send).
 class ActionButtons extends StatelessWidget {
@@ -8,11 +9,13 @@ class ActionButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+
     final actions = [
-      _Action(icon: Icons.arrow_downward, label: 'Deposit', onTap: () {}),
-      _Action(icon: Icons.swap_horiz, label: 'Swap', onTap: () {}),
-      _Action(icon: Icons.savings, label: 'Stake', onTap: () {}),
-      _Action(icon: Icons.send, label: 'Send', onTap: onSend ?? () {}),
+      _Action(icon: Icons.arrow_downward, label: l.deposit, onTap: () {}),
+      _Action(icon: Icons.swap_horiz, label: l.swap, onTap: () {}),
+      _Action(icon: Icons.savings, label: l.stake, onTap: () {}),
+      _Action(icon: Icons.send, label: l.send, onTap: onSend ?? () {}),
     ];
 
     return Padding(

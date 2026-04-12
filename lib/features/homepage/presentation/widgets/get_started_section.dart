@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:solfare/l10n/app_localizations.dart';
 
 /// Empty wallet state — prompts user to request test SOL or buy SOL.
 class GetStartedSection extends StatelessWidget {
@@ -13,22 +14,22 @@ class GetStartedSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         children: [
           Image.asset('assets/assets/images/empty_wallet.png'),
           const SizedBox(height: 24),
-          const Text(
-            'Get Started With SOL',
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+          Text(
+            l.getStartedWithSol,
+            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 12),
           Text(
-            walletAddress != null
-                ? 'Request free test SOL on devnet to start trading, staking, and exploring. You\'ll need a tiny amount of SOL for each Solana transaction.'
-                : 'Buy SOL to start trading, staking, and exploring. You\'ll need a tiny amount of SOL for each Solana transaction.',
+            walletAddress != null ? l.getStartedDescDevnet : l.getStartedDescMainnet,
             style: TextStyle(color: Colors.grey[400], fontSize: 12, height: 1.5),
             textAlign: TextAlign.center,
           ),
@@ -41,7 +42,7 @@ class GetStartedSection extends StatelessWidget {
             ),
             onPressed: walletAddress != null ? onRequestAirdrop : null,
             child: Text(
-              walletAddress != null ? 'Request Test SOL' : 'Buy SOL',
+              walletAddress != null ? l.requestTestSol : l.buySol,
               style: const TextStyle(color: Colors.black, fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),

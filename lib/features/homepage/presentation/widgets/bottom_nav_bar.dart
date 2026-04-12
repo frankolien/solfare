@@ -1,20 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
+import 'package:solfare/l10n/app_localizations.dart';
 
-class BottomNavItem {
-  final String lottiePath;
-  final String label;
-
-  const BottomNavItem({required this.lottiePath, required this.label});
-}
-
-const _navItems = [
-  BottomNavItem(lottiePath: 'assets/assets/lottie/portfolio_icon.json', label: 'Portfolio'),
-  BottomNavItem(lottiePath: 'assets/assets/lottie/market_icon.json', label: 'Market'),
-  BottomNavItem(lottiePath: 'assets/assets/lottie/trade_icon.json', label: 'Swap'),
-  BottomNavItem(lottiePath: 'assets/assets/lottie/browser_icon.json', label: 'Explore'),
-  BottomNavItem(lottiePath: 'assets/assets/lottie/settings_icon.json', label: 'Settings'),
+const _lottiePaths = [
+  'assets/assets/lottie/portfolio_icon.json',
+  'assets/assets/lottie/market_icon.json',
+  'assets/assets/lottie/trade_icon.json',
+  'assets/assets/lottie/browser_icon.json',
+  'assets/assets/lottie/settings_icon.json',
 ];
+
+List<String> _navLabels(BuildContext context) {
+  final l = AppLocalizations.of(context)!;
+  return [l.portfolio, l.market, l.swap, l.explore, l.settings];
+}
 
 class BottomNavBar extends StatefulWidget {
   final int selectedIndex;
@@ -39,7 +38,7 @@ class _BottomNavBarState extends State<BottomNavBar> with TickerProviderStateMix
     super.initState();
     _previousIndex = widget.selectedIndex;
     _controllers = List.generate(
-      _navItems.length,
+      _lottiePaths.length,
       (index) => AnimationController(vsync: this),
     );
   }
@@ -80,8 +79,8 @@ class _BottomNavBarState extends State<BottomNavBar> with TickerProviderStateMix
           padding: EdgeInsets.only(top: 14, bottom: bottomPadding > 0 ? bottomPadding : 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(_navItems.length, (index) {
-              final item = _navItems[index];
+            children: List.generate(_lottiePaths.length, (index) {
+              final labels = _navLabels(context);
               final isSelected = index == widget.selectedIndex;
 
               return GestureDetector(
@@ -94,7 +93,7 @@ class _BottomNavBarState extends State<BottomNavBar> with TickerProviderStateMix
                       width: 26,
                       height: 26,
                       child: Lottie.asset(
-                        item.lottiePath,
+                        _lottiePaths[index],
                         controller: _controllers[index],
                         onLoaded: (composition) {
                           _controllers[index].duration = composition.duration;
@@ -118,7 +117,7 @@ class _BottomNavBarState extends State<BottomNavBar> with TickerProviderStateMix
                     const SizedBox(height: 4),
                     // Label
                     Text(
-                      item.label,
+                      labels[index],
                       style: TextStyle(
                         color: isSelected ? Colors.white : Colors.grey[600],
                         fontSize: 10,
@@ -139,13 +138,12 @@ class _BottomNavBarState extends State<BottomNavBar> with TickerProviderStateMix
           right: 0,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(_navItems.length, (index) {
-              final item = _navItems[index];
+            children: List.generate(_lottiePaths.length, (index) {
               final isSelected = index == widget.selectedIndex;
 
               return Container(
                 height: 4,
-                width: item.label.length * 5.0 + 40,
+                width: 56,
                 decoration: BoxDecoration(
                   color: isSelected ? Colors.yellow : Colors.transparent,
                   borderRadius: BorderRadius.circular(2),
