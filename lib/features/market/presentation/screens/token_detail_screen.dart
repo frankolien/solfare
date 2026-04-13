@@ -674,7 +674,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     </head>
     <body>
       <div id="chart" style="width:100%;height:250px;"></div>
-      <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+      <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
       <script>
         const chart = LightweightCharts.createChart(document.getElementById('chart'), {
           width: window.innerWidth,
@@ -721,6 +721,15 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
       final controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setBackgroundColor(Colors.transparent)
+        ..setNavigationDelegate(NavigationDelegate(
+          onNavigationRequest: (request) {
+            // Only allow the initial about:blank / data load — block all external navigations
+            if (request.url.startsWith('about:') || request.url.startsWith('data:')) {
+              return NavigationDecision.navigate;
+            }
+            return NavigationDecision.prevent;
+          },
+        ))
         ..loadHtmlString(html);
 
       return ClipRRect(

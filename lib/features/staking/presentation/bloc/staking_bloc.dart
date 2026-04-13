@@ -29,6 +29,8 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
     on<FetchStakeAccountsEvent>(_onFetchStakeAccounts);
     on<FetchValidatorsEvent>(_onFetchValidators);
     on<DelegateStakeEvent>(_onDelegateStake);
+    on<DeactivateStakeEvent>(_onDeactivateStake);
+    on<WithdrawStakeEvent>(_onWithdrawStake);
   }
 
   Future<void> _onFetchStakeAccounts(
@@ -90,10 +92,10 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
   String _validatorName(String votePubkey) {
     const knownValidators = {
       'CertusDeBmqN8ZawdkxK5kFGMwBXdudvWHYwtNgNhvLu': 'Certus One',
-      'dv1ZAGvdsz5hHLwWXsVnM94hWf1pjbKVau1QVkaMJ92': 'Kiln devnet validator',
-      'dv2eQHeP4RFUTqFAo2M5YLrc8sMpEyenKi3VoU741qY': 'Kiln devnet validator',
-      'dv3qDFk1DTF36Z62bNvrCXe9sKATA6xvVy6A798xxAS': 'Kiln devnet validator',
-      'dv4ACNkpYPcE3aKmYDqZm9G5EB3J4MRoeE7WNDRBVJB': 'Kiln devnet validator',
+      'vgcDar2pryHvMgPkKaZfh8pQy4BJxv7SpwUG7zinWjG': 'Devnet Validator 1',
+      '5ZWgXcyqrrNpQHCme5SdC5hCeYb2o3fEJhF7Gok3bTVN': 'Devnet Validator 2',
+      'i7NyKBMJCA9bLM2nsGyAGCKHECuR2L5eh4GqFciuwNT': 'Devnet Validator 3',
+      '23AoPQc3EPkfLWb14cKiWNahh1H9rtb3UBk8gWseohjF': 'Devnet Validator 4',
     };
     return knownValidators[votePubkey] ?? 'Validator ${votePubkey.substring(0, 4)}...${votePubkey.substring(votePubkey.length - 4)}';
   }
@@ -140,7 +142,7 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
         lastValidBlockHeight: blockhashData['lastValidBlockHeight'] as int,
       );
 
-      // 6. Build instructions: createAccount + initialize + delegateStake
+      // 6. Build all instructions: createAccount + initialize + delegateStake
       final createAndInitInstructions = solana.StakeInstruction.createAndInitializeAccount(
         fundingAccount: senderKeyPair.publicKey,
         newAccount: stakeAccountKeyPair.publicKey,
@@ -158,21 +160,20 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
         authority: senderKeyPair.publicKey,
       );
 
-      // 7. Build message with all instructions
+      // 7. Single transaction with all instructions
       final message = solana.Message(
         instructions: [...createAndInitInstructions, delegateInstruction],
       );
 
-      // 8. Sign with both keys (sender funds the account, stake account is the new account)
+      // 8. Sign with both keys
       final signedTx = await solana.signTransaction(
         latestBlockhash,
         message,
         [senderKeyPair, stakeAccountKeyPair],
       );
 
-      // 9. Send transaction
-      final base64Tx = signedTx.encode();
-      final signature = await _rpcDataSource.sendTransaction(base64Tx);
+      // 9. Send
+      final signature = await _rpcDataSource.sendTransaction(signedTx.encode());
 
       print('[StakingBloc] DelegateStake SUCCESS: $signature');
       emit(StakeDelegated(
@@ -182,6 +183,83 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
     } catch (e, stackTrace) {
       print('[StakingBloc] DelegateStake FAILED: $e');
       print('[StakingBloc] StackTrace: $stackTrace');
+      emit(StakingError(e.toString()));
+    }
+  }
+
+  /// Derive the wallet keypair from stored mnemonic
+  Future<solana.Ed25519HDKeyPair> _deriveKeyPair() async {
+    final mnemonic = await _repository.getStoredMnemonic();
+    if (mnemonic == null) {
+      throw Exception('No wallet found.');
+    }
+    final seed = bip39.mnemonicToSeed(mnemonic);
+    final keyData = await ED25519_HD_KEY.derivePath(SolanaPath.defaultPath, seed);
+    return solana.Ed25519HDKeyPair.fromPrivateKeyBytes(privateKey: keyData.key);
+  }
+
+  Future<void> _onDeactivateStake(
+    DeactivateStakeEvent event,
+    Emitter<StakingState> emit,
+  ) async {
+    emit(const StakeDeactivating());
+    try {
+      final keyPair = await _deriveKeyPair();
+
+      final blockhashData = await _rpcDataSource.getLatestBlockhash();
+      final latestBlockhash = LatestBlockhash(
+        blockhash: blockhashData['blockhash'] as String,
+        lastValidBlockHeight: blockhashData['lastValidBlockHeight'] as int,
+      );
+
+      final instruction = solana.StakeInstruction.deactivate(
+        stake: solana.Ed25519HDPublicKey.fromBase58(event.stakeAccountPubkey),
+        authority: keyPair.publicKey,
+      );
+
+      final signedTx = await solana.signTransaction(
+        latestBlockhash,
+        solana.Message(instructions: [instruction]),
+        [keyPair],
+      );
+
+      final signature = await _rpcDataSource.sendTransaction(signedTx.encode());
+      emit(StakeDeactivated(signature: signature));
+    } catch (e) {
+      emit(StakingError(e.toString()));
+    }
+  }
+
+  Future<void> _onWithdrawStake(
+    WithdrawStakeEvent event,
+    Emitter<StakingState> emit,
+  ) async {
+    emit(const StakeWithdrawing());
+    try {
+      final keyPair = await _deriveKeyPair();
+
+      final blockhashData = await _rpcDataSource.getLatestBlockhash();
+      final latestBlockhash = LatestBlockhash(
+        blockhash: blockhashData['blockhash'] as String,
+        lastValidBlockHeight: blockhashData['lastValidBlockHeight'] as int,
+      );
+
+      final instruction = solana.StakeInstruction.withdraw(
+        stake: solana.Ed25519HDPublicKey.fromBase58(event.stakeAccountPubkey),
+        recipient: keyPair.publicKey,
+        authority: keyPair.publicKey,
+        lamports: event.lamports,
+      );
+
+      final signedTx = await solana.signTransaction(
+        latestBlockhash,
+        solana.Message(instructions: [instruction]),
+        [keyPair],
+      );
+
+      final signature = await _rpcDataSource.sendTransaction(signedTx.encode());
+      emit(StakeWithdrawn(signature: signature));
+    } catch (e) {
       emit(StakingError(e.toString()));
     }
   }

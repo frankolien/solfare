@@ -28,3 +28,21 @@ class DelegateStakeEvent extends StakingEvent {
   @override
   List<Object?> get props => [validatorVoteAccount, amountInSol];
 }
+
+class DeactivateStakeEvent extends StakingEvent {
+  final String stakeAccountPubkey;
+  const DeactivateStakeEvent(this.stakeAccountPubkey);
+  @override
+  List<Object?> get props => [stakeAccountPubkey];
+}
+
+class WithdrawStakeEvent extends StakingEvent {
+  final String stakeAccountPubkey;
+  final int lamports;
+  const WithdrawStakeEvent({
+    required this.stakeAccountPubkey,
+    required this.lamports,
+  });
+  @override
+  List<Object?> get props => [stakeAccountPubkey, lamports];
+}

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:solfare/features/homepage/presentation/widgets/collectibles_section.dart';
 import 'package:solfare/features/market/domain/entities/market_token.dart';
 import 'package:solfare/features/market/presentation/screens/token_detail_screen.dart';
+import 'package:solfare/features/staking/domain/entities/stake_account.dart';
+import 'package:solfare/features/staking/presentation/screens/stake_account_detail_screen.dart';
 import 'package:solfare/features/wallet/domain/entities/nft.dart';
 import 'package:solfare/l10n/app_localizations.dart';
 
@@ -14,6 +16,8 @@ class PortfolioContent extends StatelessWidget {
   final VoidCallback? onViewTransactions;
   final VoidCallback? onStartStaking;
   final List<Nft> nfts;
+  final List<StakeAccount> stakeAccounts;
+  final double solPriceForStaking;
 
   const PortfolioContent({
     super.key,
@@ -24,6 +28,8 @@ class PortfolioContent extends StatelessWidget {
     this.onViewTransactions,
     this.onStartStaking,
     this.nfts = const [],
+    this.stakeAccounts = const [],
+    this.solPriceForStaking = 0.0,
   });
 
   @override
@@ -66,9 +72,7 @@ class PortfolioContent extends StatelessWidget {
           const SizedBox(height: 32),
 
           // Staking section
-          _buildSectionHeader(l.staking),
-          const SizedBox(height: 16),
-          _buildSectionRow(icon: Icons.savings, text: l.noSolStaked, buttonText: l.startStaking, buttonColor: Colors.yellow, textColor: Colors.black, onTap: onStartStaking ?? () {}),
+          _buildStakingSection(context, l),
 
           const SizedBox(height: 32),
 
@@ -233,6 +237,155 @@ class PortfolioContent extends StatelessWidget {
           onPressed: onTap,
           child: Text(buttonText, style: TextStyle(color: textColor, fontSize: 11, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w600)),
         ),
+      ],
+    );
+  }
+
+  Widget _buildStakingSection(BuildContext context, AppLocalizations l) {
+    if (stakeAccounts.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader(l.staking),
+          const SizedBox(height: 16),
+          _buildSectionRow(icon: Icons.savings, text: l.noSolStaked, buttonText: l.startStaking, buttonColor: Colors.yellow, textColor: Colors.black, onTap: onStartStaking ?? () {}),
+        ],
+      );
+    }
+
+    final totalStakedSol = stakeAccounts.fold<double>(0, (sum, a) => sum + a.amountInSol);
+    final totalStakedUsd = totalStakedSol * (solPriceForStaking > 0 ? solPriceForStaking : solPriceUsd);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header with value
+        Row(
+          children: [
+            Text(l.staking, style: const TextStyle(color: Colors.white, fontSize: 11, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500)),
+            Container(width: 1, height: 16, margin: const EdgeInsets.symmetric(horizontal: 10), color: Colors.white24),
+            Text('\$${totalStakedUsd.toStringAsFixed(2)}', style: TextStyle(color: Colors.grey[400], fontSize: 11, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w500)),
+            const Spacer(),
+            GestureDetector(
+              onTap: onStartStaking,
+              child: Row(
+                children: [
+                  Text('View all', style: TextStyle(color: Colors.grey[500], fontSize: 11, fontFamily: 'FKGrotesk')),
+                  const SizedBox(width: 4),
+                  Icon(Icons.chevron_right, color: Colors.grey[500], size: 16),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        const Divider(color: Colors.white10, height: 1),
+        const SizedBox(height: 16),
+
+        // Staked / Rewards cards
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1C1F26),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Staked', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500)),
+                        Icon(Icons.savings, color: Colors.grey[600], size: 16),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text('${totalStakedSol.toStringAsFixed(3)} SOL', style: const TextStyle(color: Colors.white, fontSize: 14, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 2),
+                    Text('0.00% APY', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGroteskSemiMono')),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1C1F26),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Rewards', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500)),
+                        Icon(Icons.nightlight_round, color: Colors.grey[600], size: 16),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text('0 SOL', style: TextStyle(color: Colors.white, fontSize: 14, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 2),
+                    Text('Last 30 days', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGroteskSemiMono')),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Stake accounts list
+        ...stakeAccounts.map((account) => GestureDetector(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => StakeAccountDetailScreen(
+                  account: account,
+                  solPriceUsd: solPriceForStaking > 0 ? solPriceForStaking : solPriceUsd,
+                ),
+              ),
+            );
+          },
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 34, height: 34,
+                decoration: BoxDecoration(color: Colors.grey[800], borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.lock_clock, color: Colors.white, size: 16),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      account.state == 'activating' ? 'Activating' : account.state == 'active' ? 'Active' : account.state == 'deactivating' ? 'Deactivating' : 'Inactive',
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('${account.amountInSol.toStringAsFixed(3)} SOL', style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 2),
+                  Text('\$${(account.amountInSol * (solPriceForStaking > 0 ? solPriceForStaking : solPriceUsd)).toStringAsFixed(2)}', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGroteskSemiMono')),
+                ],
+              ),
+            ],
+          ),
+        ),
+        )),
       ],
     );
   }

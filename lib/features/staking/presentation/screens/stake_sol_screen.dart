@@ -29,12 +29,12 @@ class StakeSolScreen extends StatefulWidget {
 class _StakeSolScreenState extends State<StakeSolScreen> {
   final TextEditingController _amountController = TextEditingController();
 
-  // Default validator — Kiln devnet
+  // Default validator — top devnet validator
   ValidatorInfo _selectedValidator = const ValidatorInfo(
-    votePubkey: 'dv1ZAGvdsz5hHLwWXsVnM94hWf1pjbKVau1QVkaMJ92',
-    name: 'Kiln devnet validator',
+    votePubkey: 'vgcDar2pryHvMgPkKaZfh8pQy4BJxv7SpwUG7zinWjG',
+    name: 'Devnet Validator 1',
     apyPercent: 0.0,
-    activatedStake: 607248000000000,
+    activatedStake: 38705912619352696,
   );
 
   double get _amountInSol => double.tryParse(_amountController.text) ?? 0.0;

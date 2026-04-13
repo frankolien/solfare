@@ -19,6 +19,10 @@ import 'package:solfare/features/settings/presentation/screens/settings_screen.d
 import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_event.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_state.dart';
+import 'package:solfare/features/staking/domain/entities/stake_account.dart';
+import 'package:solfare/features/staking/presentation/bloc/staking_bloc.dart';
+import 'package:solfare/features/staking/presentation/bloc/staking_event.dart';
+import 'package:solfare/features/staking/presentation/bloc/staking_state.dart';
 import 'package:solfare/features/wallet/domain/entities/nft.dart';
 import 'package:solfare/features/wallet/presentation/screens/my_wallets_screen.dart';
 import 'package:solfare/features/wallet/presentation/screens/edit_background_screen.dart';
@@ -45,6 +49,8 @@ class _HomepageScreenState extends State<HomepageScreen> {
   double _cachedSolPriceChange24h = 0.0;
   List<Nft> _cachedNfts = [];
   bool _hasFetchedNfts = false;
+  List<StakeAccount> _cachedStakeAccounts = [];
+  bool _hasFetchedStakes = false;
 
   // Wallet customization
   String _walletName = 'Main Wallet';
@@ -177,9 +183,24 @@ class _HomepageScreenState extends State<HomepageScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<WalletBloc, WalletState>(
-      listener: _handleWalletState,
-      builder: (context, walletState) {
+    return BlocListener<StakingBloc, StakingState>(
+      listener: (context, stakingState) {
+        if (stakingState is StakeAccountsFetched) {
+          setState(() => _cachedStakeAccounts = stakingState.accounts);
+        } else if (stakingState is StakeDeactivated || stakingState is StakeWithdrawn) {
+          // Re-fetch stake accounts after unstake/withdraw
+          if (_walletAddress != null) {
+            context.read<StakingBloc>().add(FetchStakeAccountsEvent(_walletAddress!));
+          }
+          // Also refresh balance
+          if (_walletAddress != null) {
+            context.read<WalletBloc>().add(FetchBalanceEvent(_walletAddress!));
+          }
+        }
+      },
+      child: BlocConsumer<WalletBloc, WalletState>(
+        listener: _handleWalletState,
+        builder: (context, walletState) {
         // Resolve current values from state + cache
         final data = _resolveData(walletState);
 
@@ -210,6 +231,7 @@ class _HomepageScreenState extends State<HomepageScreen> {
           },
         );
       },
+    ),
     );
   }
 
@@ -236,6 +258,11 @@ class _HomepageScreenState extends State<HomepageScreen> {
       if (!_hasFetchedNfts) {
         _hasFetchedNfts = true;
         context.read<WalletBloc>().add(FetchNftsEvent(state.address));
+      }
+      // Fetch stake accounts once
+      if (!_hasFetchedStakes) {
+        _hasFetchedStakes = true;
+        context.read<StakingBloc>().add(FetchStakeAccountsEvent(state.address));
       }
     } else if (state is NftsFetched) {
       setState(() => _cachedNfts = state.nfts);
@@ -412,6 +439,8 @@ class _HomepageScreenState extends State<HomepageScreen> {
                 solPriceUsd: data.solPriceUsd,
                 solPriceChange24h: data.solPriceChange24h,
                 nfts: _cachedNfts,
+                stakeAccounts: _cachedStakeAccounts,
+                solPriceForStaking: _cachedSolPriceUsd,
                 onStartStaking: () {
                   if (_walletAddress != null) {
                     context.push(AppRoutes.stakeSol, extra: {

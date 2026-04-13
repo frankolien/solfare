@@ -42,6 +42,28 @@ class StakeDelegated extends StakingState {
   List<Object?> get props => [signature, amountInSol];
 }
 
+class StakeDeactivating extends StakingState {
+  const StakeDeactivating();
+}
+
+class StakeDeactivated extends StakingState {
+  final String signature;
+  const StakeDeactivated({required this.signature});
+  @override
+  List<Object?> get props => [signature];
+}
+
+class StakeWithdrawing extends StakingState {
+  const StakeWithdrawing();
+}
+
+class StakeWithdrawn extends StakingState {
+  final String signature;
+  const StakeWithdrawn({required this.signature});
+  @override
+  List<Object?> get props => [signature];
+}
+
 class StakingError extends StakingState {
   final String message;
   const StakingError(this.message);
