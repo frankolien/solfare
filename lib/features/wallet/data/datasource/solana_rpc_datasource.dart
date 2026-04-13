@@ -14,6 +14,9 @@ abstract class SolanaRpcDataSource {
   Future<Map<String, dynamic>> getLatestBlockhash();
   Future<String> sendTransaction(String signedTransaction);
   Future<List<Nft>> getNfts(String address);
+  Future<List<Map<String, dynamic>>> getStakeAccounts(String address);
+  Future<List<Map<String, dynamic>>> getVoteAccounts();
+  Future<int> getMinimumBalanceForRentExemption(int dataLength);
 }
 
 class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
@@ -285,5 +288,76 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
 
     // Fallback — return basic NFT with just the mint
     return Nft(mint: mintAddress, name: 'NFT');
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getStakeAccounts(String address) async {
+    try {
+      final cleanAddress = _validateAddress(address);
+      final result = await _rpcCall('getProgramAccounts', [
+        'Stake11111111111111111111111111111111111111',
+        {
+          'encoding': 'jsonParsed',
+          'filters': [
+            {
+              'memcmp': {
+                'offset': 12,
+                'bytes': cleanAddress,
+              },
+            },
+          ],
+        },
+      ]);
+
+      final accounts = (result as List?) ?? [];
+      final List<Map<String, dynamic>> stakeAccounts = [];
+
+      for (final account in accounts) {
+        final pubkey = account['pubkey'] as String;
+        final lamports = account['account']['lamports'] as int;
+        final parsed = account['account']['data']['parsed'];
+        final info = parsed['info'] as Map<String, dynamic>;
+        final stake = info['stake'] as Map<String, dynamic>?;
+        final delegation = stake?['delegation'] as Map<String, dynamic>?;
+
+        stakeAccounts.add({
+          'pubkey': pubkey,
+          'lamports': lamports,
+          'voterPubkey': delegation?['voter'] as String?,
+          'activationEpoch': int.tryParse(delegation?['activationEpoch']?.toString() ?? '0') ?? 0,
+          'deactivationEpoch': int.tryParse(delegation?['deactivationEpoch']?.toString() ?? '0') ?? 0,
+        });
+      }
+
+      return stakeAccounts;
+    } catch (e) {
+      throw Exception('Failed to get stake accounts: $e');
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getVoteAccounts() async {
+    try {
+      final result = await _rpcCall('getVoteAccounts', []);
+      final current = (result['current'] as List?) ?? [];
+
+      return current.map<Map<String, dynamic>>((v) => {
+        'votePubkey': v['votePubkey'] as String,
+        'activatedStake': v['activatedStake'] as int,
+        'commission': v['commission'] as int,
+      }).toList();
+    } catch (e) {
+      throw Exception('Failed to get vote accounts: $e');
+    }
+  }
+
+  @override
+  Future<int> getMinimumBalanceForRentExemption(int dataLength) async {
+    try {
+      final result = await _rpcCall('getMinimumBalanceForRentExemption', [dataLength]);
+      return result as int;
+    } catch (e) {
+      throw Exception('Failed to get minimum balance for rent exemption: $e');
+    }
   }
 }

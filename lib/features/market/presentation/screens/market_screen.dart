@@ -448,7 +448,7 @@ class _MarketScreenState extends State<MarketScreen> {
   }
 
   Widget _buildShimmer() {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

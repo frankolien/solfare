@@ -5,8 +5,9 @@ import 'package:solfare/l10n/app_localizations.dart';
 class ActionButtons extends StatelessWidget {
   final VoidCallback? onSend;
   final VoidCallback? onDeposit;
+  final VoidCallback? onStake;
 
-  const ActionButtons({super.key, this.onSend, this.onDeposit});
+  const ActionButtons({super.key, this.onSend, this.onDeposit, this.onStake});
 
   @override
   Widget build(BuildContext context) {
@@ -15,7 +16,7 @@ class ActionButtons extends StatelessWidget {
     final actions = [
       _Action(icon: Icons.arrow_downward, label: l.deposit, onTap: onDeposit ?? () {}),
       _Action(icon: Icons.swap_horiz, label: l.swap, onTap: () {}),
-      _Action(icon: Icons.savings, label: l.stake, onTap: () {}),
+      _Action(icon: Icons.savings, label: l.stake, onTap: onStake ?? () {}),
       _Action(icon: Icons.send, label: l.send, onTap: onSend ?? () {}),
     ];
 

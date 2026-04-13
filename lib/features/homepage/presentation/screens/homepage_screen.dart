@@ -22,7 +22,9 @@ import 'package:solfare/features/wallet/presentation/bloc/wallet_state.dart';
 import 'package:solfare/features/wallet/domain/entities/nft.dart';
 import 'package:solfare/features/wallet/presentation/screens/my_wallets_screen.dart';
 import 'package:solfare/features/wallet/presentation/screens/edit_background_screen.dart';
+import 'package:solfare/features/wallet/presentation/screens/qr_scanner_screen.dart';
 import 'package:solfare/features/wallet/presentation/screens/receive_screen.dart';
+import 'package:solfare/features/wallet/presentation/screens/rename_wallet_screen.dart';
 
 class HomepageScreen extends StatefulWidget {
   const HomepageScreen({super.key});
@@ -51,7 +53,6 @@ class _HomepageScreenState extends State<HomepageScreen> {
   @override
   void initState() {
     super.initState();
-    print('[HOMEPAGE] initState bloc=${context.read<WalletBloc>().hashCode}');
     context.read<WalletBloc>().add(const LoadWalletAddressEvent());
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadCustomization());
   }
@@ -145,6 +146,35 @@ class _HomepageScreenState extends State<HomepageScreen> {
     );
   }
 
+  void _handleCardAction(String action) {
+    switch (action) {
+      case 'scan_qr':
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const QrScannerScreen()),
+        );
+      case 'rename':
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => RenameWalletScreen(currentName: _walletName)),
+        ).then((newName) async {
+          if (newName != null && newName is String) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('wallet_name', newName);
+            if (mounted) setState(() => _walletName = newName);
+          }
+        });
+      case 'edit_bg':
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => EditBackgroundScreen(currentCard: _cardBackground)),
+        ).then((card) async {
+          if (card != null && card is String) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('card_background', card);
+            if (mounted) setState(() => _cardBackground = card);
+          }
+        });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<WalletBloc, WalletState>(
@@ -165,7 +195,10 @@ class _HomepageScreenState extends State<HomepageScreen> {
                 bottom: false,
                 child: Column(
                   children: [
-                    Expanded(child: _buildTabContent(selectedIndex, data)),
+                    Expanded(child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10.0),
+                      child: _buildTabContent(selectedIndex, data),
+                    )),
                     BottomNavBar(
                       selectedIndex: selectedIndex,
                       onTap: (index) => context.read<HomepageBloc>().add(TabSelectedEvent(index)),
@@ -207,7 +240,6 @@ class _HomepageScreenState extends State<HomepageScreen> {
     } else if (state is NftsFetched) {
       setState(() => _cachedNfts = state.nfts);
     } else if (state is WalletCustomizationLoaded) {
-      print('[HOMEPAGE] Got WalletCustomizationLoaded: card=${state.cardBackground}, bloc=${context.read<WalletBloc>().hashCode}');
       setState(() {
         _walletName = state.walletName;
         _cardBackground = state.cardBackground;
@@ -315,6 +347,20 @@ class _HomepageScreenState extends State<HomepageScreen> {
               solPriceChange24h: data.solPriceChange24h,
               walletName: _walletName,
               cardBackground: _cardBackground,
+              onWalletTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => EditBackgroundScreen(currentCard: _cardBackground)),
+                ).then((card) async {
+                  if (card != null && card is String) {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('card_background', card);
+                    if (mounted) {
+                      setState(() => _cardBackground = card);
+                    }
+                  }
+                });
+              },
+              onMoreAction: (action) => _handleCardAction(action),
               onMwTap: () {
                 if (_walletAddress != null) {
                   final usdValue = _cachedBalanceInSol * (_cachedSolPriceUsd > 0 ? _cachedSolPriceUsd : 0);
@@ -339,6 +385,15 @@ class _HomepageScreenState extends State<HomepageScreen> {
                   _showDepositSheet(context, _walletAddress!);
                 }
               },
+              onStake: () {
+                if (_walletAddress != null) {
+                  context.push(AppRoutes.stakeSol, extra: {
+                    'address': _walletAddress,
+                    'balance': _cachedBalanceInSol,
+                    'priceUsd': _cachedSolPriceUsd,
+                  });
+                }
+              },
               onSend: () {
                 if (_walletAddress != null) {
                   context.push(AppRoutes.sendSol, extra: {
@@ -357,6 +412,15 @@ class _HomepageScreenState extends State<HomepageScreen> {
                 solPriceUsd: data.solPriceUsd,
                 solPriceChange24h: data.solPriceChange24h,
                 nfts: _cachedNfts,
+                onStartStaking: () {
+                  if (_walletAddress != null) {
+                    context.push(AppRoutes.stakeSol, extra: {
+                      'address': _walletAddress,
+                      'balance': _cachedBalanceInSol,
+                      'priceUsd': _cachedSolPriceUsd,
+                    });
+                  }
+                },
                 onViewTransactions: () {
                   if (_walletAddress != null) {
                     context.push(AppRoutes.transactionHistory, extra: _walletAddress);

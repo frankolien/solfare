@@ -12,6 +12,7 @@ class PortfolioContent extends StatelessWidget {
   final double solPriceUsd;
   final double solPriceChange24h;
   final VoidCallback? onViewTransactions;
+  final VoidCallback? onStartStaking;
   final List<Nft> nfts;
 
   const PortfolioContent({
@@ -21,6 +22,7 @@ class PortfolioContent extends StatelessWidget {
     required this.solPriceUsd,
     required this.solPriceChange24h,
     this.onViewTransactions,
+    this.onStartStaking,
     this.nfts = const [],
   });
 
@@ -66,7 +68,7 @@ class PortfolioContent extends StatelessWidget {
           // Staking section
           _buildSectionHeader(l.staking),
           const SizedBox(height: 16),
-          _buildSectionRow(icon: Icons.savings, text: l.noSolStaked, buttonText: l.startStaking, buttonColor: Colors.yellow, textColor: Colors.black, onTap: () {}),
+          _buildSectionRow(icon: Icons.savings, text: l.noSolStaked, buttonText: l.startStaking, buttonColor: Colors.yellow, textColor: Colors.black, onTap: onStartStaking ?? () {}),
 
           const SizedBox(height: 32),
 

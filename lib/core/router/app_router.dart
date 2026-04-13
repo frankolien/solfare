@@ -9,6 +9,7 @@ import 'package:solfare/features/wallet/presentation/screens/passcode_screen.dar
 import 'package:solfare/features/wallet/presentation/screens/setup_complete_screen.dart';
 import 'package:solfare/features/wallet/domain/entities/wallet.dart';
 import 'package:solfare/features/wallet/presentation/screens/import_wallet_screen.dart';
+import 'package:solfare/features/staking/presentation/screens/stake_sol_screen.dart';
 import 'package:solfare/features/wallet/presentation/screens/send_sol_screen.dart';
 import 'package:solfare/features/wallet/presentation/screens/transaction_history_screen.dart';
 import 'package:solfare/shared/screens/onboarding/onboarding_screen.dart';
@@ -31,6 +32,7 @@ abstract class AppRoutes {
   static const String importWallet = '/import-wallet';
   static const String transactionHistory = '/transaction-history';
   static const String sendSol = '/send-sol';
+  static const String stakeSol = '/stake-sol';
 }
 
 final GoRouter appRouter = GoRouter(
@@ -309,6 +311,34 @@ final GoRouter appRouter = GoRouter(
           key: state.pageKey,
           child: SendSolScreen(
             senderAddress: args['address'] as String,
+            balanceInSol: args['balance'] as double,
+            solPriceUsd: args['priceUsd'] as double,
+          ),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            final curvedAnimation = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeInOut,
+            );
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(1, 0),
+                end: Offset.zero,
+              ).animate(curvedAnimation),
+              child: child,
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 400),
+        );
+      },
+    ),
+    GoRoute(
+      path: AppRoutes.stakeSol,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>;
+        return CustomTransitionPage(
+          key: state.pageKey,
+          child: StakeSolScreen(
+            walletAddress: args['address'] as String,
             balanceInSol: args['balance'] as double,
             solPriceUsd: args['priceUsd'] as double,
           ),

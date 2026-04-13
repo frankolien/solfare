@@ -97,6 +97,8 @@ class _EditBackgroundScreenState extends State<EditBackgroundScreen> {
                   child: Image.asset(
                     '$_basePath/$_selectedCard',
                     fit: BoxFit.cover,
+                    cacheWidth: 400,
+                    gaplessPlayback: true,
                     errorBuilder: (_, __, ___) => Container(color: Colors.grey[900]),
                   ),
                 ),
@@ -149,6 +151,7 @@ class _EditBackgroundScreenState extends State<EditBackgroundScreen> {
                           child: Image.asset(
                             '$_basePath/${option.assetPath}',
                             fit: BoxFit.cover,
+                            cacheWidth: 200,
                             errorBuilder: (_, __, ___) => Container(color: Colors.grey[900]),
                           ),
                         ),
