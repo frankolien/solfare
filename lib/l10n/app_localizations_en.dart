@@ -95,7 +95,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get requestTestSol => 'Request Test SOL';
 
   @override
-  String get buySol => 'Buy SOL';
+  String get buySol => 'Deposit';
 
   @override
   String get airdropRequested =>

@@ -273,7 +273,7 @@ abstract class AppLocalizations {
   /// No description provided for @buySol.
   ///
   /// In en, this message translates to:
-  /// **'Buy SOL'**
+  /// **'Deposit'**
   String get buySol;
 
   /// No description provided for @airdropRequested.

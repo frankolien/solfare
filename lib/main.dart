@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:solfare/core/constant/network.dart';
 import 'package:solfare/core/locale/locale_provider.dart';
 import 'package:solfare/core/router/app_router.dart';
 import 'package:solfare/features/explore/presentation/bloc/explore_bloc.dart';
@@ -10,7 +11,9 @@ import 'package:solfare/features/wallet/presentation/bloc/passcode_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
 import 'package:solfare/l10n/app_localizations.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NetworkConstants.load();
   runApp(const MainApp());
 }
 

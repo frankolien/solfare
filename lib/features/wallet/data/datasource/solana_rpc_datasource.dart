@@ -24,14 +24,13 @@ abstract class SolanaRpcDataSource {
 }
 
 class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
-  final String rpcUrl;
+  // Always reads the current network URL — no restart needed on switch
+  String get rpcUrl => NetworkConstants.solanaUrl;
   final http.Client client;
 
   SolanaRpcDataSourceImpl({
-    String? rpcUrl,
     http.Client? client,
-  })  : rpcUrl = rpcUrl ?? NetworkConstants.solanaUrl,
-        client = client ?? http.Client();
+  })  : client = client ?? http.Client();
 
   /// Validate a Solana address and return the cleaned version
   String _validateAddress(String address) {

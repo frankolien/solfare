@@ -29,7 +29,7 @@ class GetStartedSection extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            walletAddress != null ? l.getStartedDescDevnet : l.getStartedDescMainnet,
+            walletAddress != null ? l.getStartedDescMainnet : l.getStartedDescMainnet,
             style: TextStyle(color: Colors.grey[400], fontSize: 12, height: 1.5),
             textAlign: TextAlign.center,
           ),
@@ -42,8 +42,8 @@ class GetStartedSection extends StatelessWidget {
             ),
             onPressed: walletAddress != null ? onRequestAirdrop : null,
             child: Text(
-              walletAddress != null ? l.requestTestSol : l.buySol,
-              style: const TextStyle(color: Colors.black, fontSize: 14, fontWeight: FontWeight.w600),
+              walletAddress != null ? l.buySol : l.requestTestSol,
+              style: const TextStyle(color: Colors.black, fontSize: 13, fontWeight: FontWeight.w600),
             ),
           ),
         ],

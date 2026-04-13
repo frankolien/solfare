@@ -35,7 +35,7 @@
   "getStartedDescDevnet": "Request free test SOL on devnet to start trading, staking, and exploring. You'll need a tiny amount of SOL for each Solana transaction.",
   "getStartedDescMainnet": "Buy SOL to start trading, staking, and exploring. You'll need a tiny amount of SOL for each Solana transaction.",
   "requestTestSol": "Request Test SOL",
-  "buySol": "Buy SOL",
+  "buySol": "Deposit",
 
   "airdropRequested": "Airdrop requested! Balance will update shortly.",
   "errorPrefix": "Error: {message}",

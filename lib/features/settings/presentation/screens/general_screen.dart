@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:solfare/core/constant/network.dart';
 import 'package:solfare/features/settings/presentation/screens/language_screen.dart';
+import 'package:solfare/features/settings/presentation/screens/network_screen.dart';
 
 class GeneralScreen extends StatefulWidget {
   const GeneralScreen({super.key});
@@ -90,8 +92,11 @@ class _GeneralScreenState extends State<GeneralScreen> {
             _buildMenuItem(
               icon: Iconsax.hierarchy_square_2,
               title: 'Network',
-              subtitle: 'Devnet',
-              onTap: () {},
+              subtitle: NetworkConstants.current.label,
+              onTap: () async {
+                await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NetworkScreen()));
+                if (mounted) setState(() {});
+              },
             ),
           ],
         ),

@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:solfare/features/market/domain/entities/market_token.dart';
+import 'package:solfare/features/wallet/presentation/screens/send_sol_screen.dart';
 
 class TokenDetailScreen extends StatefulWidget {
   final MarketToken token;
@@ -428,7 +430,21 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                   _buildActionButton(Icons.arrow_downward, 'Deposit', enabled: false),
                   _buildActionButton(Icons.swap_horiz, 'Swap', enabled: false),
                   _buildActionButton(Icons.trending_up, 'Limit', enabled: false),
-                  _buildActionButton(Icons.send, 'Send', enabled: token.id == 'solana'),
+                  _buildActionButton(Icons.send, 'Send', enabled: token.id == 'solana', onTap: () async {
+                    final storage = const FlutterSecureStorage();
+                    final address = await storage.read(key: 'wallet_address');
+                    if (address != null && mounted) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => SendSolScreen(
+                            senderAddress: address,
+                            balanceInSol: 0,
+                            solPriceUsd: token.currentPrice,
+                          ),
+                        ),
+                      );
+                    }
+                  }),
                 ],
               ),
             ),
@@ -787,31 +803,34 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     );
   }
 
-  Widget _buildActionButton(IconData icon, String label, {bool enabled = true}) {
-    return Opacity(
-      opacity: enabled ? 1.0 : 0.3,
-      child: Column(
-      children: [
-        Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: const Color(0xFF23262B),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: Colors.white, size: 22),
+  Widget _buildActionButton(IconData icon, String label, {bool enabled = true, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Opacity(
+        opacity: enabled ? 1.0 : 0.3,
+        child: Column(
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: const BoxDecoration(
+                color: Color(0xFF23262B),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: Colors.white, size: 22),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontFamily: 'FKGrotesk',
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 11,
-            fontFamily: 'FKGrotesk',
-          ),
-        ),
-      ],
-    ),
+      ),
     );
   }
 
