@@ -92,6 +92,35 @@ class FetchTransactionsEvent extends WalletEvent {
   List<Object?> get props => [address];
 }
 
+/// Event to fetch NFTs for a wallet address
+class FetchNftsEvent extends WalletEvent {
+  final String address;
+  const FetchNftsEvent(this.address);
+  @override
+  List<Object?> get props => [address];
+}
+
+/// Event to update wallet display name
+class UpdateWalletNameEvent extends WalletEvent {
+  final String name;
+  const UpdateWalletNameEvent(this.name);
+  @override
+  List<Object?> get props => [name];
+}
+
+/// Event to update wallet card background
+class UpdateCardBackgroundEvent extends WalletEvent {
+  final String cardFileName;
+  const UpdateCardBackgroundEvent(this.cardFileName);
+  @override
+  List<Object?> get props => [cardFileName];
+}
+
+/// Event to load wallet customization (name + card) from storage
+class LoadWalletCustomizationEvent extends WalletEvent {
+  const LoadWalletCustomizationEvent();
+}
+
 /// Event to send SOL to another address
 class SendSolEvent extends WalletEvent {
   final String recipientAddress;

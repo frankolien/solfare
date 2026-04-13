@@ -5,6 +5,7 @@ import 'package:solfare/core/constant/network.dart';
 import 'package:solfare/core/locale/locale_provider.dart';
 import 'package:solfare/core/router/app_router.dart';
 import 'package:solfare/features/explore/presentation/bloc/explore_bloc.dart';
+import 'package:solfare/features/swap/presentation/bloc/swap_bloc.dart';
 import 'package:solfare/features/homepage/presentation/bloc/homepage_bloc.dart';
 import 'package:solfare/features/market/presentation/bloc/market_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/passcode_bloc.dart';
@@ -50,6 +51,7 @@ class _MainAppState extends State<MainApp> {
         BlocProvider(create: (context) => HomepageBloc()),
         BlocProvider(create: (context) => MarketBloc()),
         BlocProvider(create: (context) => ExploreBloc()),
+        BlocProvider(create: (context) => SwapBloc()),
       ],
       child: _LocaleScope(
         provider: _localeProvider,

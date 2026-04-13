@@ -1,6 +1,7 @@
 import 'package:bip39/bip39.dart' as bip39;
 import 'package:bloc/bloc.dart';
 import 'package:ed25519_hd_key/ed25519_hd_key.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:solana/solana.dart' as solana;
 import 'package:solana/src/rpc/dto/latest_blockhash.dart';
 import 'package:solfare/core/constant/solana_path.dart';
@@ -60,6 +61,69 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     on<ImportWalletEvent>(_onImportWallet);
     on<FetchTransactionsEvent>(_onFetchTransactions);
     on<SendSolEvent>(_onSendSol);
+    on<FetchNftsEvent>(_onFetchNfts, transformer: _concurrent());
+    on<UpdateWalletNameEvent>(_onUpdateWalletName, transformer: _concurrent());
+    on<UpdateCardBackgroundEvent>(_onUpdateCardBackground, transformer: _concurrent());
+    on<LoadWalletCustomizationEvent>(_onLoadWalletCustomization, transformer: _concurrent());
+  }
+
+  /// Allows events to run concurrently instead of waiting in queue
+  static EventTransformer<E> _concurrent<E>() {
+    return (events, mapper) => events.asyncExpand(mapper);
+  }
+
+  static const _walletNameKey = 'wallet_name';
+  static const _cardBackgroundKey = 'card_background';
+
+  Future<void> _onLoadWalletCustomization(
+    LoadWalletCustomizationEvent event,
+    Emitter<WalletState> emit,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final name = prefs.getString(_walletNameKey) ?? 'Main Wallet';
+      final card = prefs.getString(_cardBackgroundKey) ?? 'card_1.png';
+      emit(WalletCustomizationLoaded(walletName: name, cardBackground: card));
+    } catch (_) {
+      emit(const WalletCustomizationLoaded(walletName: 'Main Wallet', cardBackground: 'card_1.png'));
+    }
+  }
+
+  Future<void> _onUpdateWalletName(
+    UpdateWalletNameEvent event,
+    Emitter<WalletState> emit,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_walletNameKey, event.name);
+      final card = prefs.getString(_cardBackgroundKey) ?? 'card_1.png';
+      emit(WalletCustomizationLoaded(walletName: event.name, cardBackground: card));
+    } catch (_) {}
+  }
+
+  Future<void> _onUpdateCardBackground(
+    UpdateCardBackgroundEvent event,
+    Emitter<WalletState> emit,
+  ) async {
+    print('[BLOC] _onUpdateCardBackground ENTERED with: ${event.cardFileName}');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_cardBackgroundKey, event.cardFileName);
+      final name = prefs.getString(_walletNameKey) ?? 'Main Wallet';
+      print('[BLOC] Emitting WalletCustomizationLoaded: card=${event.cardFileName}, name=$name');
+      emit(WalletCustomizationLoaded(walletName: name, cardBackground: event.cardFileName));
+    } catch (e) {
+      print('[BLOC] _onUpdateCardBackground ERROR: $e');
+    }
+  }
+
+  Future<void> _onFetchNfts(FetchNftsEvent event, Emitter<WalletState> emit) async {
+    try {
+      final nfts = await _rpcDataSource.getNfts(event.address);
+      emit(NftsFetched(nfts));
+    } catch (e) {
+      emit(NftsFetched(const []));
+    }
   }
 
   Future<void> _onImportWallet(
@@ -86,6 +150,13 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       final address = await _repository.getSavedAddress();
       if (address != null && address.isNotEmpty) {
         emit(WalletAddressLoaded(address));
+        // Also load customization so homepage gets it in the same flow
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final name = prefs.getString(_walletNameKey) ?? 'Main Wallet';
+          final card = prefs.getString(_cardBackgroundKey) ?? 'card_1.png';
+          emit(WalletCustomizationLoaded(walletName: name, cardBackground: card));
+        } catch (_) {}
       } else {
         emit(const WalletError('No wallet address found'));
       }

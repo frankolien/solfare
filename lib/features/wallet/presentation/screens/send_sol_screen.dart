@@ -7,6 +7,7 @@ import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_event.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_state.dart';
 import 'package:solfare/features/wallet/data/datasource/contacts_local_datasource.dart';
+import 'package:solfare/features/wallet/presentation/screens/qr_scanner_screen.dart';
 import 'package:solfare/features/wallet/presentation/widgets/confirm_send_sheet.dart';
 import 'package:solfare/features/wallet/presentation/widgets/send_status_sheet.dart';
 
@@ -253,6 +254,20 @@ class _SendSolScreenState extends State<SendSolScreen> {
                   ],
                 ),
           centerTitle: true,
+          actions: [
+            if (_stage == _SendStage.recipient)
+              IconButton(
+                icon: const Icon(Icons.qr_code_scanner, color: Colors.white, size: 22),
+                onPressed: () async {
+                  final address = await Navigator.of(context).push<String>(
+                    MaterialPageRoute(builder: (_) => const QrScannerScreen()),
+                  );
+                  if (address != null && mounted) {
+                    _selectRecipient(address: address);
+                  }
+                },
+              ),
+          ],
         ),
         body: SafeArea(
           child: _stage == _SendStage.recipient

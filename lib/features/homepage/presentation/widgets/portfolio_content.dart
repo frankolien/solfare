@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:solfare/features/homepage/presentation/widgets/collectibles_section.dart';
 import 'package:solfare/features/market/domain/entities/market_token.dart';
 import 'package:solfare/features/market/presentation/screens/token_detail_screen.dart';
+import 'package:solfare/features/wallet/domain/entities/nft.dart';
 import 'package:solfare/l10n/app_localizations.dart';
 
 /// Portfolio content shown when user has a balance — token list, staking, activity sections.
@@ -10,6 +12,7 @@ class PortfolioContent extends StatelessWidget {
   final double solPriceUsd;
   final double solPriceChange24h;
   final VoidCallback? onViewTransactions;
+  final List<Nft> nfts;
 
   const PortfolioContent({
     super.key,
@@ -18,6 +21,7 @@ class PortfolioContent extends StatelessWidget {
     required this.solPriceUsd,
     required this.solPriceChange24h,
     this.onViewTransactions,
+    this.nfts = const [],
   });
 
   @override
@@ -51,6 +55,11 @@ class PortfolioContent extends StatelessWidget {
           _buildSectionHeader(l.stocks),
           const SizedBox(height: 16),
           _buildSectionRow(icon: Icons.bar_chart, text: l.noAssetsYet, buttonText: l.explore, buttonColor: Colors.yellow, textColor: Colors.black, onTap: () {}),
+
+          const SizedBox(height: 32),
+
+          // Collectibles section
+          CollectiblesSection(nfts: nfts),
 
           const SizedBox(height: 32),
 

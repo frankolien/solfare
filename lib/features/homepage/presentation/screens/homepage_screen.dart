@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:solfare/core/router/app_router.dart';
 import 'package:solfare/features/homepage/presentation/bloc/homepage_bloc.dart';
 import 'package:solfare/features/homepage/presentation/bloc/homepage_event.dart';
@@ -18,6 +19,10 @@ import 'package:solfare/features/settings/presentation/screens/settings_screen.d
 import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_event.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_state.dart';
+import 'package:solfare/features/wallet/domain/entities/nft.dart';
+import 'package:solfare/features/wallet/presentation/screens/my_wallets_screen.dart';
+import 'package:solfare/features/wallet/presentation/screens/edit_background_screen.dart';
+import 'package:solfare/features/wallet/presentation/screens/receive_screen.dart';
 
 class HomepageScreen extends StatefulWidget {
   const HomepageScreen({super.key});
@@ -36,11 +41,32 @@ class _HomepageScreenState extends State<HomepageScreen> {
   String? _cachedAddress;
   double _cachedSolPriceUsd = 0.0;
   double _cachedSolPriceChange24h = 0.0;
+  List<Nft> _cachedNfts = [];
+  bool _hasFetchedNfts = false;
+
+  // Wallet customization
+  String _walletName = 'Main Wallet';
+  String _cardBackground = 'card_1.png';
 
   @override
   void initState() {
     super.initState();
+    print('[HOMEPAGE] initState bloc=${context.read<WalletBloc>().hashCode}');
     context.read<WalletBloc>().add(const LoadWalletAddressEvent());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadCustomization());
+  }
+
+  Future<void> _loadCustomization() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        _walletName = prefs.getString('wallet_name') ?? 'Main Wallet';
+        _cardBackground = prefs.getString('card_background') ?? 'card_1.png';
+      });
+    } catch (_) {
+      // Platform not ready yet, keep defaults
+    }
   }
 
   void _onRefresh(String? address) {
@@ -59,6 +85,64 @@ class _HomepageScreenState extends State<HomepageScreen> {
     if (_walletAddress != null) {
       context.read<WalletBloc>().add(RequestAirdropEvent(address: _walletAddress!));
     }
+  }
+
+  void _showDepositSheet(BuildContext context, String address) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        decoration: const BoxDecoration(
+          color: Color(0xFF0E1014),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle
+            Container(
+              width: 36, height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(color: Colors.grey[700], borderRadius: BorderRadius.circular(2)),
+            ),
+
+            // Receive crypto option
+            GestureDetector(
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => ReceiveScreen(walletAddress: address)),
+                );
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Row(
+                children: [
+                  Container(
+                    width: 40, height: 40,
+                    decoration: BoxDecoration(color: const Color(0xFF1C1F26), borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.qr_code, color: Colors.white, size: 20),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Receive crypto', style: TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 2),
+                        Text('Transfer from an exchange or wallet', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGrotesk')),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -115,6 +199,19 @@ class _HomepageScreenState extends State<HomepageScreen> {
     } else if (state is WalletAddressLoaded) {
       setState(() => _walletAddress = state.address);
       context.read<WalletBloc>().add(FetchBalanceEvent(state.address));
+      // Fetch NFTs once
+      if (!_hasFetchedNfts) {
+        _hasFetchedNfts = true;
+        context.read<WalletBloc>().add(FetchNftsEvent(state.address));
+      }
+    } else if (state is NftsFetched) {
+      setState(() => _cachedNfts = state.nfts);
+    } else if (state is WalletCustomizationLoaded) {
+      print('[HOMEPAGE] Got WalletCustomizationLoaded: card=${state.cardBackground}, bloc=${context.read<WalletBloc>().hashCode}');
+      setState(() {
+        _walletName = state.walletName;
+        _cardBackground = state.cardBackground;
+      });
     } else if (state is WalletError) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: ${state.message}'), backgroundColor: Colors.red),
@@ -216,9 +313,32 @@ class _HomepageScreenState extends State<HomepageScreen> {
               walletAddress: data.address,
               solPriceUsd: data.solPriceUsd,
               solPriceChange24h: data.solPriceChange24h,
+              walletName: _walletName,
+              cardBackground: _cardBackground,
+              onMwTap: () {
+                if (_walletAddress != null) {
+                  final usdValue = _cachedBalanceInSol * (_cachedSolPriceUsd > 0 ? _cachedSolPriceUsd : 0);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => MyWalletsScreen(
+                        walletAddress: _walletAddress!,
+                        balanceUsd: usdValue,
+                        priceChange24h: _cachedSolPriceChange24h,
+                        walletName: _walletName,
+                        cardBackground: _cardBackground,
+                      ),
+                    ),
+                  ).then((_) => _loadCustomization());
+                }
+              },
             ),
 
             ActionButtons(
+              onDeposit: () {
+                if (_walletAddress != null) {
+                  _showDepositSheet(context, _walletAddress!);
+                }
+              },
               onSend: () {
                 if (_walletAddress != null) {
                   context.push(AppRoutes.sendSol, extra: {
@@ -236,6 +356,7 @@ class _HomepageScreenState extends State<HomepageScreen> {
                 walletAddress: data.address,
                 solPriceUsd: data.solPriceUsd,
                 solPriceChange24h: data.solPriceChange24h,
+                nfts: _cachedNfts,
                 onViewTransactions: () {
                   if (_walletAddress != null) {
                     context.push(AppRoutes.transactionHistory, extra: _walletAddress);

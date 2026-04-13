@@ -4,15 +4,16 @@ import 'package:solfare/l10n/app_localizations.dart';
 /// Homepage action buttons row (Deposit, Swap, Stake, Send).
 class ActionButtons extends StatelessWidget {
   final VoidCallback? onSend;
+  final VoidCallback? onDeposit;
 
-  const ActionButtons({super.key, this.onSend});
+  const ActionButtons({super.key, this.onSend, this.onDeposit});
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
 
     final actions = [
-      _Action(icon: Icons.arrow_downward, label: l.deposit, onTap: () {}),
+      _Action(icon: Icons.arrow_downward, label: l.deposit, onTap: onDeposit ?? () {}),
       _Action(icon: Icons.swap_horiz, label: l.swap, onTap: () {}),
       _Action(icon: Icons.savings, label: l.stake, onTap: () {}),
       _Action(icon: Icons.send, label: l.send, onTap: onSend ?? () {}),

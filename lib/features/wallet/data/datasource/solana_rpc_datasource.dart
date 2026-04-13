@@ -3,24 +3,17 @@ import 'package:bs58/bs58.dart';
 import 'package:http/http.dart' as http;
 import 'package:solfare/core/constant/network.dart';
 import 'package:solfare/features/wallet/data/model/transaction_model.dart';
+import 'package:solfare/features/wallet/domain/entities/nft.dart';
 
 /// Data source for Solana RPC calls
 /// Handles communication with Solana blockchain
 abstract class SolanaRpcDataSource {
-  /// Request an airdrop of SOL to an address (devnet/testnet only)
   Future<String> requestAirdrop(String address, int lamports);
-
-  /// Get the balance of a Solana address
   Future<int> getBalance(String address);
-
-  /// Get transaction history for a Solana address
   Future<List<TransactionModel>> getTransactionHistory(String address, {int limit});
-
-  /// Get a recent blockhash (needed to build transactions)
   Future<Map<String, dynamic>> getLatestBlockhash();
-
-  /// Send a signed transaction (base64 encoded)
   Future<String> sendTransaction(String signedTransaction);
+  Future<List<Nft>> getNfts(String address);
 }
 
 class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
@@ -226,5 +219,71 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     } catch (e) {
       throw Exception('Failed to send transaction: $e');
     }
+  }
+
+  @override
+  Future<List<Nft>> getNfts(String address) async {
+    final validAddress = _validateAddress(address);
+
+    try {
+      // Get all token accounts — NFTs are tokens with amount=1 and decimals=0
+      final result = await _rpcCall('getTokenAccountsByOwner', [
+        validAddress,
+        {'programId': 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'},
+        {'encoding': 'jsonParsed'},
+      ]);
+
+      final accounts = (result['value'] as List?) ?? [];
+      final List<Nft> nfts = [];
+
+      for (final account in accounts) {
+        final parsed = account['account']['data']['parsed']['info'];
+        final mintAddress = parsed['mint'] as String;
+        final amount = double.tryParse(parsed['tokenAmount']['uiAmountString']?.toString() ?? '0') ?? 0;
+        final decimals = parsed['tokenAmount']['decimals'] as int? ?? 0;
+
+        // NFTs have decimals=0 and amount=1
+        if (decimals == 0 && amount == 1) {
+          // Try to fetch metadata from Metaplex
+          final nft = await _fetchNftMetadata(mintAddress);
+          if (nft != null) nfts.add(nft);
+        }
+      }
+
+      return nfts;
+    } catch (e) {
+      print('[RPC] Failed to fetch NFTs: $e');
+      return [];
+    }
+  }
+
+  /// Fetch NFT metadata from the Metaplex metadata account
+  Future<Nft?> _fetchNftMetadata(String mintAddress) async {
+    try {
+      // Use the off-chain metadata approach — fetch from known APIs
+      // Try the Metaplex JSON metadata via the token's URI
+      final response = await client.get(
+        Uri.parse('https://api.simplehash.com/api/v0/nfts/solana/$mintAddress'),
+        headers: {'Accept': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final name = data['name'] as String? ?? 'Unknown NFT';
+        final imageUrl = data['previews']?['image_small_url'] as String? ??
+            data['image_url'] as String?;
+        final collection = data['collection']?['name'] as String?;
+
+        return Nft(
+          mint: mintAddress,
+          name: name,
+          imageUrl: imageUrl,
+          collection: collection,
+        );
+      }
+    } catch (_) {}
+
+    // Fallback — return basic NFT with just the mint
+    return Nft(mint: mintAddress, name: 'NFT');
   }
 }

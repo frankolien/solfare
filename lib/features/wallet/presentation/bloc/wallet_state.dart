@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:solfare/features/wallet/domain/entities/nft.dart';
 import 'package:solfare/features/wallet/domain/entities/transactions.dart';
 import 'package:solfare/features/wallet/domain/entities/wallet.dart';
 
@@ -123,6 +124,28 @@ class TransactionsFetched extends WalletState {
 
   @override
   List<Object?> get props => [transactions];
+}
+
+/// NFTs fetched successfully
+class NftsFetched extends WalletState {
+  final List<Nft> nfts;
+  const NftsFetched(this.nfts);
+  @override
+  List<Object?> get props => [nfts];
+}
+
+/// Wallet customization loaded (name + card background)
+class WalletCustomizationLoaded extends WalletState {
+  final String walletName;
+  final String cardBackground;
+
+  const WalletCustomizationLoaded({
+    required this.walletName,
+    required this.cardBackground,
+  });
+
+  @override
+  List<Object?> get props => [walletName, cardBackground];
 }
 
 /// SOL is being sent (in-flight)

@@ -9,6 +9,10 @@ class BalanceCard extends StatelessWidget {
   final String? walletAddress;
   final double solPriceUsd;
   final double solPriceChange24h;
+  final VoidCallback? onMwTap;
+  final VoidCallback? onWalletTap;
+  final String walletName;
+  final String cardBackground;
 
   const BalanceCard({
     super.key,
@@ -17,6 +21,10 @@ class BalanceCard extends StatelessWidget {
     this.walletAddress,
     required this.solPriceUsd,
     required this.solPriceChange24h,
+    this.onMwTap,
+    this.onWalletTap,
+    this.walletName = 'Main Wallet',
+    this.cardBackground = 'card_1.png',
   });
 
   void _copyAddress(BuildContext context, String address) {
@@ -47,7 +55,7 @@ class BalanceCard extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: Image.asset(
-                'assets/assets/images/wallet_background/card_1.png',
+                'assets/assets/images/wallet_background/$cardBackground',
                 width: double.infinity,
                 height: double.infinity,
                 fit: BoxFit.cover,
@@ -78,19 +86,22 @@ class BalanceCard extends StatelessWidget {
   Widget _buildHeader(BuildContext context) {
     return Row(
       children: [
-        Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: Colors.grey[800]?.withOpacity(0.7),
-            shape: BoxShape.circle,
-          ),
-          child: const Center(
-            child: Text('MW', style: TextStyle(color: Colors.white, fontSize: 11, fontFamily: 'FKGrotesk', fontWeight: FontWeight.bold)),
+        GestureDetector(
+          onTap: onMwTap,
+          child: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: Colors.grey[800]?.withOpacity(0.7),
+              shape: BoxShape.circle,
+            ),
+            child: const Center(
+              child: Text('MW', style: TextStyle(color: Colors.white, fontSize: 11, fontFamily: 'FKGrotesk', fontWeight: FontWeight.bold)),
+            ),
           ),
         ),
         const SizedBox(width: 6),
-        const Text('Main Wallet', style: TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500)),
+        Text(walletName, style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500)),
         if (walletAddress != null)
           GestureDetector(
             onTap: () => _copyAddress(context, walletAddress!),
@@ -105,7 +116,7 @@ class BalanceCard extends StatelessWidget {
           children: [
             Stack(
               children: [
-                IconButton(icon: const Icon(Icons.wallet, color: Colors.white), onPressed: () {}, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+                IconButton(icon: const Icon(Icons.wallet, color: Colors.white), onPressed: onWalletTap, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
                 Positioned(
                   right: 9,
                   top: 10,
