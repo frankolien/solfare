@@ -19,13 +19,19 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   int _selectedTimeframe = 2; // 0=1m, 1=1H, 2=1D, 3=1W, 4=1M
   bool _isLineChart = true;
   final _timeframes = ['1m', '1H', '1D', '1W', '1M'];
-  // Maps timeframe index to CoinGecko 'days' param
   final _timeframeDays = ['0.04', '0.08', '1', '7', '30'];
   String? _mintAddress;
+  String? _description;
   List<double> _chartData = [];
   bool _isLoadingChart = false;
   double? _touchedPrice;
   int? _touchedIndex;
+
+  // Static caches shared across all instances — survives screen reopens
+  static final Map<String, String> _descriptionCache = {};
+  static final Map<String, String> _mintCache = {};
+  static final Map<String, List<double>> _chartCache = {};
+  static final Map<String, DateTime> _chartCacheTime = {};
 
   @override
   void initState() {
@@ -36,6 +42,20 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   }
 
   Future<void> _fetchChartData() async {
+    final cacheKey = '${widget.token.id}_${_selectedTimeframe}';
+    final cachedTime = _chartCacheTime[cacheKey];
+
+    // Use cache if less than 2 minutes old
+    if (_chartCache.containsKey(cacheKey) &&
+        cachedTime != null &&
+        DateTime.now().difference(cachedTime).inSeconds < 120) {
+      setState(() {
+        _chartData = _chartCache[cacheKey]!;
+        _isLoadingChart = false;
+      });
+      return;
+    }
+
     setState(() => _isLoadingChart = true);
     try {
       final days = _timeframeDays[_selectedTimeframe];
@@ -46,32 +66,63 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final prices = data['prices'] as List;
+        final chartData = prices.map((p) => (p[1] as num).toDouble()).toList();
+        _chartCache[cacheKey] = chartData;
+        _chartCacheTime[cacheKey] = DateTime.now();
         if (mounted) {
           setState(() {
-            _chartData = prices.map((p) => (p[1] as num).toDouble()).toList();
+            _chartData = chartData;
             _isLoadingChart = false;
           });
         }
       } else {
-        if (mounted) setState(() => _isLoadingChart = false);
+        // On rate limit, try cache even if stale
+        if (_chartCache.containsKey(cacheKey)) {
+          if (mounted) setState(() { _chartData = _chartCache[cacheKey]!; _isLoadingChart = false; });
+        } else {
+          if (mounted) setState(() => _isLoadingChart = false);
+        }
       }
     } catch (_) {
-      if (mounted) setState(() => _isLoadingChart = false);
+      if (_chartCache.containsKey(cacheKey)) {
+        if (mounted) setState(() { _chartData = _chartCache[cacheKey]!; _isLoadingChart = false; });
+      } else {
+        if (mounted) setState(() => _isLoadingChart = false);
+      }
     }
   }
 
   Future<void> _fetchMintAddress() async {
+    final id = widget.token.id;
+
+    // Use cache if available — descriptions and mints don't change
+    if (_descriptionCache.containsKey(id) || _mintCache.containsKey(id)) {
+      setState(() {
+        _description = _descriptionCache[id];
+        _mintAddress = _mintCache[id];
+      });
+      return;
+    }
+
     try {
       final response = await http.get(
-        Uri.parse('https://api.coingecko.com/api/v3/coins/${widget.token.id}?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false'),
+        Uri.parse('https://api.coingecko.com/api/v3/coins/$id?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false'),
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final platforms = data['platforms'] as Map<String, dynamic>?;
-        if (platforms != null && platforms.containsKey('solana')) {
-          if (mounted) {
-            setState(() => _mintAddress = platforms['solana'] as String?);
-          }
+        final desc = (data['description'] as Map<String, dynamic>?)?['en'] as String?;
+        if (mounted) {
+          setState(() {
+            if (platforms != null && platforms.containsKey('solana')) {
+              _mintAddress = platforms['solana'] as String?;
+              _mintCache[id] = _mintAddress!;
+            }
+            if (desc != null && desc.isNotEmpty) {
+              _description = desc.replaceAll(RegExp(r'<[^>]*>'), '');
+              _descriptionCache[id] = _description!;
+            }
+          });
         }
       }
     } catch (_) {}
@@ -402,13 +453,15 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                   const Divider(color: Colors.white10, height: 1),
                   const SizedBox(height: 12),
                   Text(
-                    '${token.name} is a cryptocurrency token on the Solana blockchain ecosystem.',
+                    _description ?? '${token.name} is a cryptocurrency token.',
                     style: TextStyle(
                       color: Colors.grey[400],
                       fontSize: 12,
                       fontFamily: 'FKGrotesk',
                       height: 1.5,
                     ),
+                    maxLines: 5,
+                    overflow: TextOverflow.ellipsis,
                   ),
 
                   // Social links
