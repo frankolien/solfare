@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/BLOC_COMPLETE_GUIDE.md
+/CLEAN_ARCHITECTURE_GUIDE.md
+/IMPORT_WALLET_GUIDE.md
+/AIRDROP_AND_ARCHITECTURE_GUIDE.md
+/BLOC_LEARNING_GUIDE.md
+
