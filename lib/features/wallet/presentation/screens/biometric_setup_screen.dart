@@ -56,7 +56,7 @@ class BiometricSetupScreen extends StatelessWidget {
 
               // Description
               Text(
-                'Unlock the app with your face or fingerprint, no passcode typing required.',
+                'Biometric unlock is coming soon. You can continue using your passcode for now.',
                 style: TextStyle(
                   color: Colors.grey[400],
                   fontSize: 16,
@@ -67,7 +67,7 @@ class BiometricSetupScreen extends StatelessWidget {
 
               const Spacer(flex: 3),
 
-              // Enable biometrics button
+              // Continue button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -78,40 +78,11 @@ class BiometricSetupScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(30),
                     ),
                   ),
-                  onPressed: () {
-                    // TODO: Implement biometric setup
-                    // For now, just navigate to completion screen
-                    context.push(AppRoutes.setupComplete);
-                  },
-                  child: const Text(
-                    'Enable biometrics',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Not now button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey[800],
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
                   onPressed: () => context.push(AppRoutes.setupComplete),
                   child: const Text(
-                    'Not now',
+                    'Continue',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Colors.black,
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
                     ),

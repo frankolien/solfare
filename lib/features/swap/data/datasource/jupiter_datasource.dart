@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:solfare/features/swap/domain/entities/swap_token.dart';
+import 'package:solfare/core/util/app_log.dart';
 
 class JupiterDataSource {
   static const _baseUrl = 'https://api.jup.ag/swap/v2';
@@ -29,7 +30,7 @@ class JupiterDataSource {
         '&amount=$amount'
         '&slippageBps=$slippageBps';
 
-    print('[Jupiter] Fetching quote: $url');
+    debugLog('[Jupiter] Fetching quote: $url');
 
     final response = await client.get(
       Uri.parse(url),
@@ -39,7 +40,7 @@ class JupiterDataSource {
       },
     );
 
-    print('[Jupiter] Response: ${response.statusCode}');
+    debugLog('[Jupiter] Response: ${response.statusCode}');
 
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;

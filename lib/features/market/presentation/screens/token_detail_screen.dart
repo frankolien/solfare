@@ -1,10 +1,9 @@
-import 'dart:convert';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:http/http.dart' as http;
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:solfare/core/network/coingecko_client.dart';
 import 'package:solfare/features/market/domain/entities/market_token.dart';
 import 'package:solfare/features/wallet/presentation/screens/send_sol_screen.dart';
 
@@ -29,11 +28,10 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   double? _touchedPrice;
   int? _touchedIndex;
 
-  // Static caches shared across all instances — survives screen reopens
+  // Static caches shared across all instances — CoinGeckoClient handles the
+  // HTTP cache on disk; these are in-memory shortcuts for mint/description.
   static final Map<String, String> _descriptionCache = {};
   static final Map<String, String> _mintCache = {};
-  static final Map<String, List<double>> _chartCache = {};
-  static final Map<String, DateTime> _chartCacheTime = {};
 
   @override
   void initState() {
@@ -43,54 +41,42 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     _fetchChartData();
   }
 
-  Future<void> _fetchChartData() async {
-    final cacheKey = '${widget.token.id}_${_selectedTimeframe}';
-    final cachedTime = _chartCacheTime[cacheKey];
+  /// True when [widget.token.id] is a Solana mint (e.g. portfolio SPL tokens)
+  /// rather than a CoinGecko slug like `solana`/`usd-coin`. Used to route the
+  /// chart/description requests to CoinGecko's contract endpoints.
+  bool get _isMintId {
+    final id = widget.token.id;
+    if (id.length < 32 || id.length > 44) return false;
+    return RegExp(r'^[1-9A-HJ-NP-Za-km-z]+$').hasMatch(id);
+  }
 
-    // Use cache if less than 2 minutes old
-    if (_chartCache.containsKey(cacheKey) &&
-        cachedTime != null &&
-        DateTime.now().difference(cachedTime).inSeconds < 120) {
-      setState(() {
-        _chartData = _chartCache[cacheKey]!;
-        _isLoadingChart = false;
-      });
-      return;
+  String _chartUrl(String days) {
+    if (_isMintId) {
+      return 'https://api.coingecko.com/api/v3/coins/solana/contract/${widget.token.id}/market_chart?vs_currency=usd&days=$days';
     }
+    return 'https://api.coingecko.com/api/v3/coins/${widget.token.id}/market_chart?vs_currency=usd&days=$days';
+  }
 
+  Future<void> _fetchChartData() async {
     setState(() => _isLoadingChart = true);
     try {
       final days = _timeframeDays[_selectedTimeframe];
-      final response = await http.get(
-        Uri.parse('https://api.coingecko.com/api/v3/coins/${widget.token.id}/market_chart?vs_currency=usd&days=$days'),
-        headers: {'Accept': 'application/json', 'User-Agent': 'Solfare-Wallet/1.0'},
+      final body = await CoinGeckoClient.instance.getJson(
+        _chartUrl(days),
+        ttl: const Duration(minutes: 5),
       );
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final prices = data['prices'] as List;
-        final chartData = prices.map((p) => (p[1] as num).toDouble()).toList();
-        _chartCache[cacheKey] = chartData;
-        _chartCacheTime[cacheKey] = DateTime.now();
-        if (mounted) {
-          setState(() {
-            _chartData = chartData;
-            _isLoadingChart = false;
-          });
-        }
-      } else {
-        // On rate limit, try cache even if stale
-        if (_chartCache.containsKey(cacheKey)) {
-          if (mounted) setState(() { _chartData = _chartCache[cacheKey]!; _isLoadingChart = false; });
-        } else {
-          if (mounted) setState(() => _isLoadingChart = false);
-        }
+      final prices = body?['prices'] as List?;
+      final chartData = prices == null
+          ? <double>[]
+          : prices.map((p) => (p[1] as num).toDouble()).toList();
+      if (mounted) {
+        setState(() {
+          _chartData = chartData;
+          _isLoadingChart = false;
+        });
       }
     } catch (_) {
-      if (_chartCache.containsKey(cacheKey)) {
-        if (mounted) setState(() { _chartData = _chartCache[cacheKey]!; _isLoadingChart = false; });
-      } else {
-        if (mounted) setState(() => _isLoadingChart = false);
-      }
+      if (mounted) setState(() => _isLoadingChart = false);
     }
   }
 
@@ -106,26 +92,35 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
       return;
     }
 
+    // When the id is already a Solana mint, we already know it.
+    if (_isMintId) {
+      _mintAddress = id;
+      _mintCache[id] = id;
+    }
+
     try {
-      final response = await http.get(
-        Uri.parse('https://api.coingecko.com/api/v3/coins/$id?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false'),
+      final url = _isMintId
+          ? 'https://api.coingecko.com/api/v3/coins/solana/contract/$id'
+          : 'https://api.coingecko.com/api/v3/coins/$id?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false';
+      // Metadata barely changes — cache it for a day.
+      final data = await CoinGeckoClient.instance.getJson(
+        url,
+        ttl: const Duration(hours: 24),
       );
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final platforms = data['platforms'] as Map<String, dynamic>?;
-        final desc = (data['description'] as Map<String, dynamic>?)?['en'] as String?;
-        if (mounted) {
-          setState(() {
-            if (platforms != null && platforms.containsKey('solana')) {
-              _mintAddress = platforms['solana'] as String?;
-              _mintCache[id] = _mintAddress!;
-            }
-            if (desc != null && desc.isNotEmpty) {
-              _description = desc.replaceAll(RegExp(r'<[^>]*>'), '');
-              _descriptionCache[id] = _description!;
-            }
-          });
-        }
+      if (data == null) return;
+      final platforms = data['platforms'] as Map<String, dynamic>?;
+      final desc = (data['description'] as Map<String, dynamic>?)?['en'] as String?;
+      if (mounted) {
+        setState(() {
+          if (platforms != null && platforms.containsKey('solana')) {
+            _mintAddress = platforms['solana'] as String?;
+            if (_mintAddress != null) _mintCache[id] = _mintAddress!;
+          }
+          if (desc != null && desc.isNotEmpty) {
+            _description = desc.replaceAll(RegExp(r'<[^>]*>'), '');
+            _descriptionCache[id] = _description!;
+          }
+        });
       }
     } catch (_) {}
   }

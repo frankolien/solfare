@@ -2,6 +2,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:solfare/core/security/passcode_crypto.dart';
+import 'package:solfare/core/security/secure_clipboard.dart';
+import 'package:solfare/core/security/secure_screen.dart';
 import 'package:solfare/core/util/copied_toast.dart';
 
 class ExportRecoveryScreen extends StatefulWidget {
@@ -20,7 +23,14 @@ class _ExportRecoveryScreenState extends State<ExportRecoveryScreen> {
   @override
   void initState() {
     super.initState();
+    SecureScreen.enable();
     _loadMnemonic();
+  }
+
+  @override
+  void dispose() {
+    SecureScreen.disable();
+    super.dispose();
   }
 
   Future<void> _loadMnemonic() async {
@@ -77,7 +87,7 @@ class _ExportRecoveryScreenState extends State<ExportRecoveryScreen> {
                 if (val.length == 6) {
                   // Verify passcode
                   final stored = await _storage.read(key: 'wallet_passcode');
-                  if (val == stored) {
+                  if (stored != null && PasscodeCrypto.verify(val, stored)) {
                     if (mounted) Navigator.pop(ctx);
                     setState(() => _isRevealed = true);
                   } else {
@@ -208,7 +218,7 @@ class _ExportRecoveryScreenState extends State<ExportRecoveryScreen> {
                       GestureDetector(
                         onTap: _isRevealed
                             ? () {
-                                Clipboard.setData(ClipboardData(text: _mnemonic!));
+                                SecureClipboard.copySensitive(_mnemonic!);
                                 showCopiedToast(context);
                               }
                             : null,

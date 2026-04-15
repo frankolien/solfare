@@ -3,8 +3,9 @@ import 'package:solfare/features/wallet/domain/entities/nft.dart';
 
 class CollectiblesSection extends StatelessWidget {
   final List<Nft> nfts;
+  final void Function(Nft nft)? onNftTap;
 
-  const CollectiblesSection({super.key, required this.nfts});
+  const CollectiblesSection({super.key, required this.nfts, this.onNftTap});
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +55,14 @@ class CollectiblesSection extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               itemCount: nfts.length,
               separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (context, index) => _buildNftCard(nfts[index]),
+              itemBuilder: (context, index) {
+                final nft = nfts[index];
+                return GestureDetector(
+                  onTap: onNftTap == null ? null : () => onNftTap!(nft),
+                  behavior: HitTestBehavior.opaque,
+                  child: _buildNftCard(nft),
+                );
+              },
             ),
           ),
       ],

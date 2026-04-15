@@ -6,6 +6,7 @@ import 'package:solfare/features/wallet/domain/entities/transactions.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_event.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_state.dart';
+import 'package:solfare/features/wallet/presentation/screens/nft_detail_screen.dart';
 import 'package:solfare/features/wallet/presentation/widgets/transaction_detail_sheet.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
@@ -312,6 +313,10 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   }
 
   Widget _buildTransactionRow(Transaction tx) {
+    if (tx.kind == TransactionKind.nft) {
+      return _buildNftRow(tx);
+    }
+
     final sent = _isSent(tx);
     final amountInSol = tx.amount / 1000000000;
     final sign = sent ? '-' : '+';
@@ -386,6 +391,78 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildNftRow(Transaction tx) {
+    final sent = _isSent(tx);
+    final other = sent ? tx.receiver : tx.sender;
+    final nft = tx.nft;
+
+    return GestureDetector(
+      onTap: nft == null
+          ? null
+          : () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => NftDetailScreen(nft: nft),
+                ),
+              ),
+      onLongPress: () => _showContextMenu(tx),
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: nft?.imageUrl != null
+                  ? Image.network(
+                      nft!.imageUrl!,
+                      width: 36,
+                      height: 36,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _nftPlaceholder(),
+                    )
+                  : _nftPlaceholder(),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    sent ? 'Sent NFT' : 'Received NFT',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontFamily: 'FKGrotesk',
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${sent ? 'To' : 'From'}:  ${_truncateAddress(other)}',
+                    style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 10,
+                      fontFamily: 'FKGrotesk',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _nftPlaceholder() {
+    return Container(
+      width: 36,
+      height: 36,
+      color: const Color(0xFF1C1F26),
+      child: Icon(Icons.image, color: Colors.grey[700], size: 18),
     );
   }
 

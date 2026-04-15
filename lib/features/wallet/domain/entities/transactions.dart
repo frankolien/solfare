@@ -1,3 +1,6 @@
+import 'package:solfare/features/wallet/domain/entities/nft.dart';
+
+enum TransactionKind { sol, nft }
 
 class Transaction {
   final int amount;
@@ -7,6 +10,8 @@ class Transaction {
   final String receiver;
   final DateTime timestamp;
   final String status;
+  final TransactionKind kind;
+  final Nft? nft;
 
   const Transaction({
     required this.amount,
@@ -16,6 +21,8 @@ class Transaction {
     required this.receiver,
     required this.timestamp,
     required this.status,
+    this.kind = TransactionKind.sol,
+    this.nft,
   });
 
 }

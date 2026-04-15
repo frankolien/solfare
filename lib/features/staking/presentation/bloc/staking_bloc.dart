@@ -12,6 +12,7 @@ import 'package:solfare/features/staking/presentation/bloc/staking_state.dart';
 import 'package:solfare/features/wallet/data/datasource/solana_rpc_datasource.dart';
 import 'package:solfare/features/wallet/data/repositories/wallet_repository_impl.dart';
 import 'package:solfare/features/wallet/data/datasource/wallet_local_datasource.dart';
+import 'package:solfare/core/util/app_log.dart';
 
 class StakingBloc extends Bloc<StakingEvent, StakingState> {
   final SolanaRpcDataSource _rpcDataSource;
@@ -130,10 +131,10 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
       // 4. Get rent exemption for stake account (200 bytes)
       final rentExemption = await _rpcDataSource.getMinimumBalanceForRentExemption(200);
 
-      print('[StakingBloc] lamports=$lamports, rentExemption=$rentExemption, total=${lamports + rentExemption}');
-      print('[StakingBloc] sender=${senderKeyPair.address}');
-      print('[StakingBloc] stakeAccount=${stakeAccountKeyPair.address}');
-      print('[StakingBloc] validator=${event.validatorVoteAccount}');
+      debugLog('[StakingBloc] lamports=$lamports, rentExemption=$rentExemption, total=${lamports + rentExemption}');
+      debugLog('[StakingBloc] sender=${senderKeyPair.address}');
+      debugLog('[StakingBloc] stakeAccount=${stakeAccountKeyPair.address}');
+      debugLog('[StakingBloc] validator=${event.validatorVoteAccount}');
 
       // 5. Get recent blockhash
       final blockhashData = await _rpcDataSource.getLatestBlockhash();
@@ -175,14 +176,14 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
       // 9. Send
       final signature = await _rpcDataSource.sendTransaction(signedTx.encode());
 
-      print('[StakingBloc] DelegateStake SUCCESS: $signature');
+      debugLog('[StakingBloc] DelegateStake SUCCESS: $signature');
       emit(StakeDelegated(
         signature: signature,
         amountInSol: event.amountInSol,
       ));
     } catch (e, stackTrace) {
-      print('[StakingBloc] DelegateStake FAILED: $e');
-      print('[StakingBloc] StackTrace: $stackTrace');
+      debugLog('[StakingBloc] DelegateStake FAILED: $e');
+      debugLog('[StakingBloc] StackTrace: $stackTrace');
       emit(StakingError(e.toString()));
     }
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:solfare/features/explore/domain/entities/dapp_item.dart';
+import 'package:solfare/core/util/app_log.dart';
 
 class DiscoverSection extends StatelessWidget {
   final List<DappItem> dapps;
@@ -107,9 +108,9 @@ class DiscoverSection extends StatelessWidget {
                   height: 40,
                   fit: BoxFit.cover,
                   loadingBuilder: (context, child, loadingProgress) {
-                    print('[Discover] Loading icon: ${dapp.iconUrl}');
+                    debugLog('[Discover] Loading icon: ${dapp.iconUrl}');
                     if (loadingProgress == null) {
-                      print('[Discover] Icon loaded OK: ${dapp.name}');
+                      debugLog('[Discover] Icon loaded OK: ${dapp.name}');
                       return child;
                     }
                     return Center(
@@ -124,8 +125,8 @@ class DiscoverSection extends StatelessWidget {
                     );
                   },
                   errorBuilder: (_, error, ___) {
-                    print('[Discover] Icon FAILED for ${dapp.name}: $error');
-                    print('[Discover] URL was: ${dapp.iconUrl}');
+                    debugLog('[Discover] Icon FAILED for ${dapp.name}: $error');
+                    debugLog('[Discover] URL was: ${dapp.iconUrl}');
                     return Center(
                       child: Text(
                         dapp.name.substring(0, 1),

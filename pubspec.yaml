@@ -34,6 +34,10 @@ dependencies:
   mobile_scanner: ^6.0.0
   webview_flutter: ^4.13.1
   shared_preferences: ^2.5.5
+  flutter_dotenv: ^5.2.1
+  flutter_windowmanager: ^0.2.0
+  crypto: ^3.0.3
+  web_socket_channel: ^3.0.1
 
 dev_dependencies:
   flutter_test:
@@ -44,6 +48,7 @@ flutter:
   generate: true
   uses-material-design: true
   assets:
+    - .env
     - assets/assets/images/
     - assets/assets/lottie/
     - assets/assets/videos/

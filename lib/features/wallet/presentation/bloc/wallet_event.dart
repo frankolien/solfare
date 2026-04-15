@@ -100,6 +100,14 @@ class FetchNftsEvent extends WalletEvent {
   List<Object?> get props => [address];
 }
 
+/// Event to fetch SPL tokens for a wallet address
+class FetchTokensEvent extends WalletEvent {
+  final String address;
+  const FetchTokensEvent(this.address);
+  @override
+  List<Object?> get props => [address];
+}
+
 /// Event to update wallet display name
 class UpdateWalletNameEvent extends WalletEvent {
   final String name;

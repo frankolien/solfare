@@ -9,6 +9,8 @@ class TransactionModel extends Transaction {
     required super.receiver,
     required super.timestamp,
     required super.status,
+    super.kind,
+    super.nft,
   });
 
   factory TransactionModel.fromJson(Map<String, dynamic> json) {

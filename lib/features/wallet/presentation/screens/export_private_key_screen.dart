@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:solfare/core/constant/solana_path.dart';
+import 'package:solfare/core/security/passcode_crypto.dart';
+import 'package:solfare/core/security/secure_clipboard.dart';
+import 'package:solfare/core/security/secure_screen.dart';
 import 'package:solfare/core/util/copied_toast.dart';
 
 enum _KeyFormat { base58, array }
@@ -28,7 +31,24 @@ class _ExportPrivateKeyScreenState extends State<ExportPrivateKeyScreen> {
   @override
   void initState() {
     super.initState();
+    SecureScreen.enable();
     _loadKey();
+  }
+
+  @override
+  void dispose() {
+    SecureScreen.disable();
+    final bytes = _privateKeyBytes;
+    if (bytes != null) {
+      try {
+        for (var i = 0; i < bytes.length; i++) {
+          bytes[i] = 0;
+        }
+      } catch (_) {}
+    }
+    _privateKeyBytes = null;
+    _privateKeyBase58 = null;
+    super.dispose();
   }
 
   Future<void> _loadKey() async {
@@ -119,7 +139,7 @@ class _ExportPrivateKeyScreenState extends State<ExportPrivateKeyScreen> {
                 if (val.length == 6) {
                   final stored = await _storage.read(key: 'wallet_passcode');
                   if (!context.mounted) return;
-                  if (val == stored) {
+                  if (stored != null && PasscodeCrypto.verify(val, stored)) {
                     Navigator.pop(ctx);
                     setState(() => _isRevealed = true);
                   } else {
@@ -346,7 +366,7 @@ class _ExportPrivateKeyScreenState extends State<ExportPrivateKeyScreen> {
                         const SizedBox(height: 12),
                         GestureDetector(
                           onTap: () {
-                            Clipboard.setData(ClipboardData(text: _displayKey));
+                            SecureClipboard.copySensitive(_displayKey);
                             showCopiedToast(context);
                           },
                           child: Row(

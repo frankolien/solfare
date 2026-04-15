@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solfare/core/router/app_router.dart';
+import 'package:solfare/core/security/secure_screen.dart';
 import 'package:solfare/features/wallet/domain/entities/wallet.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_event.dart';
@@ -36,14 +37,21 @@ class _ConfirmRecoveryPhraseScreenState
   @override
   void initState() {
     super.initState();
+    SecureScreen.enable();
     _words = widget.wallet.mnemonic.split(' ');
     _challengeIndices = _pickRandomIndices(_words.length, _totalSteps);
     _options = _challengeIndices.map((i) => _buildOptions(i)).toList();
   }
 
+  @override
+  void dispose() {
+    SecureScreen.disable();
+    super.dispose();
+  }
+
   /// Pick [count] unique random indices from 0..[total-1].
   List<int> _pickRandomIndices(int total, int count) {
-    final rng = Random();
+    final rng = Random.secure();
     final indices = <int>{};
     while (indices.length < count) {
       indices.add(rng.nextInt(total));
@@ -53,7 +61,7 @@ class _ConfirmRecoveryPhraseScreenState
 
   /// Build 6 shuffled options for the word at [correctIndex].
   List<String> _buildOptions(int correctIndex) {
-    final rng = Random();
+    final rng = Random.secure();
     final correct = _words[correctIndex];
     final others = <String>{};
 

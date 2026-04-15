@@ -24,6 +24,7 @@ import 'package:solfare/features/staking/presentation/bloc/staking_bloc.dart';
 import 'package:solfare/features/staking/presentation/bloc/staking_event.dart';
 import 'package:solfare/features/staking/presentation/bloc/staking_state.dart';
 import 'package:solfare/features/wallet/domain/entities/nft.dart';
+import 'package:solfare/features/wallet/domain/entities/spl_token.dart';
 import 'package:solfare/features/wallet/presentation/screens/my_wallets_screen.dart';
 import 'package:solfare/features/wallet/presentation/screens/edit_background_screen.dart';
 import 'package:solfare/features/wallet/presentation/screens/qr_scanner_screen.dart';
@@ -41,6 +42,16 @@ class _HomepageScreenState extends State<HomepageScreen> {
   String? _walletAddress;
   bool _hasFetchedPrice = false;
   bool _isRefreshing = false;
+  // Guards against ScrollUpdateNotification firing multiple times for a
+  // single pull gesture — setState() doesn't land until next frame.
+  bool _refreshLocked = false;
+  // Pre-loaded once so opacity flips don't re-decode from disk.
+  final _refreshLottie = Lottie.asset(
+    'assets/assets/lottie/loading_indicator.json',
+    repeat: true,
+    width: 18,
+    height: 18,
+  );
 
   // Cached values so data persists across BLoC state changes
   double _cachedBalanceInSol = 0.0;
@@ -49,6 +60,8 @@ class _HomepageScreenState extends State<HomepageScreen> {
   double _cachedSolPriceChange24h = 0.0;
   List<Nft> _cachedNfts = [];
   bool _hasFetchedNfts = false;
+  List<SplToken> _cachedTokens = [];
+  bool _hasFetchedTokens = false;
   List<StakeAccount> _cachedStakeAccounts = [];
   bool _hasFetchedStakes = false;
 
@@ -76,16 +89,28 @@ class _HomepageScreenState extends State<HomepageScreen> {
     }
   }
 
-  void _onRefresh(String? address) {
-    if (_isRefreshing) return;
+  Future<void> _onRefresh(String? address) async {
+    // Synchronous latch — beats setState's next-frame delay so a single pull
+    // gesture can't fire this twice even though ScrollUpdateNotification
+    // fires many times per drag.
+    if (_refreshLocked) return;
+    _refreshLocked = true;
     setState(() => _isRefreshing = true);
+
+    final bloc = context.read<WalletBloc>();
     if (address != null) {
-      context.read<WalletBloc>().add(FetchBalanceEvent(address));
+      bloc.add(FetchBalanceEvent(address));
+      bloc.add(FetchNftsEvent(address));
+      bloc.add(FetchTokensEvent(address));
     }
-    context.read<WalletBloc>().add(const FetchSolPriceEvent());
-    Future.delayed(const Duration(milliseconds: 2000), () {
-      if (mounted) setState(() => _isRefreshing = false);
-    });
+    bloc.add(const FetchSolPriceEvent());
+
+    // Keep the spinner visible just long enough to feel responsive.
+    // CoinGeckoClient serves cached data instantly, so most refreshes
+    // settle in <200ms. 600ms keeps the Lottie from flashing.
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (mounted) setState(() => _isRefreshing = false);
+    _refreshLocked = false;
   }
 
   void _requestAirdrop() {
@@ -259,6 +284,11 @@ class _HomepageScreenState extends State<HomepageScreen> {
         _hasFetchedNfts = true;
         context.read<WalletBloc>().add(FetchNftsEvent(state.address));
       }
+      // Fetch SPL tokens once
+      if (!_hasFetchedTokens) {
+        _hasFetchedTokens = true;
+        context.read<WalletBloc>().add(FetchTokensEvent(state.address));
+      }
       // Fetch stake accounts once
       if (!_hasFetchedStakes) {
         _hasFetchedStakes = true;
@@ -266,6 +296,8 @@ class _HomepageScreenState extends State<HomepageScreen> {
       }
     } else if (state is NftsFetched) {
       setState(() => _cachedNfts = state.nfts);
+    } else if (state is TokensFetched) {
+      setState(() => _cachedTokens = state.tokens);
     } else if (state is WalletCustomizationLoaded) {
       setState(() {
         _walletName = state.walletName;
@@ -344,29 +376,40 @@ class _HomepageScreenState extends State<HomepageScreen> {
   }
 
   Widget _buildPortfolioTab(_HomeData data) {
-    return NotificationListener<ScrollNotification>(
-      onNotification: (notification) {
-        if (notification is ScrollUpdateNotification &&
-            notification.metrics.pixels < -80 &&
-            !_isRefreshing) {
-          _onRefresh(data.address);
-        }
-        return false;
-      },
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-        child: Column(
-          children: [
-            // Pull-to-refresh lottie
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              height: _isRefreshing ? 50 : 0,
-              child: _isRefreshing
-                  ? Center(child: SizedBox(width: 22, height: 22, child: Lottie.asset('assets/assets/lottie/loading_indicator.json', repeat: true)))
-                  : const SizedBox.shrink(),
+    return Stack(
+      children: [
+        // Fixed Lottie indicator pinned to the top of the scroll viewport.
+        // Sitting outside the scroll view means it never pushes content down
+        // on show/hide, which was causing the scroll-jump.
+        Positioned(
+          top: 8,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: _isRefreshing ? 1 : 0,
+              child: Center(child: _refreshLottie),
             ),
-
-            BalanceCard(
+          ),
+        ),
+        NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            // Trigger once the user has pulled beyond -80px. The
+            // _isRefreshing guard in _onRefresh prevents re-entry while the
+            // same pull gesture keeps generating scroll updates.
+            if (notification is ScrollUpdateNotification &&
+                notification.metrics.pixels < -80 &&
+                !_isRefreshing) {
+              _onRefresh(data.address);
+            }
+            return false;
+          },
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            child: Column(
+              children: [
+                BalanceCard(
               balanceInSol: data.balanceInSol,
               isLoading: data.isLoadingBalance,
               walletAddress: data.address,
@@ -439,6 +482,7 @@ class _HomepageScreenState extends State<HomepageScreen> {
                 solPriceUsd: data.solPriceUsd,
                 solPriceChange24h: data.solPriceChange24h,
                 nfts: _cachedNfts,
+                tokens: _cachedTokens,
                 stakeAccounts: _cachedStakeAccounts,
                 solPriceForStaking: _cachedSolPriceUsd,
                 onStartStaking: () {
@@ -461,9 +505,11 @@ class _HomepageScreenState extends State<HomepageScreen> {
                 walletAddress: data.address,
                 onRequestAirdrop: _requestAirdrop,
               ),
-          ],
+              ],
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 }

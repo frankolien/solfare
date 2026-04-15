@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solfare/core/router/app_router.dart';
+import 'package:solfare/core/security/secure_screen.dart';
 import 'package:solfare/features/wallet/domain/entities/wallet.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_event.dart';
@@ -24,9 +25,16 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
   @override
   void initState() {
     super.initState();
+    SecureScreen.enable();
     // Dispatch event to create wallet when screen loads
     // BLoC will handle the async operation and emit states
     context.read<WalletBloc>().add(const CreateWalletEvent());
+  }
+
+  @override
+  void dispose() {
+    SecureScreen.disable();
+    super.dispose();
   }
 
   void _handleSaveWallet() {

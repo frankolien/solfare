@@ -5,6 +5,8 @@ import 'package:solfare/features/market/presentation/screens/token_detail_screen
 import 'package:solfare/features/staking/domain/entities/stake_account.dart';
 import 'package:solfare/features/staking/presentation/screens/stake_account_detail_screen.dart';
 import 'package:solfare/features/wallet/domain/entities/nft.dart';
+import 'package:solfare/features/wallet/domain/entities/spl_token.dart';
+import 'package:solfare/features/wallet/presentation/screens/nft_detail_screen.dart';
 import 'package:solfare/l10n/app_localizations.dart';
 
 /// Portfolio content shown when user has a balance — token list, staking, activity sections.
@@ -16,6 +18,7 @@ class PortfolioContent extends StatelessWidget {
   final VoidCallback? onViewTransactions;
   final VoidCallback? onStartStaking;
   final List<Nft> nfts;
+  final List<SplToken> tokens;
   final List<StakeAccount> stakeAccounts;
   final double solPriceForStaking;
 
@@ -28,6 +31,7 @@ class PortfolioContent extends StatelessWidget {
     this.onViewTransactions,
     this.onStartStaking,
     this.nfts = const [],
+    this.tokens = const [],
     this.stakeAccounts = const [],
     this.solPriceForStaking = 0.0,
   });
@@ -37,7 +41,11 @@ class PortfolioContent extends StatelessWidget {
     final price = solPriceUsd > 0 ? solPriceUsd : 86.29;
     final priceChange = solPriceChange24h;
     final isPositive = priceChange >= 0;
-    final totalValueUsd = balanceInSol * price;
+    final solValueUsd = balanceInSol * price;
+
+    final displayTokens = _buildDisplayTokens();
+    final tokensValueUsd = displayTokens.fold<double>(0, (sum, t) => sum + t.valueUsd);
+    final totalValueUsd = solValueUsd + tokensValueUsd;
 
     final l = AppLocalizations.of(context)!;
 
@@ -54,8 +62,22 @@ class PortfolioContent extends StatelessWidget {
           const Divider(color: Colors.white10, height: 1),
           const SizedBox(height: 16),
 
-          // Solana token card
-          _buildTokenCard(context, price, priceChange, isPositive, totalValueUsd),
+          // Solana (native)
+          _buildTokenCard(context, price, priceChange, isPositive, solValueUsd),
+
+          // Other SPL tokens (plus USDC even at zero balance)
+          ...displayTokens.map((t) => Padding(
+                padding: const EdgeInsets.only(top: 20),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => TokenDetailScreen(token: _splToMarketToken(t)),
+                    ),
+                  ),
+                  child: _buildSplTokenRow(t),
+                ),
+              )),
 
           const SizedBox(height: 32),
 
@@ -67,7 +89,16 @@ class PortfolioContent extends StatelessWidget {
           const SizedBox(height: 32),
 
           // Collectibles section
-          CollectiblesSection(nfts: nfts),
+          CollectiblesSection(
+            nfts: nfts,
+            onNftTap: (nft) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => NftDetailScreen(nft: nft),
+                ),
+              );
+            },
+          ),
 
           const SizedBox(height: 32),
 
@@ -196,6 +227,143 @@ class PortfolioContent extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// Merge fetched SPL tokens with a default USDC entry (zero balance) so
+  /// users always see the stablecoin in their list. Tokens are sorted by USD
+  /// value desc so the most valuable holdings show first.
+  List<SplToken> _buildDisplayTokens() {
+    final merged = <String, SplToken>{};
+    for (final t in tokens) {
+      merged[t.mint] = t;
+    }
+    merged.putIfAbsent(
+      WellKnownMints.usdc,
+      () => const SplToken(
+        mint: WellKnownMints.usdc,
+        name: 'USD Coin',
+        symbol: 'USDC',
+        imageUrl:
+            'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png',
+        balance: 0,
+        decimals: 6,
+        priceUsd: 1,
+      ),
+    );
+    final list = merged.values.toList()
+      ..sort((a, b) => b.valueUsd.compareTo(a.valueUsd));
+    return list;
+  }
+
+  Widget _buildSplTokenRow(SplToken token) {
+    final formattedBalance = token.balance == token.balance.roundToDouble()
+        ? token.balance.toStringAsFixed(0)
+        : token.balance.toStringAsFixed(token.balance < 1 ? 5 : 2);
+    final isPositive = token.priceChange24h >= 0;
+
+    return Row(
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle),
+          child: ClipOval(
+            child: token.imageUrl != null
+                ? Image.network(
+                    token.imageUrl!,
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _tokenFallbackAvatar(token.symbol),
+                  )
+                : _tokenFallbackAvatar(token.symbol),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                token.name,
+                style: const TextStyle(color: Colors.white, fontSize: 14, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 3),
+              Row(
+                children: [
+                  Text(
+                    token.priceUsd > 0 ? '\$${_fmtPrice(token.priceUsd)}' : token.symbol,
+                    style: TextStyle(color: Colors.grey[500], fontSize: 11, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w400),
+                  ),
+                  if (token.priceChange24h != 0) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      '${isPositive ? '+' : ''}${token.priceChange24h.toStringAsFixed(2)}%',
+                      style: TextStyle(
+                        color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFFF5252),
+                        fontSize: 11,
+                        fontFamily: 'FKGroteskSemiMono',
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              '\$${token.valueUsd.toStringAsFixed(2)}',
+              style: const TextStyle(color: Colors.white, fontSize: 14, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              '$formattedBalance ${token.symbol}',
+              style: TextStyle(color: Colors.grey[500], fontSize: 11, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w400),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _tokenFallbackAvatar(String symbol) {
+    final label = symbol.isNotEmpty ? symbol.substring(0, symbol.length.clamp(0, 3)) : '?';
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [Colors.purple[400]!, Colors.teal[400]!]),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        style: const TextStyle(color: Colors.white, fontSize: 11, fontFamily: 'FKGrotesk', fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  MarketToken _splToMarketToken(SplToken t) {
+    return MarketToken(
+      id: t.mint,
+      name: t.name,
+      symbol: t.symbol,
+      imageUrl: t.imageUrl ?? '',
+      currentPrice: t.priceUsd,
+      priceChangePercentage24h: t.priceChange24h,
+      marketCap: 0,
+      volume24h: 0,
+      sparklineData: const [],
+    );
+  }
+
+  String _fmtPrice(double price) {
+    if (price >= 1) return price.toStringAsFixed(2);
+    if (price >= 0.01) return price.toStringAsFixed(4);
+    return price.toStringAsFixed(6);
   }
 
   Widget _buildSectionHeader(String title) {

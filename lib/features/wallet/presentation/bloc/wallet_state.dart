@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:solfare/features/wallet/domain/entities/nft.dart';
+import 'package:solfare/features/wallet/domain/entities/spl_token.dart';
 import 'package:solfare/features/wallet/domain/entities/transactions.dart';
 import 'package:solfare/features/wallet/domain/entities/wallet.dart';
 
@@ -132,6 +133,14 @@ class NftsFetched extends WalletState {
   const NftsFetched(this.nfts);
   @override
   List<Object?> get props => [nfts];
+}
+
+/// SPL tokens fetched successfully
+class TokensFetched extends WalletState {
+  final List<SplToken> tokens;
+  const TokensFetched(this.tokens);
+  @override
+  List<Object?> get props => [tokens];
 }
 
 /// Wallet customization loaded (name + card background)
