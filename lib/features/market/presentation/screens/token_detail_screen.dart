@@ -1,9 +1,9 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:solfare/core/network/coingecko_client.dart';
+import 'package:solfare/core/wallet/active_wallet.dart';
 import 'package:solfare/features/market/domain/entities/market_token.dart';
 import 'package:solfare/features/wallet/presentation/screens/send_sol_screen.dart';
 
@@ -426,8 +426,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                   _buildActionButton(Icons.swap_horiz, 'Swap', enabled: false),
                   _buildActionButton(Icons.trending_up, 'Limit', enabled: false),
                   _buildActionButton(Icons.send, 'Send', enabled: token.id == 'solana', onTap: () async {
-                    final storage = const FlutterSecureStorage();
-                    final address = await storage.read(key: 'wallet_address');
+                    final address = await ActiveWallet.address();
                     if (address != null && mounted) {
                       Navigator.of(context).push(
                         MaterialPageRoute(

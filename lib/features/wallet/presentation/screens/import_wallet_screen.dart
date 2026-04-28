@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 import 'package:solfare/core/router/app_router.dart';
@@ -52,6 +53,22 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
     debugPrint('[Import] Confirm tapped — $wordCount words');
     debugPrint('[Import] Mnemonic preview: ${mnemonic.substring(0, mnemonic.length > 20 ? 20 : mnemonic.length)}...');
     context.read<WalletBloc>().add(ImportWalletEvent(mnemonic));
+  }
+
+  /// After a successful import, send the user through passcode creation
+  /// (and then biometric setup) if they don't already have a passcode set.
+  /// Going straight to homepage would leave the wallet accessible with no
+  /// lock screen — and on next launch the splash would bounce them back
+  /// to onboarding because no passcode exists.
+  Future<void> _continueAfterImport() async {
+    const storage = FlutterSecureStorage();
+    final hasPasscode = await storage.read(key: 'wallet_passcode') != null;
+    if (!mounted) return;
+    if (hasPasscode) {
+      context.go(AppRoutes.homepage);
+    } else {
+      context.go(AppRoutes.enterPasscode);
+    }
   }
 
   void _onPaste() async {
@@ -370,7 +387,7 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
                   borderRadius: BorderRadius.circular(30),
                 ),
               ),
-              onPressed: () => context.go(AppRoutes.homepage),
+              onPressed: _continueAfterImport,
               child: const Text(
                 'Quick setup',
                 style: TextStyle(

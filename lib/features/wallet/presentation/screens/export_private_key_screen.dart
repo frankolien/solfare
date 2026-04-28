@@ -10,6 +10,7 @@ import 'package:solfare/core/security/passcode_crypto.dart';
 import 'package:solfare/core/security/secure_clipboard.dart';
 import 'package:solfare/core/security/secure_screen.dart';
 import 'package:solfare/core/util/copied_toast.dart';
+import 'package:solfare/core/wallet/active_wallet.dart';
 
 enum _KeyFormat { base58, array }
 
@@ -52,7 +53,7 @@ class _ExportPrivateKeyScreenState extends State<ExportPrivateKeyScreen> {
   }
 
   Future<void> _loadKey() async {
-    final mnemonic = await _storage.read(key: 'wallet_mnemonic');
+    final mnemonic = await ActiveWallet.mnemonic();
 
     if (mnemonic != null && bip39.validateMnemonic(mnemonic)) {
       final seed = bip39.mnemonicToSeed(mnemonic);

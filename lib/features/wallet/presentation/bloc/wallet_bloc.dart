@@ -17,6 +17,7 @@ import 'package:solfare/features/wallet/data/datasource/wallet_local_datasource.
 import 'package:solfare/features/wallet/data/repositories/wallet_repository_impl.dart';
 import 'package:solfare/features/wallet/domain/entities/nft.dart';
 import 'package:solfare/features/wallet/domain/entities/spl_token.dart';
+import 'package:solfare/features/wallet/domain/entities/wallet_account.dart';
 import 'package:solfare/features/wallet/domain/usecases/create_wallet.dart';
 import 'package:solfare/features/wallet/domain/usecases/save_wallet.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_event.dart';
@@ -91,9 +92,14 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     on<SendSolEvent>(_onSendSol);
     on<FetchNftsEvent>(_onFetchNfts, transformer: _concurrent());
     on<FetchTokensEvent>(_onFetchTokens, transformer: _concurrent());
+    on<LoadAllWalletsEvent>(_onLoadAllWallets);
+    on<SwitchWalletEvent>(_onSwitchWallet);
+    on<AddWalletEvent>(_onAddWallet);
+    on<RemoveWalletEvent>(_onRemoveWallet);
     on<UpdateWalletNameEvent>(_onUpdateWalletName, transformer: _concurrent());
     on<UpdateCardBackgroundEvent>(_onUpdateCardBackground, transformer: _concurrent());
     on<LoadWalletCustomizationEvent>(_onLoadWalletCustomization, transformer: _concurrent());
+    on<NetworkChangedEvent>(_onNetworkChangedEvent);
   }
 
   /// Allows events to run concurrently instead of waiting in queue
@@ -101,20 +107,24 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     return (events, mapper) => events.asyncExpand(mapper);
   }
 
-  static const _walletNameKey = 'wallet_name';
-  static const _cardBackgroundKey = 'card_background';
-
   Future<void> _onLoadWalletCustomization(
     LoadWalletCustomizationEvent event,
     Emitter<WalletState> emit,
   ) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final name = prefs.getString(_walletNameKey) ?? 'Main Wallet';
-      final card = prefs.getString(_cardBackgroundKey) ?? 'card_1.png';
-      emit(WalletCustomizationLoaded(walletName: name, cardBackground: card));
+      final active = await _repository.getActiveWallet();
+      if (active != null) {
+        emit(WalletCustomizationLoaded(
+          walletName: active.name,
+          cardBackground: active.cardBackground,
+        ));
+      } else {
+        emit(const WalletCustomizationLoaded(
+            walletName: 'Main Wallet', cardBackground: 'card_1.png'));
+      }
     } catch (_) {
-      emit(const WalletCustomizationLoaded(walletName: 'Main Wallet', cardBackground: 'card_1.png'));
+      emit(const WalletCustomizationLoaded(
+          walletName: 'Main Wallet', cardBackground: 'card_1.png'));
     }
   }
 
@@ -123,10 +133,17 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     Emitter<WalletState> emit,
   ) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_walletNameKey, event.name);
-      final card = prefs.getString(_cardBackgroundKey) ?? 'card_1.png';
-      emit(WalletCustomizationLoaded(walletName: event.name, cardBackground: card));
+      final active = await _repository.getActiveWallet();
+      if (active == null) return;
+      await _repository.renameWallet(active.id, event.name);
+      emit(WalletCustomizationLoaded(
+        walletName: event.name,
+        cardBackground: active.cardBackground,
+      ));
+      // Also refresh WalletsLoaded so the swipeable carousel picks up the
+      // new name on inactive pages.
+      final all = await _repository.getAllWallets();
+      emit(WalletsLoaded(wallets: all, activeId: active.id));
     } catch (_) {}
   }
 
@@ -136,11 +153,15 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
   ) async {
     debugLog('[BLOC] _onUpdateCardBackground ENTERED with: ${event.cardFileName}');
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_cardBackgroundKey, event.cardFileName);
-      final name = prefs.getString(_walletNameKey) ?? 'Main Wallet';
-      debugLog('[BLOC] Emitting WalletCustomizationLoaded: card=${event.cardFileName}, name=$name');
-      emit(WalletCustomizationLoaded(walletName: name, cardBackground: event.cardFileName));
+      final active = await _repository.getActiveWallet();
+      if (active == null) return;
+      await _repository.setWalletCardBackground(active.id, event.cardFileName);
+      emit(WalletCustomizationLoaded(
+        walletName: active.name,
+        cardBackground: event.cardFileName,
+      ));
+      final all = await _repository.getAllWallets();
+      emit(WalletsLoaded(wallets: all, activeId: active.id));
     } catch (e) {
       debugLog('[BLOC] _onUpdateCardBackground ERROR: $e');
     }
@@ -272,20 +293,9 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     Emitter<WalletState> emit,
   ) async {
     try {
-      final address = await _repository.getSavedAddress();
-      if (address != null && address.isNotEmpty) {
-        emit(WalletAddressLoaded(address));
-        // Start live balance subscription for this address.
-        _watchedAddress = address;
-        _balanceWs.watch(address);
-        _startPricePolling();
-        // Also load customization so homepage gets it in the same flow
-        try {
-          final prefs = await SharedPreferences.getInstance();
-          final name = prefs.getString(_walletNameKey) ?? 'Main Wallet';
-          final card = prefs.getString(_cardBackgroundKey) ?? 'card_1.png';
-          emit(WalletCustomizationLoaded(walletName: name, cardBackground: card));
-        } catch (_) {}
+      final active = await _repository.getActiveWallet();
+      if (active != null && active.address.isNotEmpty) {
+        await _activateWallet(active, emit);
       } else {
         emit(const WalletError('No wallet address found'));
       }
@@ -294,10 +304,124 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  /// Called when [NetworkConstants.setNetwork] runs — force the WS to
-  /// reconnect against the new cluster.
+  /// Shared path for "the active wallet is now X" — emits the address +
+  /// customization states, starts WS/polling, and refreshes the wallet list.
+  Future<void> _activateWallet(
+    WalletAccount wallet,
+    Emitter<WalletState> emit,
+  ) async {
+    emit(WalletAddressLoaded(wallet.address));
+    _watchedAddress = wallet.address;
+    _balanceWs.watch(wallet.address);
+    _startPricePolling();
+    emit(WalletCustomizationLoaded(
+      walletName: wallet.name,
+      cardBackground: wallet.cardBackground,
+    ));
+    // Surface the current list so the swipeable card UI (PR 2) can render.
+    final all = await _repository.getAllWallets();
+    emit(WalletsLoaded(wallets: all, activeId: wallet.id));
+  }
+
+  Future<void> _onLoadAllWallets(
+    LoadAllWalletsEvent event,
+    Emitter<WalletState> emit,
+  ) async {
+    try {
+      final all = await _repository.getAllWallets();
+      final active = await _repository.getActiveWallet();
+      emit(WalletsLoaded(wallets: all, activeId: active?.id));
+    } catch (e) {
+      emit(WalletError(e.toString()));
+    }
+  }
+
+  Future<void> _onSwitchWallet(
+    SwitchWalletEvent event,
+    Emitter<WalletState> emit,
+  ) async {
+    try {
+      await _repository.setActiveWalletId(event.walletId);
+      final active = await _repository.getActiveWallet();
+      if (active == null) {
+        emit(const WalletError('Wallet not found'));
+        return;
+      }
+      // Tear down WS for the old wallet before pointing everything at the
+      // new one so we don't briefly double-subscribe.
+      await _balanceWs.stop();
+      await _activateWallet(active, emit);
+    } catch (e) {
+      emit(WalletError(e.toString()));
+    }
+  }
+
+  Future<void> _onAddWallet(
+    AddWalletEvent event,
+    Emitter<WalletState> emit,
+  ) async {
+    try {
+      final account = await _repository.addWallet(event.mnemonic, name: event.name);
+      await _balanceWs.stop();
+      await _activateWallet(account, emit);
+    } catch (e) {
+      emit(WalletError(e.toString()));
+    }
+  }
+
+  Future<void> _onRemoveWallet(
+    RemoveWalletEvent event,
+    Emitter<WalletState> emit,
+  ) async {
+    try {
+      await _repository.removeWallet(event.walletId);
+      final remaining = await _repository.getAllWallets();
+      if (remaining.isEmpty) {
+        // No wallets left — stop WS + polling, show cleared state so the
+        // router sends the user back to onboarding.
+        _watchedAddress = null;
+        _stopPricePolling();
+        await _balanceWs.stop();
+        emit(const WalletsLoaded(wallets: [], activeId: null));
+        emit(const WalletCleared());
+        return;
+      }
+      final active = await _repository.getActiveWallet();
+      if (active != null) {
+        await _balanceWs.stop();
+        await _activateWallet(active, emit);
+      }
+    } catch (e) {
+      emit(WalletError(e.toString()));
+    }
+  }
+
+  /// Called when [NetworkConstants.setNetwork] runs. Reconnects the WS to
+  /// the new cluster AND refetches cluster-scoped data (balance, tokens,
+  /// NFTs, transactions) for the active wallet — otherwise the UI keeps
+  /// showing stale holdings from the previous network until the user
+  /// manually refreshes.
   void _onNetworkChanged(SolanaNetwork _) {
     _balanceWs.reconnect();
+    add(const NetworkChangedEvent());
+  }
+
+  /// Clears cluster-scoped data (tokens, NFTs) and refetches everything
+  /// for the active wallet so the UI doesn't show holdings from the
+  /// previous cluster after a network switch.
+  Future<void> _onNetworkChangedEvent(
+    NetworkChangedEvent event,
+    Emitter<WalletState> emit,
+  ) async {
+    emit(const TokensFetched([]));
+    emit(const NftsFetched([]));
+    final address = _watchedAddress;
+    if (address != null) {
+      add(FetchBalanceEvent(address));
+      add(FetchTokensEvent(address));
+      add(FetchNftsEvent(address));
+      add(FetchTransactionsEvent(address));
+    }
   }
 
   /// Begin periodic SOL price refresh. Idempotent — calling twice won't
@@ -360,6 +484,13 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     try {
       await _saveWallet(event.wallet);
       emit(const WalletSaved());
+      // Re-activate so WS/price polling/customization target the newly-saved
+      // wallet and the swipeable card list picks it up on the next build.
+      final active = await _repository.getActiveWallet();
+      if (active != null) {
+        await _balanceWs.stop();
+        await _activateWallet(active, emit);
+      }
     } catch (e) {
       emit(WalletError(e.toString()));
     }

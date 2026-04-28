@@ -21,6 +21,7 @@ class PortfolioContent extends StatelessWidget {
   final List<SplToken> tokens;
   final List<StakeAccount> stakeAccounts;
   final double solPriceForStaking;
+  final Widget? afterActivity;
 
   const PortfolioContent({
     super.key,
@@ -34,6 +35,7 @@ class PortfolioContent extends StatelessWidget {
     this.tokens = const [],
     this.stakeAccounts = const [],
     this.solPriceForStaking = 0.0,
+    this.afterActivity,
   });
 
   @override
@@ -111,6 +113,11 @@ class PortfolioContent extends StatelessWidget {
           _buildSectionHeader(l.activity),
           const SizedBox(height: 16),
           _buildSectionRow(icon: Icons.history, text: l.transactionHistory, buttonText: l.view, buttonColor: const Color(0xFF2A2D35), textColor: Colors.white, onTap: onViewTransactions ?? () {}),
+
+          if (afterActivity != null) ...[
+            const SizedBox(height: 24),
+            afterActivity!,
+          ],
 
           const SizedBox(height: 32),
 

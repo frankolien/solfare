@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
@@ -67,11 +68,22 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     return BlocListener<WalletBloc, WalletState>(
       // Listen to wallet state changes for navigation
-      listener: (context, state) {
+      listener: (context, state) async {
         if (state is WalletExistsChecked) {
-          // Navigate based on wallet existence
+          // iOS Keychain persists across uninstalls, so a wallet can exist
+          // without its paired passcode (e.g. manual Keychain reset, old
+          // install). In that case sending the user to unlock traps them —
+          // bounce to onboarding instead.
           if (state.exists) {
-            context.go(AppRoutes.unlockPasscode);
+            const storage = FlutterSecureStorage();
+            final hasPasscode =
+                await storage.read(key: 'wallet_passcode') != null;
+            if (!mounted) return;
+            if (hasPasscode) {
+              context.go(AppRoutes.unlockPasscode);
+            } else {
+              context.go(AppRoutes.onboarding);
+            }
           } else {
             context.go(AppRoutes.onboarding);
           }

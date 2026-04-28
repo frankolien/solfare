@@ -92,31 +92,45 @@ class BalanceWsService with WidgetsBindingObserver {
     try {
       final channel = WebSocketChannel.connect(Uri.parse(url));
       _channel = channel;
+
+      // `channel.ready` resolves once the WS handshake succeeds or errors.
+      // DNS failures (offline simulator, no internet) surface here rather
+      // than as a synchronous throw, so we must await it in a zone that
+      // catches the rejection — otherwise the exception escapes to the
+      // root zone and the debugger stops.
+      channel.ready.then((_) {
+        if (_stopped) return;
+        // Fire accountSubscribe once the socket is actually open.
+        _send({
+          'jsonrpc': '2.0',
+          'id': 1,
+          'method': 'accountSubscribe',
+          'params': [
+            _currentAddress,
+            {'encoding': 'jsonParsed', 'commitment': 'confirmed'},
+          ],
+        });
+        debugLog('[WS] connected, subscribing to $_currentAddress');
+      }).catchError((Object e) {
+        debugLog('[WS] handshake failed: $e');
+        _scheduleReconnect();
+      });
+
       _sub = channel.stream.listen(
         _handleMessage,
-        onError: (_) => _scheduleReconnect(),
+        onError: (Object e) {
+          debugLog('[WS] stream error: $e');
+          _scheduleReconnect();
+        },
         onDone: _scheduleReconnect,
         cancelOnError: true,
       );
-
-      // Fire accountSubscribe.
-      _send({
-        'jsonrpc': '2.0',
-        'id': 1,
-        'method': 'accountSubscribe',
-        'params': [
-          _currentAddress,
-          {'encoding': 'jsonParsed', 'commitment': 'confirmed'},
-        ],
-      });
 
       // Helius closes idle sockets after ~60s — ping every 30s.
       _pingTimer?.cancel();
       _pingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
         _send({'jsonrpc': '2.0', 'id': 999, 'method': 'ping'});
       });
-
-      debugLog('[WS] connected, subscribing to $_currentAddress');
     } catch (e) {
       debugLog('[WS] connect failed: $e');
       _scheduleReconnect();

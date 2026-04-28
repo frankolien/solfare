@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:lottie/lottie.dart';
+import 'package:solfare/core/wallet/active_wallet.dart';
 import 'package:solfare/features/swap/domain/entities/swap_token.dart';
 import 'package:solfare/features/swap/presentation/bloc/swap_bloc.dart';
 import 'package:solfare/features/swap/presentation/bloc/swap_event.dart';
@@ -30,7 +30,7 @@ class _SwapScreenState extends State<SwapScreen> {
   }
 
   Future<void> _loadAddress() async {
-    final address = await const FlutterSecureStorage().read(key: 'wallet_address');
+    final address = await ActiveWallet.address();
     if (mounted) setState(() => _walletAddress = address);
   }
 

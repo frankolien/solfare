@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:solfare/core/security/passcode_crypto.dart';
 import 'package:solfare/core/security/secure_clipboard.dart';
 import 'package:solfare/core/security/secure_screen.dart';
+import 'package:solfare/core/wallet/active_wallet.dart';
 import 'package:solfare/core/util/copied_toast.dart';
 
 class ExportRecoveryScreen extends StatefulWidget {
@@ -34,7 +35,7 @@ class _ExportRecoveryScreenState extends State<ExportRecoveryScreen> {
   }
 
   Future<void> _loadMnemonic() async {
-    final mnemonic = await _storage.read(key: 'wallet_mnemonic');
+    final mnemonic = await ActiveWallet.mnemonic();
     if (mounted) {
       setState(() {
         _mnemonic = mnemonic;

@@ -4,10 +4,10 @@ import 'dart:typed_data';
 import 'package:bip39/bip39.dart' as bip39;
 import 'package:ed25519_hd_key/ed25519_hd_key.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:solana/solana.dart' as solana;
 import 'package:solfare/core/constant/network.dart';
+import 'package:solfare/core/wallet/active_wallet.dart';
 import 'package:solfare/features/swap/data/datasource/jupiter_datasource.dart';
 import 'package:solfare/features/swap/domain/entities/swap_token.dart';
 import 'package:solfare/features/swap/presentation/bloc/swap_event.dart';
@@ -15,7 +15,6 @@ import 'package:solfare/features/swap/presentation/bloc/swap_state.dart';
 
 class SwapBloc extends Bloc<SwapEvent, SwapState> {
   late final JupiterDataSource _jupiter;
-  final _storage = const FlutterSecureStorage();
 
   Map<String, dynamic>? _lastQuoteResponse;
 
@@ -156,8 +155,8 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
         userPublicKey: event.walletAddress,
       );
 
-      // 2. Derive keypair from stored mnemonic
-      final mnemonic = await _storage.read(key: 'wallet_mnemonic');
+      // 2. Derive keypair from the active wallet's mnemonic
+      final mnemonic = await ActiveWallet.mnemonic();
       if (mnemonic == null) throw Exception('No wallet found');
 
       final seed = bip39.mnemonicToSeed(mnemonic);

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:solfare/core/constant/network.dart';
 import 'package:solfare/core/locale/locale_provider.dart';
 import 'package:solfare/core/router/app_router.dart';
@@ -18,7 +20,26 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env');
   await NetworkConstants.load();
+  await _wipeSecureStorageOnFreshInstall();
   runApp(const MainApp());
+}
+
+/// iOS keeps Keychain entries across app uninstalls, so a fresh reinstall
+/// inherits whatever mnemonic/passcode/etc the previous install left behind
+/// — which causes "ghost wallets", orphaned passcodes, and stuck unlock
+/// screens. SharedPreferences *is* wiped on uninstall, so we use its
+/// absence as the signal for "truly fresh install" and nuke everything in
+/// secure storage once, at the very top of the boot.
+Future<void> _wipeSecureStorageOnFreshInstall() async {
+  const flag = 'app_installed_v1';
+  final prefs = await SharedPreferences.getInstance();
+  if (prefs.getBool(flag) == true) return;
+  try {
+    await const FlutterSecureStorage().deleteAll();
+  } catch (_) {
+    // Best-effort — never block app startup if Keychain access hiccups.
+  }
+  await prefs.setBool(flag, true);
 }
 
 class MainApp extends StatefulWidget {
@@ -94,3 +115,4 @@ class _LocaleScope extends InheritedWidget {
 extension LocaleProviderExtension on BuildContext {
   LocaleProvider get localeProvider => _LocaleScope.of(this);
 }
+

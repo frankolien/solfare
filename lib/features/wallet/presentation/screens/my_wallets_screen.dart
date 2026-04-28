@@ -88,7 +88,10 @@ class _MyWalletsScreenState extends State<MyWalletsScreen> {
               Navigator.pop(context);
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => EditBackgroundScreen(currentCard: _selectedCard),
+                  builder: (_) => EditBackgroundScreen(
+                    currentCard: _selectedCard,
+                    walletId: widget.walletAddress,
+                  ),
                 ),
               ).then((card) async {
                 if (card != null && card is String) {

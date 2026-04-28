@@ -1,16 +1,21 @@
+import 'package:flutter/cupertino.dart'
+    show CupertinoSliverRefreshControl, RefreshIndicatorMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:go_router/go_router.dart';
 import 'package:solfare/core/router/app_router.dart';
+import 'package:solfare/features/homepage/data/portfolio_history.dart';
 import 'package:solfare/features/homepage/presentation/bloc/homepage_bloc.dart';
 import 'package:solfare/features/homepage/presentation/bloc/homepage_event.dart';
 import 'package:solfare/features/homepage/presentation/bloc/homepage_state.dart';
 import 'package:solfare/features/homepage/presentation/widgets/balance_card.dart';
 import 'package:solfare/features/homepage/presentation/widgets/action_buttons.dart';
 import 'package:solfare/features/homepage/presentation/widgets/bottom_nav_bar.dart';
+import 'package:solfare/features/homepage/presentation/widgets/add_wallet_sheet.dart';
 import 'package:solfare/features/homepage/presentation/widgets/get_started_section.dart';
+import 'package:solfare/features/homepage/presentation/widgets/portfolio_chart.dart';
+import 'package:solfare/features/homepage/presentation/widgets/wallet_card_swiper.dart';
 import 'package:solfare/features/homepage/presentation/widgets/portfolio_content.dart';
 import 'package:solfare/features/market/presentation/screens/market_screen.dart';
 import 'package:solfare/features/swap/presentation/screens/swap_screen.dart';
@@ -25,6 +30,7 @@ import 'package:solfare/features/staking/presentation/bloc/staking_event.dart';
 import 'package:solfare/features/staking/presentation/bloc/staking_state.dart';
 import 'package:solfare/features/wallet/domain/entities/nft.dart';
 import 'package:solfare/features/wallet/domain/entities/spl_token.dart';
+import 'package:solfare/features/wallet/domain/entities/wallet_account.dart';
 import 'package:solfare/features/wallet/presentation/screens/my_wallets_screen.dart';
 import 'package:solfare/features/wallet/presentation/screens/edit_background_screen.dart';
 import 'package:solfare/features/wallet/presentation/screens/qr_scanner_screen.dart';
@@ -41,17 +47,6 @@ class HomepageScreen extends StatefulWidget {
 class _HomepageScreenState extends State<HomepageScreen> {
   String? _walletAddress;
   bool _hasFetchedPrice = false;
-  bool _isRefreshing = false;
-  // Guards against ScrollUpdateNotification firing multiple times for a
-  // single pull gesture — setState() doesn't land until next frame.
-  bool _refreshLocked = false;
-  // Pre-loaded once so opacity flips don't re-decode from disk.
-  final _refreshLottie = Lottie.asset(
-    'assets/assets/lottie/loading_indicator.json',
-    repeat: true,
-    width: 18,
-    height: 18,
-  );
 
   // Cached values so data persists across BLoC state changes
   double _cachedBalanceInSol = 0.0;
@@ -62,6 +57,8 @@ class _HomepageScreenState extends State<HomepageScreen> {
   bool _hasFetchedNfts = false;
   List<SplToken> _cachedTokens = [];
   bool _hasFetchedTokens = false;
+  List<WalletAccount> _wallets = const [];
+  String? _activeWalletId;
   List<StakeAccount> _cachedStakeAccounts = [];
   bool _hasFetchedStakes = false;
 
@@ -76,27 +73,19 @@ class _HomepageScreenState extends State<HomepageScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadCustomization());
   }
 
-  Future<void> _loadCustomization() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (!mounted) return;
-      setState(() {
-        _walletName = prefs.getString('wallet_name') ?? 'Main Wallet';
-        _cardBackground = prefs.getString('card_background') ?? 'card_1.png';
-      });
-    } catch (_) {
-      // Platform not ready yet, keep defaults
+  void _loadCustomization() {
+    // Bloc resolves the active wallet's name + card from the multi-wallet
+    // store and fires WalletCustomizationLoaded back, which _handleWalletState
+    // captures into _walletName / _cardBackground.
+    if (mounted) {
+      context.read<WalletBloc>().add(const LoadWalletCustomizationEvent());
     }
   }
 
+  // CupertinoSliverRefreshControl keeps the indicator slot open for as
+  // long as this Future is pending. ~1.2s matches Solflare's deliberate
+  // "we're working" feel even when data lands sooner.
   Future<void> _onRefresh(String? address) async {
-    // Synchronous latch — beats setState's next-frame delay so a single pull
-    // gesture can't fire this twice even though ScrollUpdateNotification
-    // fires many times per drag.
-    if (_refreshLocked) return;
-    _refreshLocked = true;
-    setState(() => _isRefreshing = true);
-
     final bloc = context.read<WalletBloc>();
     if (address != null) {
       bloc.add(FetchBalanceEvent(address));
@@ -104,13 +93,7 @@ class _HomepageScreenState extends State<HomepageScreen> {
       bloc.add(FetchTokensEvent(address));
     }
     bloc.add(const FetchSolPriceEvent());
-
-    // Keep the spinner visible just long enough to feel responsive.
-    // CoinGeckoClient serves cached data instantly, so most refreshes
-    // settle in <200ms. 600ms keeps the Lottie from flashing.
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (mounted) setState(() => _isRefreshing = false);
-    _refreshLocked = false;
+    await Future.delayed(const Duration(milliseconds: 1200));
   }
 
   void _requestAirdrop() {
@@ -186,21 +169,23 @@ class _HomepageScreenState extends State<HomepageScreen> {
       case 'rename':
         Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => RenameWalletScreen(currentName: _walletName)),
-        ).then((newName) async {
-          if (newName != null && newName is String) {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setString('wallet_name', newName);
-            if (mounted) setState(() => _walletName = newName);
+        ).then((newName) {
+          if (newName != null && newName is String && mounted) {
+            context.read<WalletBloc>().add(UpdateWalletNameEvent(newName));
           }
         });
       case 'edit_bg':
+        if (_activeWalletId == null) break;
         Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => EditBackgroundScreen(currentCard: _cardBackground)),
-        ).then((card) async {
-          if (card != null && card is String) {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setString('card_background', card);
-            if (mounted) setState(() => _cardBackground = card);
+          MaterialPageRoute(
+            builder: (_) => EditBackgroundScreen(
+              currentCard: _cardBackground,
+              walletId: _activeWalletId!,
+            ),
+          ),
+        ).then((card) {
+          if (card != null && card is String && mounted) {
+            context.read<WalletBloc>().add(UpdateCardBackgroundEvent(card));
           }
         });
     }
@@ -298,6 +283,11 @@ class _HomepageScreenState extends State<HomepageScreen> {
       setState(() => _cachedNfts = state.nfts);
     } else if (state is TokensFetched) {
       setState(() => _cachedTokens = state.tokens);
+    } else if (state is WalletsLoaded) {
+      setState(() {
+        _wallets = state.wallets;
+        _activeWalletId = state.activeId;
+      });
     } else if (state is WalletCustomizationLoaded) {
       setState(() {
         _walletName = state.walletName;
@@ -354,6 +344,15 @@ class _HomepageScreenState extends State<HomepageScreen> {
       });
     }
 
+    // Record a portfolio snapshot whenever we have a complete picture
+    // (balance AND price known). PortfolioHistory dedupes to one entry/hour
+    // so spamming this here is cheap.
+    if (balanceInSol > 0 && solPriceUsd > 0 && (address ?? _walletAddress) != null) {
+      final tokensUsd = _cachedTokens.fold<double>(0, (sum, t) => sum + t.valueUsd);
+      final totalUsd = (balanceInSol * solPriceUsd) + tokensUsd;
+      PortfolioHistory.instance.record(address ?? _walletAddress!, totalUsd);
+    }
+
     return _HomeData(
       balanceInSol: balanceInSol,
       isLoadingBalance: isLoadingBalance,
@@ -375,117 +374,133 @@ class _HomepageScreenState extends State<HomepageScreen> {
     }
   }
 
-  Widget _buildPortfolioTab(_HomeData data) {
-    return Stack(
-      children: [
-        // Fixed Lottie indicator pinned to the top of the scroll viewport.
-        // Sitting outside the scroll view means it never pushes content down
-        // on show/hide, which was causing the scroll-jump.
-        Positioned(
-          top: 8,
-          left: 0,
-          right: 0,
-          child: IgnorePointer(
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 200),
-              opacity: _isRefreshing ? 1 : 0,
-              child: Center(child: _refreshLottie),
+  /// The wallet card region — swipeable between wallets with a trailing
+  /// "add wallet" slot. When only one wallet is installed the list is still
+  /// two pages long (the wallet + the add slot) so the swipe affordance
+  /// stays discoverable.
+  Widget _buildWalletArea(BuildContext context, _HomeData data) {
+    // No wallets yet — fall back to a single static BalanceCard so the
+    // initial render before WalletsLoaded arrives doesn't flicker.
+    if (_wallets.isEmpty) {
+      return _buildBalanceCard(
+        data: data,
+        name: _walletName,
+        card: _cardBackground,
+      );
+    }
+
+    return WalletCardSwiper(
+      wallets: _wallets,
+      activeWalletId: _activeWalletId,
+      onWalletSelected: (id) {
+        context.read<WalletBloc>().add(SwitchWalletEvent(id));
+      },
+      onAddWallet: () => showAddWalletSheet(context),
+      walletBuilder: (ctx, wallet) {
+        final isActive = wallet.id == _activeWalletId;
+        // Only the active wallet displays live balance/price data — inactive
+        // pages render their card with dash placeholders until switched to.
+        return _buildBalanceCard(
+          data: data,
+          name: wallet.name,
+          card: wallet.cardBackground,
+          forcedAddress: wallet.address,
+          showData: isActive,
+        );
+      },
+    );
+  }
+
+  Widget _buildBalanceCard({
+    required _HomeData data,
+    required String name,
+    required String card,
+    String? forcedAddress,
+    bool showData = true,
+  }) {
+    return BalanceCard(
+      balanceInSol: showData ? data.balanceInSol : 0,
+      isLoading: showData ? data.isLoadingBalance : false,
+      walletAddress: forcedAddress ?? data.address,
+      solPriceUsd: showData ? data.solPriceUsd : 0,
+      solPriceChange24h: showData ? data.solPriceChange24h : 0,
+      walletName: name,
+      cardBackground: card,
+      onWalletTap: () {
+        if (_activeWalletId == null) return;
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => EditBackgroundScreen(
+              currentCard: card,
+              walletId: _activeWalletId!,
             ),
           ),
-        ),
-        NotificationListener<ScrollNotification>(
-          onNotification: (notification) {
-            // Trigger once the user has pulled beyond -80px. The
-            // _isRefreshing guard in _onRefresh prevents re-entry while the
-            // same pull gesture keeps generating scroll updates.
-            if (notification is ScrollUpdateNotification &&
-                notification.metrics.pixels < -80 &&
-                !_isRefreshing) {
-              _onRefresh(data.address);
-            }
-            return false;
+        ).then((picked) {
+          if (picked != null && picked is String && mounted) {
+            context.read<WalletBloc>().add(UpdateCardBackgroundEvent(picked));
+          }
+        });
+      },
+      onMoreAction: (action) => _handleCardAction(action),
+      onMwTap: () {
+        if (_walletAddress != null) {
+          final usdValue = _cachedBalanceInSol * (_cachedSolPriceUsd > 0 ? _cachedSolPriceUsd : 0);
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => MyWalletsScreen(
+                walletAddress: _walletAddress!,
+                balanceUsd: usdValue,
+                priceChange24h: _cachedSolPriceChange24h,
+                walletName: _walletName,
+                cardBackground: _cardBackground,
+              ),
+            ),
+          ).then((_) => _loadCustomization());
+        }
+      },
+    );
+  }
+
+  Widget _buildPortfolioTab(_HomeData data) {
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics()),
+      slivers: [
+        // Solflare-style pull-to-refresh. The builder receives live pull
+        // progress — we use it to fade and scale the Lottie naturally as
+        // the user drags, and keep it playing while refresh runs.
+        CupertinoSliverRefreshControl(
+          refreshTriggerPullDistance: 100,
+          refreshIndicatorExtent: 60,
+          onRefresh: () => _onRefresh(data.address),
+          builder: (context, mode, pulled, trigger, indicator) {
+            final visible = pulled > 0 || mode == RefreshIndicatorMode.refresh;
+            if (!visible) return const SizedBox.shrink();
+            final opacity = (pulled / trigger).clamp(0.0, 1.0);
+            return Center(
+              child: Opacity(
+                opacity: mode == RefreshIndicatorMode.refresh ? 1.0 : opacity,
+                child: Lottie.asset(
+                  'assets/assets/lottie/loading_indicator.json',
+                  repeat: true,
+                  width: 28,
+                  height: 28,
+                ),
+              ),
+            );
           },
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-            child: Column(
-              children: [
-                BalanceCard(
-              balanceInSol: data.balanceInSol,
-              isLoading: data.isLoadingBalance,
-              walletAddress: data.address,
-              solPriceUsd: data.solPriceUsd,
-              solPriceChange24h: data.solPriceChange24h,
-              walletName: _walletName,
-              cardBackground: _cardBackground,
-              onWalletTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => EditBackgroundScreen(currentCard: _cardBackground)),
-                ).then((card) async {
-                  if (card != null && card is String) {
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setString('card_background', card);
-                    if (mounted) {
-                      setState(() => _cardBackground = card);
-                    }
+        ),
+        SliverToBoxAdapter(
+          child: Column(
+            children: [
+              _buildWalletArea(context, data),
+              ActionButtons(
+                onDeposit: () {
+                  if (_walletAddress != null) {
+                    _showDepositSheet(context, _walletAddress!);
                   }
-                });
-              },
-              onMoreAction: (action) => _handleCardAction(action),
-              onMwTap: () {
-                if (_walletAddress != null) {
-                  final usdValue = _cachedBalanceInSol * (_cachedSolPriceUsd > 0 ? _cachedSolPriceUsd : 0);
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => MyWalletsScreen(
-                        walletAddress: _walletAddress!,
-                        balanceUsd: usdValue,
-                        priceChange24h: _cachedSolPriceChange24h,
-                        walletName: _walletName,
-                        cardBackground: _cardBackground,
-                      ),
-                    ),
-                  ).then((_) => _loadCustomization());
-                }
-              },
-            ),
-
-            ActionButtons(
-              onDeposit: () {
-                if (_walletAddress != null) {
-                  _showDepositSheet(context, _walletAddress!);
-                }
-              },
-              onStake: () {
-                if (_walletAddress != null) {
-                  context.push(AppRoutes.stakeSol, extra: {
-                    'address': _walletAddress,
-                    'balance': _cachedBalanceInSol,
-                    'priceUsd': _cachedSolPriceUsd,
-                  });
-                }
-              },
-              onSend: () {
-                if (_walletAddress != null) {
-                  context.push(AppRoutes.sendSol, extra: {
-                    'address': _walletAddress,
-                    'balance': _cachedBalanceInSol,
-                    'priceUsd': _cachedSolPriceUsd,
-                  });
-                }
-              },
-            ),
-
-            if (data.balanceInSol > 0 && !data.isLoadingBalance)
-              PortfolioContent(
-                balanceInSol: data.balanceInSol,
-                walletAddress: data.address,
-                solPriceUsd: data.solPriceUsd,
-                solPriceChange24h: data.solPriceChange24h,
-                nfts: _cachedNfts,
-                tokens: _cachedTokens,
-                stakeAccounts: _cachedStakeAccounts,
-                solPriceForStaking: _cachedSolPriceUsd,
-                onStartStaking: () {
+                },
+                onStake: () {
                   if (_walletAddress != null) {
                     context.push(AppRoutes.stakeSol, extra: {
                       'address': _walletAddress,
@@ -494,19 +509,57 @@ class _HomepageScreenState extends State<HomepageScreen> {
                     });
                   }
                 },
-                onViewTransactions: () {
+                onSend: () {
                   if (_walletAddress != null) {
-                    context.push(AppRoutes.transactionHistory, extra: _walletAddress);
+                    context.push(AppRoutes.sendSol, extra: {
+                      'address': _walletAddress,
+                      'balance': _cachedBalanceInSol,
+                      'priceUsd': _cachedSolPriceUsd,
+                    });
                   }
                 },
-              )
-            else if (!data.isLoadingBalance)
-              GetStartedSection(
-                walletAddress: data.address,
-                onRequestAirdrop: _requestAirdrop,
               ),
-              ],
-            ),
+              if (data.balanceInSol > 0 && !data.isLoadingBalance)
+                PortfolioContent(
+                  balanceInSol: data.balanceInSol,
+                  walletAddress: data.address,
+                  solPriceUsd: data.solPriceUsd,
+                  solPriceChange24h: data.solPriceChange24h,
+                  nfts: _cachedNfts,
+                  tokens: _cachedTokens,
+                  stakeAccounts: _cachedStakeAccounts,
+                  solPriceForStaking: _cachedSolPriceUsd,
+                  afterActivity: data.address != null
+                      ? PortfolioChart(
+                          address: data.address!,
+                          currentUsdValue: data.balanceInSol *
+                                  (data.solPriceUsd > 0 ? data.solPriceUsd : 0) +
+                              _cachedTokens.fold<double>(
+                                  0, (sum, t) => sum + t.valueUsd),
+                        )
+                      : null,
+                  onStartStaking: () {
+                    if (_walletAddress != null) {
+                      context.push(AppRoutes.stakeSol, extra: {
+                        'address': _walletAddress,
+                        'balance': _cachedBalanceInSol,
+                        'priceUsd': _cachedSolPriceUsd,
+                      });
+                    }
+                  },
+                  onViewTransactions: () {
+                    if (_walletAddress != null) {
+                      context.push(AppRoutes.transactionHistory,
+                          extra: _walletAddress);
+                    }
+                  },
+                )
+              else if (!data.isLoadingBalance)
+                GetStartedSection(
+                  walletAddress: data.address,
+                  onRequestAirdrop: _requestAirdrop,
+                ),
+            ],
           ),
         ),
       ],

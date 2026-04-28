@@ -92,6 +92,25 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
                     }
                   });
                 }
+              } else if (state is PasscodeError) {
+                // Surface verification failures and lockouts. Without this
+                // the keypad silently clears and the user has no idea why.
+                HapticFeedback.heavyImpact();
+                ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    SnackBar(
+                      content: Text(state.message),
+                      backgroundColor: Colors.red[700],
+                      behavior: SnackBarBehavior.floating,
+                      margin: const EdgeInsets.all(16),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+              } else if (state is PasscodeEntering && state.isWrong) {
+                // Brief wrong-passcode feedback — buzz so the user knows the
+                // reset wasn't a tap they missed.
+                HapticFeedback.heavyImpact();
               } else if (state is PasscodeEntering && state.isComplete && !_hasNavigated) {
                 // Passcode is complete - handle based on mode
                 // Only process if we haven't navigated yet

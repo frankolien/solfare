@@ -3,6 +3,7 @@ import 'package:solfare/core/error/failures.dart';
 import 'package:solfare/features/wallet/data/datasource/wallet_local_datasource.dart';
 import 'package:solfare/features/wallet/data/model/wallet_model.dart';
 import 'package:solfare/features/wallet/domain/entities/wallet.dart';
+import 'package:solfare/features/wallet/domain/entities/wallet_account.dart';
 import 'package:solfare/features/wallet/domain/repositories/wallet_repository.dart';
 
 /// Concrete implementation of [WalletRepository].
@@ -76,6 +77,71 @@ class WalletRepositoryImpl implements WalletRepository {
   Future<String?> getStoredMnemonic() async {
     try {
       return await _localDataSource.getStoredMnemonic();
+    } on LocalStorageException catch (e) {
+      throw StorageFailure(e.message);
+    }
+  }
+
+  @override
+  Future<List<WalletAccount>> getAllWallets() async {
+    try {
+      return await _localDataSource.getAllWallets();
+    } on LocalStorageException catch (e) {
+      throw StorageFailure(e.message);
+    }
+  }
+
+  @override
+  Future<WalletAccount?> getActiveWallet() async {
+    try {
+      return await _localDataSource.getActiveWallet();
+    } on LocalStorageException catch (e) {
+      throw StorageFailure(e.message);
+    }
+  }
+
+  @override
+  Future<void> setActiveWalletId(String id) async {
+    try {
+      await _localDataSource.setActiveWalletId(id);
+    } on LocalStorageException catch (e) {
+      throw StorageFailure(e.message);
+    }
+  }
+
+  @override
+  Future<WalletAccount> addWallet(String mnemonic, {String? name}) async {
+    try {
+      return await _localDataSource.addWallet(mnemonic, name: name);
+    } on KeyDerivationException catch (e) {
+      throw WalletCreationFailure(e.message);
+    } on LocalStorageException catch (e) {
+      throw StorageFailure(e.message);
+    }
+  }
+
+  @override
+  Future<void> removeWallet(String id) async {
+    try {
+      await _localDataSource.removeWallet(id);
+    } on LocalStorageException catch (e) {
+      throw StorageFailure(e.message);
+    }
+  }
+
+  @override
+  Future<void> renameWallet(String id, String name) async {
+    try {
+      await _localDataSource.renameWallet(id, name);
+    } on LocalStorageException catch (e) {
+      throw StorageFailure(e.message);
+    }
+  }
+
+  @override
+  Future<void> setWalletCardBackground(String id, String cardBackground) async {
+    try {
+      await _localDataSource.setWalletCardBackground(id, cardBackground);
     } on LocalStorageException catch (e) {
       throw StorageFailure(e.message);
     }

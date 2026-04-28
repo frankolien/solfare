@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:solfare/core/util/copied_toast.dart';
 
 /// Cards with light backgrounds where text should be black.
@@ -7,6 +10,14 @@ const _lightCards = {
   'card_3.png', 'card_4.png', 'card_5.png', 'card_6.png',
   'card_8.png', 'card_9.png', 'card_10.png',
 };
+
+/// Custom uploads are stored as `custom:<filename>` — we store only the
+/// filename (not an absolute path) because the iOS sandbox may rewrite
+/// the documents-directory path between launches, which would break any
+/// cached absolute path.
+const _customPrefix = 'custom:';
+bool _isCustomImage(String path) => path.startsWith(_customPrefix);
+String _customFilename(String path) => path.substring(_customPrefix.length);
 
 /// The wallet balance card with background image, balance display, and price change.
 class BalanceCard extends StatelessWidget {
@@ -40,7 +51,48 @@ class BalanceCard extends StatelessWidget {
     showCopiedToast(context);
   }
 
-  bool get _isLightCard => _lightCards.contains(cardBackground);
+  // Custom user uploads are treated as dark-card variants — we overlay a
+  // translucent scrim so white text stays legible regardless of the image.
+  bool get _isLightCard =>
+      !_isCustomImage(cardBackground) && _lightCards.contains(cardBackground);
+
+  Widget _buildBackground() {
+    if (_isCustomImage(cardBackground)) {
+      // Resolve the documents-dir path at render time because iOS may
+      // rewrite the sandbox path between launches — caching the absolute
+      // path would silently break image loading.
+      final filename = _customFilename(cardBackground);
+      return FutureBuilder<Directory>(
+        future: getApplicationDocumentsDirectory(),
+        builder: (context, snap) {
+          if (!snap.hasData) {
+            return Container(color: Colors.grey[900]?.withOpacity(0.5));
+          }
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.file(
+                File('${snap.data!.path}/$filename'),
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) =>
+                    Container(color: Colors.grey[900]?.withOpacity(0.5)),
+              ),
+              // Scrim for text legibility over unpredictable user photos.
+              Container(color: Colors.black.withOpacity(0.35)),
+            ],
+          );
+        },
+      );
+    }
+    return Image.asset(
+      'assets/assets/images/wallet_background/$cardBackground',
+      width: double.infinity,
+      height: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) =>
+          Container(color: Colors.grey[900]?.withOpacity(0.5)),
+    );
+  }
 
   PopupMenuItem<String> _popupItem(IconData icon, String label, String value) {
     return PopupMenuItem(
@@ -74,17 +126,12 @@ class BalanceCard extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          // Card background image
+          // Card background — either a bundled preset or a user-uploaded
+          // image (detected by absolute path prefix).
           Positioned.fill(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: Image.asset(
-                'assets/assets/images/wallet_background/$cardBackground',
-                width: double.infinity,
-                height: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(color: Colors.grey[900]?.withOpacity(0.5)),
-              ),
+              child: _buildBackground(),
             ),
           ),
           // Content
@@ -95,7 +142,7 @@ class BalanceCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _buildHeader(context, iconColor, textColor, subtextColor),
-                SizedBox(height: MediaQuery.of(context).size.height * 0.06),
+                const SizedBox(height: 32),
                 _buildBalanceLabel(subtextColor),
                 _AnimatedMoney(
                   value: usdValue,
@@ -192,7 +239,7 @@ class BalanceCard extends StatelessWidget {
         ),
         const SizedBox(width: 6),
         Text(
-          '${isPositive ? '+' : ''}${solPriceChange24h.toStringAsFixed(2)}%',
+          '${solPriceChange24h >= 0 ? '+' : ''}${solPriceChange24h.toStringAsFixed(2)}%',
           style: TextStyle(color: subtextColor, fontSize: 13, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w500),
         ),
       ],

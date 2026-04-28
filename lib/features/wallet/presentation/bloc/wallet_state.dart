@@ -3,6 +3,7 @@ import 'package:solfare/features/wallet/domain/entities/nft.dart';
 import 'package:solfare/features/wallet/domain/entities/spl_token.dart';
 import 'package:solfare/features/wallet/domain/entities/transactions.dart';
 import 'package:solfare/features/wallet/domain/entities/wallet.dart';
+import 'package:solfare/features/wallet/domain/entities/wallet_account.dart';
 
 /// States that WalletBloc can emit
 /// States represent the current condition of the wallet feature
@@ -141,6 +142,15 @@ class TokensFetched extends WalletState {
   const TokensFetched(this.tokens);
   @override
   List<Object?> get props => [tokens];
+}
+
+/// Emitted whenever the list of wallets changes (add, remove, rename, card).
+class WalletsLoaded extends WalletState {
+  final List<WalletAccount> wallets;
+  final String? activeId;
+  const WalletsLoaded({required this.wallets, required this.activeId});
+  @override
+  List<Object?> get props => [wallets, activeId];
 }
 
 /// Wallet customization loaded (name + card background)

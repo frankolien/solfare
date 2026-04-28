@@ -15,6 +15,14 @@ class CreateWalletEvent extends WalletEvent {
   const CreateWalletEvent();
 }
 
+/// Internal event dispatched when the active Solana cluster changes.
+/// The handler clears cluster-scoped caches (tokens, NFTs) so the UI
+/// doesn't flash stale holdings from the previous network, then
+/// triggers a refetch.
+class NetworkChangedEvent extends WalletEvent {
+  const NetworkChangedEvent();
+}
+
 /// Event to save a wallet to secure storage
 class SaveWalletEvent extends WalletEvent {
   final Wallet wallet;
@@ -106,6 +114,42 @@ class FetchTokensEvent extends WalletEvent {
   const FetchTokensEvent(this.address);
   @override
   List<Object?> get props => [address];
+}
+
+// ── Multi-wallet events ────────────────────────────────────────────────────
+
+/// Load every wallet stored on device — UI uses this to render the
+/// swipeable card list.
+class LoadAllWalletsEvent extends WalletEvent {
+  const LoadAllWalletsEvent();
+}
+
+/// Switch the app's active wallet. Emits [WalletAddressLoaded] with the new
+/// address so every subscriber refetches against it.
+class SwitchWalletEvent extends WalletEvent {
+  final String walletId;
+  const SwitchWalletEvent(this.walletId);
+  @override
+  List<Object?> get props => [walletId];
+}
+
+/// Add a wallet from a mnemonic. Used by the Import flow and by creating a
+/// second wallet from inside the app.
+class AddWalletEvent extends WalletEvent {
+  final String mnemonic;
+  final String? name;
+  const AddWalletEvent(this.mnemonic, {this.name});
+  @override
+  List<Object?> get props => [mnemonic, name];
+}
+
+/// Remove a wallet by id. Active selection automatically falls back to the
+/// first remaining wallet.
+class RemoveWalletEvent extends WalletEvent {
+  final String walletId;
+  const RemoveWalletEvent(this.walletId);
+  @override
+  List<Object?> get props => [walletId];
 }
 
 /// Event to update wallet display name
