@@ -31,7 +31,7 @@ dependencies:
   fl_chart: ^1.2.0
   iconsax_flutter: ^1.0.0
   qr_flutter: ^4.1.0
-  mobile_scanner: ^6.0.0
+  qr_code_dart_scan: ^0.11.5
   webview_flutter: ^4.13.1
   shared_preferences: ^2.5.5
   flutter_dotenv: ^5.2.1

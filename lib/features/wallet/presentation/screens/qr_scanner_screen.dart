@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:qr_code_dart_scan/qr_code_dart_scan.dart';
 
 class QrScannerScreen extends StatefulWidget {
   const QrScannerScreen({super.key});
@@ -9,28 +9,19 @@ class QrScannerScreen extends StatefulWidget {
 }
 
 class _QrScannerScreenState extends State<QrScannerScreen> {
-  final MobileScannerController _controller = MobileScannerController();
   bool _hasScanned = false;
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onDetect(BarcodeCapture capture) {
+  void _onCapture(Result result) {
     if (_hasScanned) return;
-    final barcode = capture.barcodes.firstOrNull;
-    if (barcode?.rawValue == null) return;
+    var value = result.text;
+    if (value.isEmpty) return;
 
-    String value = barcode!.rawValue!;
-
-    // Handle solana: URI scheme
+    // Handle solana: URI scheme — strip prefix and any query params.
     if (value.startsWith('solana:')) {
       value = value.substring(7).split('?').first;
     }
 
-    // Basic Solana address validation (32-44 chars, base58)
+    // Basic Solana address validation (32-44 chars, base58 length range).
     if (value.length >= 32 && value.length <= 44) {
       _hasScanned = true;
       Navigator.pop(context, value);
@@ -43,10 +34,12 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Camera
-          MobileScanner(
-            controller: _controller,
-            onDetect: _onDetect,
+          // Camera + decoder. Pure-Dart ZXing under the hood, so it runs on
+          // arm64 simulators (mobile_scanner's MLKit dependency does not).
+          QRCodeDartScanView(
+            typeScan: TypeScan.live,
+            formats: const [BarcodeFormat.qrCode],
+            onCapture: _onCapture,
           ),
 
           // Overlay

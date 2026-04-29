@@ -182,7 +182,13 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
 
     try {
       final nfts = await _rpcDataSource.getNfts(event.address);
+      // The cache write is fine — it's keyed by address. But emitting into
+      // the bloc would leak this wallet's NFTs into the active wallet's UI
+      // if the user switched mid-flight.
       await prefs.setString(cacheKey, _encodeNfts(nfts));
+      if (_watchedAddress != null && _watchedAddress != event.address) {
+        return;
+      }
       emit(NftsFetched(nfts));
     } catch (_) {
       // Keep whatever cached list we already emitted; only surface empty
@@ -233,6 +239,9 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     try {
       final tokens = await _rpcDataSource.getTokens(event.address);
       await prefs.setString(cacheKey, _encodeTokens(tokens));
+      if (_watchedAddress != null && _watchedAddress != event.address) {
+        return;
+      }
       emit(TokensFetched(tokens));
     } catch (_) {
       if (cachedJson == null) emit(const TokensFetched([]));
@@ -548,6 +557,13 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
 
     try {
       final balance = await _rpcDataSource.getBalance(event.address);
+      // Drop the result if the user has switched wallets while this request
+      // was in flight. Otherwise the previous wallet's balance lands ~10s
+      // after the switch and overwrites the active wallet's display — a
+      // serious UI confusion (and security) bug.
+      if (_watchedAddress != null && _watchedAddress != event.address) {
+        return;
+      }
       emit(BalanceFetched(balance: balance, address: event.address));
     } catch (e) {
       emit(WalletError(e.toString()));
@@ -607,6 +623,9 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     emit(const WalletLoading());
     try {
       final transactions = await _rpcDataSource.getTransactionHistory(event.address);
+      if (_watchedAddress != null && _watchedAddress != event.address) {
+        return;
+      }
       emit(TransactionsFetched(transactions));
     } catch (e) {
       emit(WalletError(e.toString()));

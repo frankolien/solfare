@@ -318,10 +318,18 @@ class _HomepageScreenState extends State<HomepageScreen> {
     }
 
     if (walletState is BalanceFetched) {
-      balanceInSol = walletState.balanceInSol;
-      address = walletState.address;
-      _cachedBalanceInSol = balanceInSol;
-      _cachedAddress = address;
+      // Defense in depth: ignore balance updates whose address doesn't
+      // match the wallet we're displaying. The bloc already drops these
+      // for the active wallet, but switching wallets in quick succession
+      // can still race. Better to keep the previous (stale) balance for
+      // a few frames than briefly flash the wrong wallet's number.
+      final activeAddr = _walletAddress;
+      if (activeAddr == null || walletState.address == activeAddr) {
+        balanceInSol = walletState.balanceInSol;
+        address = walletState.address;
+        _cachedBalanceInSol = balanceInSol;
+        _cachedAddress = address;
+      }
     }
 
     if (walletState is SolPriceFetched) {
