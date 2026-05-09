@@ -51,4 +51,5 @@ app.*.map.json
 # Markdown and PDF files
 *.md
 *.pdf
+!README.md
 
