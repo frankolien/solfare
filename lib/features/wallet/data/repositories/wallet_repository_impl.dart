@@ -6,8 +6,6 @@ import 'package:solfare/features/wallet/domain/entities/wallet.dart';
 import 'package:solfare/features/wallet/domain/entities/wallet_account.dart';
 import 'package:solfare/features/wallet/domain/repositories/wallet_repository.dart';
 
-/// Concrete implementation of [WalletRepository].
-/// Bridges the domain layer with the local data source.
 class WalletRepositoryImpl implements WalletRepository {
   final WalletLocalDataSource _localDataSource;
 

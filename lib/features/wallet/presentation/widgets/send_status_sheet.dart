@@ -99,7 +99,6 @@ class SendStatusSheet extends StatelessWidget {
             }),
             const SizedBox(height: 20),
 
-            // Save address button
             if (onSaveAddress != null)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),

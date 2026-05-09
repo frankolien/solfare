@@ -1,48 +1,24 @@
-import 'dart:typed_data';
-
 import 'package:bip39/bip39.dart' as bip39;
-import 'package:bs58/bs58.dart';
-import 'package:ed25519_hd_key/ed25519_hd_key.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:solfare/core/constant/solana_path.dart';
 import 'package:solfare/core/error/exception.dart';
+import 'package:solfare/core/security/secure_store.dart';
+import 'package:solfare/core/wallet/keyring.dart';
 import 'package:solfare/features/wallet/data/datasource/wallet_accounts_store.dart';
 import 'package:solfare/features/wallet/data/model/wallet_model.dart';
 import 'package:solfare/features/wallet/domain/entities/wallet_account.dart';
 
-/// Handles all local wallet operations:
-/// - Mnemonic generation
-/// - Key derivation (Ed25519 via Solana's BIP-44 path)
-/// - Secure storage read/write
-///
-/// Backed by [WalletAccountsStore], which stores a list of wallets. The
-/// legacy single-wallet API on this interface remains and transparently
-/// targets the **active** wallet.
+/// Local wallet operations backed by [WalletAccountsStore]. The single-
+/// wallet methods (saveWallet/getSavedAddress/etc.) all transparently
+/// target the active account.
 abstract class WalletLocalDataSource {
-  /// Generate a brand new wallet from a fresh mnemonic.
   Future<WalletModel> createWallet();
-
-  /// Derive a wallet from an existing mnemonic phrase.
   Future<WalletModel> deriveWallet(String mnemonic);
-
-  /// Save wallet credentials — installs it as a new account and marks it
-  /// active. Replaces any existing wallet with the same mnemonic.
   Future<void> saveWallet(WalletModel wallet);
-
-  /// Check if any wallet is stored on device.
   Future<bool> hasWallet();
-
-  /// Get the active wallet's address.
   Future<String?> getSavedAddress();
-
-  /// Wipe all stored wallet data (full factory reset).
   Future<void> clearWallet();
-
-  /// Active wallet's mnemonic.
   Future<String?> getStoredMnemonic();
-
-  // ── Multi-wallet API (new) ─────────────────────────────────────────────
 
   Future<List<WalletAccount>> getAllWallets();
   Future<WalletAccount?> getActiveWallet();
@@ -57,7 +33,7 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
   final FlutterSecureStorage _secureStorage;
   final WalletAccountsStore _accounts;
 
-  /// Legacy keys, read once by the migration then deleted.
+  // Pre-multi-wallet keys. Read once by the migration, then deleted.
   static const _legacyMnemonicKey = 'wallet_mnemonic';
   static const _legacyAddressKey = 'wallet_address';
   static const _migrationDoneKey = 'multi_wallet_migrated_v1';
@@ -65,12 +41,12 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
   WalletLocalDataSourceImpl({
     FlutterSecureStorage? secureStorage,
     WalletAccountsStore? accountsStore,
-  })  : _secureStorage = secureStorage ?? const FlutterSecureStorage(),
+  })  : _secureStorage = secureStorage ?? SecureStore.instance,
         _accounts = accountsStore ?? WalletAccountsStore(storage: secureStorage);
 
-  /// One-shot migration: if a legacy single wallet exists and no accounts
-  /// have been installed yet, convert it into a WalletAccount entry. Runs
-  /// lazily on first method call so nothing else needs to know.
+  // Lazy one-shot: runs on first call after upgrade. If a pre-multi-wallet
+  // entry exists, fold it into the new accounts store and delete the
+  // legacy keys so the mnemonic doesn't sit duplicated in storage.
   Future<void> _runMigrationIfNeeded() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -78,7 +54,6 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
 
       final existing = await _accounts.loadAll();
       if (existing.isNotEmpty) {
-        // Already migrated (or already multi-wallet). Mark done and move on.
         await prefs.setBool(_migrationDoneKey, true);
         return;
       }
@@ -90,8 +65,7 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
         return;
       }
 
-      // Pull the old name + card background from SharedPreferences (these
-      // were stored there, not in secure storage).
+      // Name + card came from SharedPreferences, not secure storage.
       final name = prefs.getString('wallet_name') ?? 'Main Wallet';
       final card = prefs.getString('card_background') ?? 'card_1.png';
 
@@ -106,14 +80,11 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
       await _accounts.saveAll([account]);
       await _accounts.setActiveId(account.id);
 
-      // Remove the legacy keys so we don't leave plaintext-ish mnemonic
-      // duplicates lying around.
       await _secureStorage.delete(key: _legacyMnemonicKey);
       await _secureStorage.delete(key: _legacyAddressKey);
       await prefs.setBool(_migrationDoneKey, true);
     } catch (_) {
-      // Migration failures leave the legacy keys intact so we can retry on
-      // next launch — never throw from this path.
+      // Don't throw — leave legacy keys in place so the next launch retries.
     }
   }
 
@@ -129,90 +100,18 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
 
   @override
   Future<WalletModel> deriveWallet(String mnemonic) async {
-    try {
-      if (!bip39.validateMnemonic(mnemonic)) {
-        throw const KeyDerivationException('Invalid mnemonic phrase');
-      }
-
-      // Mnemonic → 64-byte seed
-      final seed = bip39.mnemonicToSeed(mnemonic);
-
-      // Seed → Ed25519 key via Solana derivation path
-      final keyData = await ED25519_HD_KEY.derivePath(
-        SolanaPath.defaultPath,
-        seed,
-      );
-
-      final privateKeyBytes = keyData.key;
-
-      // Derive the public key from the private key
-      final publicKeyList = await ED25519_HD_KEY.getPublicKey(privateKeyBytes);
-      var publicKey = Uint8List.fromList(publicKeyList);
-
-      // Handle case where library returns 33 bytes (with prefix byte)
-      if (publicKey.length == 33) {
-        publicKey = publicKey.sublist(1);
-      } else if (publicKey.length != 32) {
-        throw KeyDerivationException(
-          'Invalid public key length: ${publicKey.length} bytes, expected 32 bytes. This may indicate a corrupted key derivation.',
-        );
-      }
-
-      // Public key → Base58-encoded Solana address
-      final address = base58.encode(publicKey);
-
-      // Validate address decodes back to 32 bytes
-      try {
-        final decodedBytes = base58.decode(address);
-        if (decodedBytes.length != 32) {
-          throw KeyDerivationException(
-            'Address validation failed: decoded length is ${decodedBytes.length} bytes, expected 32 bytes',
-          );
-        }
-      } catch (e) {
-        if (e is KeyDerivationException) rethrow;
-        throw KeyDerivationException('Failed to validate address: $e');
-      }
-
-      return WalletModel.fromKeyData(
-        address: address,
-        publicKey: publicKey,
-        mnemonic: mnemonic,
-      );
-    } catch (e) {
-      if (e is KeyDerivationException) rethrow;
-      throw KeyDerivationException('Failed to derive wallet: $e');
-    }
+    final derived = await Keyring.publicKeyFor(mnemonic);
+    return WalletModel.fromKeyData(
+      address: derived.address,
+      publicKey: derived.publicKey,
+      mnemonic: mnemonic,
+    );
   }
 
-  /// Installs a wallet by mnemonic. If a wallet with the same address is
-  /// already stored, returns the existing entry instead of creating a dup.
   @override
   Future<void> saveWallet(WalletModel wallet) async {
-    try {
-      if (wallet.publicKey.length != 32) {
-        throw LocalStorageException(
-          'Invalid public key: length is ${wallet.publicKey.length} bytes, expected 32 bytes',
-        );
-      }
-      try {
-        final decodedBytes = base58.decode(wallet.address);
-        if (decodedBytes.length != 32) {
-          throw LocalStorageException(
-            'Invalid address: decoded length is ${decodedBytes.length} bytes, expected 32 bytes',
-          );
-        }
-      } catch (e) {
-        if (e is LocalStorageException) rethrow;
-        throw LocalStorageException('Invalid address format: $e');
-      }
-
-      await _runMigrationIfNeeded();
-      await addWallet(wallet.mnemonic);
-    } catch (e) {
-      if (e is LocalStorageException) rethrow;
-      throw LocalStorageException('Failed to save wallet: $e');
-    }
+    await _runMigrationIfNeeded();
+    await addWallet(wallet.mnemonic);
   }
 
   @override
@@ -222,7 +121,6 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
       final wallets = await _accounts.loadAll();
       if (wallets.isEmpty) return false;
 
-      // Validate at least the active one looks sane.
       final active = await _accounts.getActive();
       if (active == null) return false;
       final words = active.mnemonic.trim().split(RegExp(r'\s+'));
@@ -249,7 +147,7 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
   Future<void> clearWallet() async {
     try {
       await _accounts.wipe();
-      // Belt-and-braces: clear legacy keys too.
+      // Clear legacy keys too in case wipe is called pre-migration.
       await _secureStorage.delete(key: _legacyMnemonicKey);
       await _secureStorage.delete(key: _legacyAddressKey);
     } catch (e) {
@@ -267,8 +165,6 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
       throw LocalStorageException('Failed to read mnemonic: $e');
     }
   }
-
-  // ── Multi-wallet API ────────────────────────────────────────────────────
 
   @override
   Future<List<WalletAccount>> getAllWallets() async {
@@ -297,12 +193,10 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
     final model = await deriveWallet(mnemonic);
     final wallets = await _accounts.loadAll();
 
-    // Dedupe by address.
-    final existing =
-        wallets.where((w) => w.address == model.address).cast<WalletAccount?>().firstWhere(
-              (_) => true,
-              orElse: () => null,
-            );
+    final existing = wallets
+        .where((w) => w.address == model.address)
+        .cast<WalletAccount?>()
+        .firstWhere((_) => true, orElse: () => null);
     if (existing != null) {
       await _accounts.setActiveId(existing.id);
       return existing;

@@ -26,8 +26,6 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
   void initState() {
     super.initState();
     SecureScreen.enable();
-    // Dispatch event to create wallet when screen loads
-    // BLoC will handle the async operation and emit states
     context.read<WalletBloc>().add(const CreateWalletEvent());
   }
 
@@ -38,10 +36,8 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
   }
 
   void _handleSaveWallet() {
-    // Get current wallet from BLoC state
     final state = context.read<WalletBloc>().state;
     if (state is WalletCreated) {
-      // Dispatch event to save wallet
       context.read<WalletBloc>().add(SaveWalletEvent(state.wallet));
     }
   }
@@ -68,25 +64,19 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
         centerTitle: true,
       ),
       body: SafeArea(
-        // BlocBuilder listens to WalletBloc state changes
-        // When state changes, it rebuilds the UI automatically
         child: BlocConsumer<WalletBloc, WalletState>(
           listener: (context, state) {
-            // Handle side effects (navigation, snackbars) in listener
             if (state is WalletCreated) {
               _currentWallet = state.wallet;
             } else if (state is WalletSaved) {
-              // Navigate to passcode screen after wallet is saved
               context.push(AppRoutes.enterPasscode);
             } else if (state is WalletError) {
-              // Show error message
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text(state.message)),
               );
             }
           },
           builder: (context, state) {
-            // Build UI based on current state
             if (state is WalletLoading) {
               return const Center(
                 child: CircularProgressIndicator(color: Colors.yellow),
@@ -98,7 +88,6 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
                   ? _buildRevealedView(state.wallet)
                   : _buildBlurredView(state.wallet);
             } else {
-              // Initial state - show loading
               return const Center(
                 child: CircularProgressIndicator(color: Colors.yellow),
               );
@@ -109,9 +98,6 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
     );
   }
 
-  // ──────────────────────────────────────────────
-  // BLURRED STATE (initial — matches Figma left screen)
-  // ──────────────────────────────────────────────
   Widget _buildBlurredView(Wallet wallet) {
     final words = wallet.mnemonic.split(' ');
 
@@ -172,7 +158,6 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
 
                 const SizedBox(height: 20),
 
-                // Show button
                 GestureDetector(
                   onTap: () => setState(() => _isRevealed = true),
                   child: Row(

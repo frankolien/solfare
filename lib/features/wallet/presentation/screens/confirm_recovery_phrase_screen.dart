@@ -139,7 +139,6 @@ class _ConfirmRecoveryPhraseScreenState
           // Navigate to passcode screen
           context.push(AppRoutes.enterPasscode);
         } else if (state is WalletError) {
-          // Show error message
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.message)),
           );

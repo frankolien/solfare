@@ -1,10 +1,8 @@
-import 'package:bip39/bip39.dart' as bip39;
 import 'package:bloc/bloc.dart';
-import 'package:ed25519_hd_key/ed25519_hd_key.dart';
 import 'package:solana/solana.dart' as solana;
 import 'package:solana/src/rpc/dto/account_data/stake_program/authorized.dart';
 import 'package:solana/src/rpc/dto/latest_blockhash.dart';
-import 'package:solfare/core/constant/solana_path.dart';
+import 'package:solfare/core/wallet/keyring.dart';
 import 'package:solfare/features/staking/domain/entities/stake_account.dart';
 import 'package:solfare/features/staking/domain/entities/validator_info.dart';
 import 'package:solfare/features/staking/presentation/bloc/staking_event.dart';
@@ -81,7 +79,6 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
             activatedStake: v['activatedStake'] as int,
             commission: (v['commission'] as int).toDouble(),
           )).toList();
-      // Sort by stake descending
       validators.sort((a, b) => b.activatedStake.compareTo(a.activatedStake));
       emit(ValidatorsFetched(validators));
     } catch (e) {
@@ -89,7 +86,6 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
     }
   }
 
-  /// Well-known devnet/mainnet validators get friendly names
   String _validatorName(String votePubkey) {
     const knownValidators = {
       'CertusDeBmqN8ZawdkxK5kFGMwBXdudvWHYwtNgNhvLu': 'Certus One',
@@ -107,43 +103,23 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
   ) async {
     emit(const StakeDelegating());
     try {
-      // 1. Get mnemonic and derive keypair
-      final mnemonic = await _repository.getStoredMnemonic();
-      if (mnemonic == null) {
-        throw Exception('No wallet found. Please create or import a wallet first.');
-      }
-
-      final seed = bip39.mnemonicToSeed(mnemonic);
-      final keyData = await ED25519_HD_KEY.derivePath(
-        SolanaPath.defaultPath,
-        seed,
-      );
-      final senderKeyPair = await solana.Ed25519HDKeyPair.fromPrivateKeyBytes(
-        privateKey: keyData.key,
-      );
-
-      // 2. Generate a new keypair for the stake account
+      final senderKeyPair = await _deriveKeyPair();
       final stakeAccountKeyPair = await solana.Ed25519HDKeyPair.random();
 
-      // 3. Calculate lamports
       final lamports = (event.amountInSol * 1000000000).toInt();
-
-      // 4. Get rent exemption for stake account (200 bytes)
+      // Stake accounts are 200 bytes; the rent-exempt minimum has to be
+      // funded on top of the staked amount or the account gets purged.
       final rentExemption = await _rpcDataSource.getMinimumBalanceForRentExemption(200);
 
-      debugLog('[StakingBloc] lamports=$lamports, rentExemption=$rentExemption, total=${lamports + rentExemption}');
-      debugLog('[StakingBloc] sender=${senderKeyPair.address}');
-      debugLog('[StakingBloc] stakeAccount=${stakeAccountKeyPair.address}');
-      debugLog('[StakingBloc] validator=${event.validatorVoteAccount}');
-
-      // 5. Get recent blockhash
       final blockhashData = await _rpcDataSource.getLatestBlockhash();
       final latestBlockhash = LatestBlockhash(
         blockhash: blockhashData['blockhash'] as String,
         lastValidBlockHeight: blockhashData['lastValidBlockHeight'] as int,
       );
 
-      // 6. Build all instructions: createAccount + initialize + delegateStake
+      // Bundle createAccount + initialize + delegate into one transaction
+      // — splitting them risks landing the create without the delegate and
+      // leaving an idle stake account on the user's wallet.
       final createAndInitInstructions = solana.StakeInstruction.createAndInitializeAccount(
         fundingAccount: senderKeyPair.publicKey,
         newAccount: stakeAccountKeyPair.publicKey,
@@ -161,42 +137,29 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
         authority: senderKeyPair.publicKey,
       );
 
-      // 7. Single transaction with all instructions
-      final message = solana.Message(
-        instructions: [...createAndInitInstructions, delegateInstruction],
-      );
-
-      // 8. Sign with both keys
       final signedTx = await solana.signTransaction(
         latestBlockhash,
-        message,
+        solana.Message(instructions: [...createAndInitInstructions, delegateInstruction]),
         [senderKeyPair, stakeAccountKeyPair],
       );
 
-      // 9. Send
       final signature = await _rpcDataSource.sendTransaction(signedTx.encode());
-
-      debugLog('[StakingBloc] DelegateStake SUCCESS: $signature');
       emit(StakeDelegated(
         signature: signature,
         amountInSol: event.amountInSol,
       ));
-    } catch (e, stackTrace) {
-      debugLog('[StakingBloc] DelegateStake FAILED: $e');
-      debugLog('[StakingBloc] StackTrace: $stackTrace');
+    } catch (e) {
+      debugLog('[StakingBloc] delegate failed: $e');
       emit(StakingError(e.toString()));
     }
   }
 
-  /// Derive the wallet keypair from stored mnemonic
   Future<solana.Ed25519HDKeyPair> _deriveKeyPair() async {
     final mnemonic = await _repository.getStoredMnemonic();
     if (mnemonic == null) {
       throw Exception('No wallet found.');
     }
-    final seed = bip39.mnemonicToSeed(mnemonic);
-    final keyData = await ED25519_HD_KEY.derivePath(SolanaPath.defaultPath, seed);
-    return solana.Ed25519HDKeyPair.fromPrivateKeyBytes(privateKey: keyData.key);
+    return Keyring.keyPairFromMnemonic(mnemonic);
   }
 
   Future<void> _onDeactivateStake(

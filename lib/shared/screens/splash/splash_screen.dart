@@ -49,8 +49,6 @@ class _SplashScreenState extends State<SplashScreen>
       }
     });
 
-    // Dispatch event to check if wallet exists
-    // BLoC will handle the check and emit state
     Future.delayed(const Duration(milliseconds: 1500), () {
       if (mounted) {
         context.read<WalletBloc>().add(const CheckWalletExistsEvent());

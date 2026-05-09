@@ -88,7 +88,6 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
               _buildTextField(addressController, 'Wallet address'),
               const SizedBox(height: 20),
 
-              // Save button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(

@@ -30,9 +30,8 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
   @override
   void initState() {
     super.initState();
-    
-    // Reset passcode state when entering confirm mode
-    // This ensures the state is clean when navigating from enter to confirm
+    // The bloc carries leftover entered digits when arriving from the enter
+    // step. Reset so the keypad starts blank in the confirm step.
     if (widget.mode == PasscodeMode.confirm) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -71,25 +70,18 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
         builder: (context, isKeyboardVisible) {
           return BlocConsumer<PasscodeBloc, PasscodeState>(
             listener: (context, state) {
-              // Handle side effects (navigation) in listener
               if (state is PasscodeVerified) {
-                // Passcode verified - navigate to homepage
                 if (!_hasNavigated && mounted) {
                   _hasNavigated = true;
                   Future.microtask(() {
-                    if (mounted) {
-                      context.go(AppRoutes.homepage);
-                    }
+                    if (mounted) context.go(AppRoutes.homepage);
                   });
                 }
               } else if (state is PasscodeSaved) {
-                // Passcode saved - navigate to biometric setup
                 if (!_hasNavigated && mounted) {
                   _hasNavigated = true;
                   Future.microtask(() {
-                    if (mounted) {
-                      context.go(AppRoutes.biometricSetup);
-                    }
+                    if (mounted) context.go(AppRoutes.biometricSetup);
                   });
                 }
               } else if (state is PasscodeError) {
@@ -108,19 +100,14 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
                     ),
                   );
               } else if (state is PasscodeEntering && state.isWrong) {
-                // Brief wrong-passcode feedback — buzz so the user knows the
-                // reset wasn't a tap they missed.
+                // Buzz so the user knows the keypad reset wasn't a tap they missed.
                 HapticFeedback.heavyImpact();
               } else if (state is PasscodeEntering && state.isComplete && !_hasNavigated) {
-                // Passcode is complete - handle based on mode
-                // Only process if we haven't navigated yet
                 if (widget.mode == PasscodeMode.unlock) {
-                  // Verify passcode
                   context.read<PasscodeBloc>().add(
                         VerifyPasscodeEvent(state.passcode),
                       );
                 } else if (widget.mode == PasscodeMode.enter) {
-                  // Navigate to confirm screen
                   Future.delayed(const Duration(milliseconds: 300), () {
                     if (mounted && !_hasNavigated) {
                       context.push(
@@ -130,14 +117,11 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
                     }
                   });
                 } else if (widget.mode == PasscodeMode.confirm) {
-                  // Check if it matches initial passcode
                   if (state.passcode == widget.initialPasscode) {
-                    // Save passcode - this will emit PasscodeSaved state
                     context.read<PasscodeBloc>().add(
                           SavePasscodeEvent(state.passcode),
                         );
                   } else {
-                    // Wrong passcode - show error and reset
                     context.read<PasscodeBloc>().add(
                           const PasscodeWrongEvent(),
                         );
@@ -146,7 +130,6 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
               }
             },
             builder: (context, state) {
-              // Get current passcode from state
               String passcode = '';
               bool isWrong = false;
 

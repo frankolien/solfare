@@ -118,21 +118,13 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     try {
       final cleanAddress = _validateAddress(address);
 
-      //  Get recent transaction signatures
-      debugLog('[RPC] Fetching signatures for $cleanAddress (limit: $limit)');
       final signatures = await _rpcCall('getSignaturesForAddress', [
         cleanAddress,
         {'limit': limit},
       ]);
 
-      if (signatures is! List || signatures.isEmpty) {
-        debugLog('[RPC] No transactions found');
-        return [];
-      }
+      if (signatures is! List || signatures.isEmpty) return [];
 
-      debugLog('[RPC] Found ${signatures.length} signatures, fetching details...');
-
-      //  Fetch full details for each transaction
       final List<TransactionModel> transactions = [];
 
       for (final sig in signatures) {
@@ -145,17 +137,16 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
 
           if (txResult == null) continue;
 
-          //  Parse the transaction
           final meta = txResult['meta'];
           final transaction = txResult['transaction'];
           final message = transaction['message'];
           final accountKeys = message['accountKeys'] as List;
 
-          // Get sender and receiver addresses
+          // accountKeys entries can be either strings or {pubkey: ...} objects
+          // depending on the encoding the RPC chose for that tx.
           String sender = '';
           String receiver = '';
           if (accountKeys.isNotEmpty) {
-            // accountKeys can be strings or objects with 'pubkey' field
             sender = accountKeys[0] is String
                 ? accountKeys[0]
                 : accountKeys[0]['pubkey'] ?? '';
@@ -166,22 +157,18 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
                 : accountKeys[1]['pubkey'] ?? '';
           }
 
-          // Calculate amount from balance changes
           final preBalances = meta['preBalances'] as List;
           final postBalances = meta['postBalances'] as List;
           final fee = meta['fee'] as int;
           final amount = (preBalances[0] as int) - (postBalances[0] as int) - fee;
 
-          // Get timestamp
           final blockTime = txResult['blockTime'] as int?;
           final timestamp = blockTime != null
               ? DateTime.fromMillisecondsSinceEpoch(blockTime * 1000)
               : DateTime.now();
 
-          // Get status
           final status = meta['err'] == null ? 'success' : 'failed';
 
-          // Detect NFT transfer by scanning token balance deltas for the owner.
           // An NFT transfer moves exactly 1 unit of a mint with decimals=0.
           final nftTransfer = _detectNftTransfer(meta, cleanAddress);
           if (nftTransfer != null) {

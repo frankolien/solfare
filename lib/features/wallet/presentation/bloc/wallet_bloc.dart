@@ -1,15 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:bip39/bip39.dart' as bip39;
 import 'package:bloc/bloc.dart';
-import 'package:ed25519_hd_key/ed25519_hd_key.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:solana/solana.dart' as solana;
 import 'package:solana/src/rpc/dto/latest_blockhash.dart';
-import 'package:solfare/core/constant/solana_path.dart';
 import 'package:solfare/core/util/app_log.dart';
 import 'package:solfare/core/constant/network.dart';
+import 'package:solfare/core/wallet/keyring.dart';
 import 'package:solfare/features/wallet/data/datasource/balance_ws_service.dart';
 import 'package:solfare/features/wallet/data/datasource/crypto_price_datasource.dart';
 import 'package:solfare/features/wallet/data/datasource/solana_rpc_datasource.dart';
@@ -23,14 +21,6 @@ import 'package:solfare/features/wallet/domain/usecases/save_wallet.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_event.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_state.dart';
 
-/// BLoC (Business Logic Component) for wallet management
-/// 
-/// BLoC Pattern:
-/// - Events: User actions (CreateWalletEvent, SaveWalletEvent, etc.)
-/// - States: UI states (WalletLoading, WalletCreated, WalletError, etc.)
-/// - Bloc: Processes events and emits states
-/// 
-/// Flow: Event → Bloc → State → UI
 class WalletBloc extends Bloc<WalletEvent, WalletState> {
   late final WalletRepositoryImpl _repository;
   late final CreateWalletUseCase _createWallet;
@@ -60,24 +50,17 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
         _rpcDataSource = rpcDataSource ?? SolanaRpcDataSourceImpl(),
         _priceDataSource = priceDataSource ?? CryptoPriceDataSourceImpl(),
         super(const WalletInitial()) {
-    // Now _repository is set, so we can reuse the SAME instance
     _createWallet = CreateWalletUseCase(repository: _repository);
     _saveWallet = SaveWalletUseCase(repository: _repository);
 
-    // WS pushes balance changes — we forward them as a fetch event so the
-    // normal HTTP path renders the state.
+    // WS push → fetch event so the normal HTTP path renders the state.
     _balanceWs = BalanceWsService(onChange: () {
       final addr = _watchedAddress;
       if (addr != null) add(FetchBalanceEvent(addr));
     });
 
-    // Reconnect WS when the user switches network in settings.
     NetworkConstants.addListener(_onNetworkChanged);
-    
-    
-    
 
-    // Register event handlers
     on<CreateWalletEvent>(_onCreateWallet);
     on<SaveWalletEvent>(_onSaveWallet);
     on<CheckWalletExistsEvent>(_onCheckWalletExists);
@@ -102,7 +85,8 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     on<NetworkChangedEvent>(_onNetworkChangedEvent);
   }
 
-  /// Allows events to run concurrently instead of waiting in queue
+  // Default Bloc transformer is sequential. Reads we want to run in
+  // parallel (token/NFT/customisation) use this instead.
   static EventTransformer<E> _concurrent<E>() {
     return (events, mapper) => events.asyncExpand(mapper);
   }
@@ -467,16 +451,10 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     CreateWalletEvent event,
     Emitter<WalletState> emit,
   ) async {
-    // Emit loading state - UI can show loading indicator
     emit(const WalletLoading());
-
     try {
-      // Create wallet using use case
       final wallet = await _createWallet();
-      final isImported = false;
-
-      // Emit success state with wallet data
-      emit(WalletCreated(wallet, isImported));
+      emit(WalletCreated(wallet, false));
     } catch (e) {
       // Emit error state if something goes wrong
       emit(WalletError(e.toString()));
@@ -632,72 +610,39 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  /// Send SOL to another address
   Future<void> _onSendSol(
     SendSolEvent event,
     Emitter<WalletState> emit,
   ) async {
     emit(const SendingSol());
-    List<int>? seed;
-    List<int>? privateKeyBytes;
     try {
-      // 1. Get stored mnemonic to derive the keypair
       final mnemonic = await _repository.getStoredMnemonic();
       if (mnemonic == null) {
         throw Exception('No wallet found. Please create or import a wallet first.');
       }
+      final senderKeyPair = await Keyring.keyPairFromMnemonic(mnemonic);
 
-      // 2. Derive the keypair from mnemonic
-      seed = bip39.mnemonicToSeed(mnemonic);
-      final keyData = await ED25519_HD_KEY.derivePath(
-        SolanaPath.defaultPath,
-        seed,
-      );
-      privateKeyBytes = keyData.key;
-
-      // 3. Create Solana keypair from private key
-      final senderKeyPair = await solana.Ed25519HDKeyPair.fromPrivateKeyBytes(
-        privateKey: privateKeyBytes,
-      );
-
-      debugLog('[BLoC] SendSol — from: ${senderKeyPair.address}');
-      debugLog('[BLoC] SendSol — to: ${event.recipientAddress}');
-      debugLog('[BLoC] SendSol — amount: ${event.amountInSol} SOL');
-
-      // 4. Convert SOL to lamports
       final lamports = (event.amountInSol * 1000000000).toInt();
 
-      // 5. Get recent blockhash
       final blockhashData = await _rpcDataSource.getLatestBlockhash();
       final latestBlockhash = LatestBlockhash(
         blockhash: blockhashData['blockhash'] as String,
         lastValidBlockHeight: blockhashData['lastValidBlockHeight'] as int,
       );
 
-      // 6. Build the transfer instruction
       final instruction = solana.SystemInstruction.transfer(
         fundingAccount: senderKeyPair.publicKey,
         recipientAccount: solana.Ed25519HDPublicKey.fromBase58(event.recipientAddress),
         lamports: lamports,
       );
 
-      // 7. Build the transaction message
-      final message = solana.Message(
-        instructions: [instruction],
-      );
-
-      // 8. Sign the transaction
       final signedTx = await solana.signTransaction(
         latestBlockhash,
-        message,
+        solana.Message(instructions: [instruction]),
         [senderKeyPair],
       );
 
-      // 9. Encode to base64 and send
-      final base64Tx = signedTx.encode();
-      final signature = await _rpcDataSource.sendTransaction(base64Tx);
-
-      debugLog('[BLoC] SendSol — SUCCESS! Signature: $signature');
+      final signature = await _rpcDataSource.sendTransaction(signedTx.encode());
 
       emit(SolSent(
         signature: signature,
@@ -705,40 +650,19 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
         recipientAddress: event.recipientAddress,
       ));
 
-      // Kick off a balance refetch once the tx has had a chance to confirm.
-      // The WS will also push an update when the account finalises, but
-      // polling here guarantees the UI updates even if the WS is offline.
-      // Three attempts because devnet/mainnet confirmation timing varies:
-      // most settle under 2s, some take 5-15s under load.
+      // Polling fallback in case the WS push is delayed or offline.
+      // Devnet usually settles under 2s, mainnet sometimes 5-15s under load.
       final sender = senderKeyPair.address;
       for (final delay in [2, 6, 15]) {
         Future.delayed(Duration(seconds: delay), () {
           if (isClosed) return;
-          debugLog('[BLoC] Post-send refetch at ${delay}s for $sender');
           add(FetchBalanceEvent(sender));
           if (delay == 2) add(FetchTransactionsEvent(sender));
         });
       }
     } catch (e) {
-      debugLog('[BLoC] SendSol — FAILED: $e');
+      debugLog('[BLoC] SendSol failed: $e');
       emit(WalletError(e.toString()));
-    } finally {
-      // Best-effort scrubbing of the derived key + seed. Dart's GC can
-      // copy buffers so this is not a guarantee, but it closes the window
-      // during which a heap dump would find intact key material.
-      _zeroBytes(privateKeyBytes);
-      _zeroBytes(seed);
-    }
-  }
-
-  void _zeroBytes(List<int>? bytes) {
-    if (bytes == null) return;
-    try {
-      for (var i = 0; i < bytes.length; i++) {
-        bytes[i] = 0;
-      }
-    } catch (_) {
-      // List may be unmodifiable — nothing we can do.
     }
   }
 }

@@ -284,7 +284,6 @@ class _ExportRecoveryScreenState extends State<ExportRecoveryScreen> {
 
             const SizedBox(height: 14),
 
-            // Show / Hide button
             Padding(
               padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.of(context).padding.bottom + 16),
               child: SizedBox(

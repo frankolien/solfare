@@ -124,7 +124,6 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
               return _buildLoadingState();
             }
 
-            // Show cached transactions (even during refresh)
             if (_cachedTransactions.isNotEmpty) {
               return _buildTransactionList(_cachedTransactions);
             }

@@ -338,7 +338,6 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
 
     // Add https:// if not present
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      // Check if it looks like a URL (has a dot)
       if (url.contains('.')) {
         url = 'https://$url';
       } else {

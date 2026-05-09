@@ -93,7 +93,6 @@ class _RenameWalletScreenState extends State<RenameWalletScreen> {
 
             const Spacer(),
 
-            // Save button
             Padding(
               padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.of(context).padding.bottom + 16),
               child: SizedBox(

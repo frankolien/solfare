@@ -49,9 +49,6 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
       _stage = _ImportStage.analyzing;
     });
     final mnemonic = _phraseController.text.trim().toLowerCase();
-    final wordCount = mnemonic.split(RegExp(r'\s+')).length;
-    debugPrint('[Import] Confirm tapped — $wordCount words');
-    debugPrint('[Import] Mnemonic preview: ${mnemonic.substring(0, mnemonic.length > 20 ? 20 : mnemonic.length)}...');
     context.read<WalletBloc>().add(ImportWalletEvent(mnemonic));
   }
 
@@ -83,21 +80,13 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
   Widget build(BuildContext context) {
     return BlocListener<WalletBloc, WalletState>(
       listener: (context, state) {
-        debugPrint('[Import] BLoC state: ${state.runtimeType} | stage: $_stage');
-
-        if (_stage != _ImportStage.analyzing) {
-          debugPrint('[Import] Ignoring state — not in analyzing stage');
-          return;
-        }
+        if (_stage != _ImportStage.analyzing) return;
 
         if (state is WalletCreated && state.isImported) {
-          debugPrint('[Import] Wallet derived! Address: ${state.wallet.address.substring(0, 8)}...');
           context.read<WalletBloc>().add(SaveWalletEvent(state.wallet));
         } else if (state is WalletSaved) {
-          debugPrint('[Import] Wallet saved to secure storage — showing result in 1.5s');
           Future.delayed(const Duration(milliseconds: 1500), () {
             if (mounted) {
-              debugPrint('[Import] Showing result: wallet found');
               setState(() {
                 _walletFound = true;
                 _stage = _ImportStage.result;
@@ -105,18 +94,14 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
             }
           });
         } else if (state is WalletError) {
-          debugPrint('[Import] ERROR: ${state.message}');
           Future.delayed(const Duration(milliseconds: 1500), () {
             if (mounted) {
-              debugPrint('[Import] Showing result: no wallet found');
               setState(() {
                 _walletFound = false;
                 _stage = _ImportStage.result;
               });
             }
           });
-        } else if (state is WalletLoading) {
-          debugPrint('[Import] Loading...');
         }
       },
       child: Scaffold(

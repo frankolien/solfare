@@ -1,13 +1,12 @@
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
-import 'package:bip39/bip39.dart' as bip39;
-import 'package:ed25519_hd_key/ed25519_hd_key.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 import 'package:solana/solana.dart' as solana;
 import 'package:solfare/core/constant/network.dart';
 import 'package:solfare/core/wallet/active_wallet.dart';
+import 'package:solfare/core/wallet/keyring.dart';
 import 'package:solfare/features/swap/data/datasource/jupiter_datasource.dart';
 import 'package:solfare/features/swap/domain/entities/swap_token.dart';
 import 'package:solfare/features/swap/presentation/bloc/swap_event.dart';
@@ -149,30 +148,20 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
     emit(const SwapExecuting());
 
     try {
-      // 1. Get serialized transaction from Jupiter
       final swapTxBase64 = await _jupiter.executeSwap(
         quoteResponse: _lastQuoteResponse!,
         userPublicKey: event.walletAddress,
       );
 
-      // 2. Derive keypair from the active wallet's mnemonic
       final mnemonic = await ActiveWallet.mnemonic();
       if (mnemonic == null) throw Exception('No wallet found');
+      final keyPair = await Keyring.keyPairFromMnemonic(mnemonic);
 
-      final seed = bip39.mnemonicToSeed(mnemonic);
-      final derivedKey = await ED25519_HD_KEY.derivePath("m/44'/501'/0'/0'", seed);
-      final keyPair = await solana.Ed25519HDKeyPair.fromPrivateKeyBytes(
-        privateKey: derivedKey.key,
-      );
-
-      // 3. Decode the versioned transaction, sign it, and send
       final txBytes = base64Decode(swapTxBase64);
       final signedBytes = await _signTransaction(txBytes, keyPair);
 
-      // 4. Send via RPC
-      final rpcUrl = NetworkConstants.solanaUrl;
       final response = await http.post(
-        Uri.parse(rpcUrl),
+        Uri.parse(NetworkConstants.solanaUrl),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'jsonrpc': '2.0',
@@ -197,40 +186,26 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
     }
   }
 
-  /// Sign a versioned transaction (v0) with the keypair
-  /// Jupiter returns VersionedTransaction — we need to insert our signature
+  // Jupiter returns a v0 VersionedTransaction with a placeholder signature
+  // slot. Layout: [compact-u16 sig count][sigs * 64 bytes][message]. We
+  // sign the message and patch our signature into the first slot.
   Future<Uint8List> _signTransaction(
     Uint8List txBytes,
     solana.Ed25519HDKeyPair keyPair,
   ) async {
-    // Versioned transaction layout:
-    // [signature_count] [signatures...] [message...]
-    // We need to sign the message part and replace the first signature
-
-    // Read signature count (compact-u16)
     int offset = 0;
-    int sigCount = txBytes[offset];
-    offset += 1;
+    int sigCount = txBytes[offset++];
     if (sigCount >= 0x80) {
-      // multi-byte compact-u16 — rare but handle it
-      sigCount = (sigCount & 0x7f) | (txBytes[offset] << 7);
-      offset += 1;
+      sigCount = (sigCount & 0x7f) | (txBytes[offset++] << 7);
     }
 
-    // The message starts after all signatures (each 64 bytes)
-    final messageOffset = offset + (sigCount * 64);
-    final messageBytes = txBytes.sublist(messageOffset);
-
-    // Sign the message
+    final messageBytes = txBytes.sublist(offset + (sigCount * 64));
     final signature = await keyPair.sign(messageBytes);
 
-    // Replace the first signature in the transaction
     final signed = Uint8List.fromList(txBytes);
-    final sigBytes = signature.bytes;
     for (int i = 0; i < 64; i++) {
-      signed[offset + i] = sigBytes[i];
+      signed[offset + i] = signature.bytes[i];
     }
-
     return signed;
   }
 }

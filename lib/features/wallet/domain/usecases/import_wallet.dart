@@ -1,7 +1,6 @@
 import 'package:solfare/features/wallet/domain/entities/wallet.dart';
 import 'package:solfare/features/wallet/domain/repositories/wallet_repository.dart';
 
-/// Use case: Import a Solana wallet from an existing mnemonic phrase.
 class ImportWalletUseCase {
   final WalletRepository _repository;
 

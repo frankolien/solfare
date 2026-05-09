@@ -384,7 +384,6 @@ class _SendSolScreenState extends State<SendSolScreen> {
                   ..._contacts.map((c) => _buildContactRow(c)),
                 ],
 
-                // Show continue button if typed address is valid
                 if (_recipientAddress.length >= 32 && _recents.isEmpty && _contacts.isEmpty) ...[
                   const SizedBox(height: 24),
                   SizedBox(
@@ -918,7 +917,6 @@ class _SendSolScreenState extends State<SendSolScreen> {
 
                         const SizedBox(height: 24),
 
-                        // Save button
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(

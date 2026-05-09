@@ -173,13 +173,8 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
   ) async {
     final currentState = state;
     if (currentState is PasscodeEntering) {
-      // Show wrong state
-      emit(PasscodeEntering(
-        passcode: currentState.passcode,
-        isWrong: true,
-      ));
-      
-      // Reset after delay
+      emit(PasscodeEntering(passcode: currentState.passcode, isWrong: true));
+      // Hold the wrong-state long enough for the haptic + red flash to land.
       await Future.delayed(const Duration(milliseconds: 800));
       if (state is PasscodeEntering) {
         emit(const PasscodeInitial());

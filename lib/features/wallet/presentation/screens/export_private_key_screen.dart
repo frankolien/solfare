@@ -1,16 +1,13 @@
 import 'dart:ui';
-import 'package:bip39/bip39.dart' as bip39;
 import 'package:bs58/bs58.dart';
-import 'package:ed25519_hd_key/ed25519_hd_key.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:solfare/core/constant/solana_path.dart';
 import 'package:solfare/core/security/passcode_crypto.dart';
 import 'package:solfare/core/security/secure_clipboard.dart';
 import 'package:solfare/core/security/secure_screen.dart';
+import 'package:solfare/core/security/secure_store.dart';
 import 'package:solfare/core/util/copied_toast.dart';
 import 'package:solfare/core/wallet/active_wallet.dart';
+import 'package:solfare/core/wallet/keyring.dart';
 
 enum _KeyFormat { base58, array }
 
@@ -22,7 +19,7 @@ class ExportPrivateKeyScreen extends StatefulWidget {
 }
 
 class _ExportPrivateKeyScreenState extends State<ExportPrivateKeyScreen> {
-  final _storage = const FlutterSecureStorage();
+  final _storage = SecureStore.instance;
   String? _privateKeyBase58;
   List<int>? _privateKeyBytes;
   bool _isRevealed = false;
@@ -54,27 +51,22 @@ class _ExportPrivateKeyScreenState extends State<ExportPrivateKeyScreen> {
 
   Future<void> _loadKey() async {
     final mnemonic = await ActiveWallet.mnemonic();
+    if (mnemonic == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
 
-    if (mnemonic != null && bip39.validateMnemonic(mnemonic)) {
-      final seed = bip39.mnemonicToSeed(mnemonic);
-      final keyData = await ED25519_HD_KEY.derivePath(
-        SolanaPath.defaultPath,
-        seed,
-      );
-      final privateKeyBytes = Uint8List.fromList(keyData.key);
+    try {
+      final privateKeyBytes = await Keyring.privateKeyBytes(mnemonic);
       final privateKeyBase58 = base58.encode(privateKeyBytes);
-
-      if (mounted) {
-        setState(() {
-          _privateKeyBase58 = privateKeyBase58;
-          _privateKeyBytes = privateKeyBytes;
-          _isLoading = false;
-        });
-      }
-    } else {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (!mounted) return;
+      setState(() {
+        _privateKeyBase58 = privateKeyBase58;
+        _privateKeyBytes = privateKeyBytes;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -428,7 +420,6 @@ class _ExportPrivateKeyScreenState extends State<ExportPrivateKeyScreen> {
 
             const SizedBox(height: 14),
 
-            // Show / Hide button
             Padding(
               padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.of(context).padding.bottom + 16),
               child: SizedBox(
