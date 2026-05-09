@@ -75,6 +75,16 @@ The app defaults to Solana Mainnet; Devnet can be selected from Settings → Net
 
 Active personal project. Core wallet flows (create, import, send, receive, balances, history, staking, swap UI, market, dApp browser) are implemented. Continuing to harden security flows, polish UI, and expand SPL token coverage.
 
+## Build journey
+
+I documented this build on X — short demos and progress clips:
+
+- [Demo 1](https://x.com/frank_olien123/status/2043789527555154108)
+- [Demo 2](https://x.com/frank_olien123/status/2042661682837668019)
+- [Demo 3](https://x.com/frank_olien123/status/2040119660851368031)
+
+Follow along: [@frank_olien123](https://x.com/frank_olien123)
+
 ## About me
 
 I'm a Flutter developer focused on mobile apps that touch crypto, security, and real-time data. If you're hiring, reach out — Frankolien123@gmail.com.
