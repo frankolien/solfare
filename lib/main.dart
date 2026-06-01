@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:solfare/core/constant/network.dart';
+import 'package:solfare/core/deeplink/deep_link_bridge.dart';
 import 'package:solfare/core/locale/locale_provider.dart';
 import 'package:solfare/core/router/app_router.dart';
 import 'package:solfare/features/explore/presentation/bloc/explore_bloc.dart';
@@ -21,6 +22,7 @@ void main() async {
   await dotenv.load(fileName: '.env');
   await NetworkConstants.load();
   await _wipeSecureStorageOnFreshInstall();
+  DeepLinkBridge.init(appRouter);
   runApp(const MainApp());
 }
 

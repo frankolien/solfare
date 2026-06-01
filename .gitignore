@@ -48,9 +48,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
-# Markdown and PDF files (keep README and the ADRs tracked)
+# Markdown and PDF files (keep README and the docs/ tree tracked)
 *.md
 *.pdf
 !README.md
 !docs/adr/*.md
+!docs/*.md
 

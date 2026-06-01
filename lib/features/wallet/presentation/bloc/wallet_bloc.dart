@@ -8,6 +8,7 @@ import 'package:solana/src/rpc/dto/latest_blockhash.dart';
 import 'package:solfare/core/util/app_log.dart';
 import 'package:solfare/core/constant/network.dart';
 import 'package:solfare/core/wallet/keyring.dart';
+import 'package:solfare/core/widgets/widget_bridge.dart';
 import 'package:solfare/features/wallet/data/datasource/balance_ws_service.dart';
 import 'package:solfare/features/wallet/data/datasource/crypto_price_datasource.dart';
 import 'package:solfare/features/wallet/data/datasource/solana_rpc_datasource.dart';
@@ -38,6 +39,15 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
   // feeling live without hammering the rate limit.
   Timer? _priceTimer;
   static const _priceRefreshInterval = Duration(seconds: 30);
+
+  // Last-known SOL price + 24h change + lamports, cached so either side of
+  // the widget push (price arrives / balance arrives) can fill in the other.
+  // Without the lamports cache, a balance-fetch that beats the first
+  // price-fetch is dropped on the floor and the widget shows preview data
+  // until the *next* balance change — which can be hours.
+  double? _lastSolPriceUsd;
+  double? _lastSolPriceChange;
+  int? _lastLamports;
 
   WalletBloc({
     WalletRepositoryImpl? repository,
@@ -543,6 +553,8 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
         return;
       }
       emit(BalanceFetched(balance: balance, address: event.address));
+      _lastLamports = balance;
+      _pushWalletWidget();
     } catch (e) {
       emit(WalletError(e.toString()));
     }
@@ -582,14 +594,46 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     try {
       final price = await _priceDataSource.getSolPrice();
       final priceChange24h = await _priceDataSource.getSolPriceChange24h();
+      _lastSolPriceUsd = price;
+      _lastSolPriceChange = priceChange24h;
       emit(SolPriceFetched(
         priceUsd: price,
         priceChange24h: priceChange24h,
       ));
+      WidgetBridge.pushPrice(
+        symbol: 'SOL',
+        priceUsd: price,
+        percentChange24h: priceChange24h,
+        sparkline: const [],
+      );
+      // Fresh price → refresh the wallet widget too, in case the very first
+      // balance fetch beat us here and was skipped for lack of a price.
+      _pushWalletWidget();
     } catch (e) {
       // Don't emit error state for price fetch failures - just log it
       // Price is not critical for app functionality
       debugLog('Failed to fetch SOL price: $e');
+    }
+  }
+
+  // Best-effort push to the iOS widget extension. Skipped silently on
+  // Android / when we don't yet have both a price and a lamports figure to
+  // compose the USD value from.
+  Future<void> _pushWalletWidget() async {
+    final price = _lastSolPriceUsd;
+    final lamports = _lastLamports;
+    if (price == null || lamports == null) return;
+    try {
+      final active = await _repository.getActiveWallet();
+      if (active == null) return;
+      final balanceUsd = (lamports / 1000000000) * price;
+      await WidgetBridge.pushWallet(
+        walletName: active.name,
+        balanceUsd: balanceUsd,
+        percentChange24h: _lastSolPriceChange ?? 0,
+      );
+    } catch (e) {
+      debugLog('Failed to push wallet widget: $e');
     }
   }
 
