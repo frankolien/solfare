@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 import 'package:solana/solana.dart' as solana;
 import 'package:solfare/core/constant/network.dart';
+import 'package:solfare/core/network/http_retry.dart';
 import 'package:solfare/core/wallet/active_wallet.dart';
 import 'package:solfare/core/wallet/keyring.dart';
 import 'package:solfare/features/swap/data/datasource/jupiter_datasource.dart';
@@ -160,18 +161,20 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
       final txBytes = base64Decode(swapTxBase64);
       final signedBytes = await _signTransaction(txBytes, keyPair);
 
-      final response = await http.post(
-        Uri.parse(NetworkConstants.solanaUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'jsonrpc': '2.0',
-          'id': 1,
-          'method': 'sendTransaction',
-          'params': [
-            base64Encode(signedBytes),
-            {'encoding': 'base64', 'preflightCommitment': 'confirmed'},
-          ],
-        }),
+      final response = await HttpRetry.send(
+        () => http.post(
+          Uri.parse(NetworkConstants.solanaUrl),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'jsonrpc': '2.0',
+            'id': 1,
+            'method': 'sendTransaction',
+            'params': [
+              base64Encode(signedBytes),
+              {'encoding': 'base64', 'preflightCommitment': 'confirmed'},
+            ],
+          }),
+        ),
       );
 
       final data = jsonDecode(response.body);

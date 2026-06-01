@@ -3,36 +3,46 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 
 /// Passcode hashing + verification using PBKDF2-HMAC-SHA256.
 ///
-/// Stored format: `v1:<base64 salt>:<iterations>:<base64 hash>` so that we can
-/// change iterations or algorithm later without breaking existing users.
+/// Stored format: `v1:<base64 salt>:<iterations>:<base64 hash>` so iterations
+/// or algorithm can change later without breaking existing users.
+///
+/// `hash` and `verify` run on a background isolate via `compute()` — PBKDF2
+/// at 100k iters takes ~150ms on a low-end Android, easily long enough to
+/// drop a frame if it ran on the UI isolate.
 class PasscodeCrypto {
   static const _iterations = 100000;
   static const _saltBytes = 16;
   static const _hashBytes = 32;
   static const _version = 'v1';
 
-  /// Returns a serialized hash string safe to store in secure storage.
-  static String hash(String passcode) {
+  static Future<String> hash(String passcode) => compute(_hashSync, passcode);
+
+  static bool isLegacyPlaintext(String stored) => !stored.startsWith('$_version:');
+
+  static Future<bool> verify(String passcode, String stored) {
+    // Legacy plaintext compare is cheap — no need to ship to an isolate.
+    if (isLegacyPlaintext(stored)) {
+      return Future.value(_constantTimeEqualsString(passcode, stored));
+    }
+    return compute(_verifySync, [passcode, stored]);
+  }
+
+  // ── isolate entry points ────────────────────────────────────────────────
+
+  static String _hashSync(String passcode) {
     final salt = _randomBytes(_saltBytes);
     final derived = _pbkdf2(passcode, salt, _iterations, _hashBytes);
     return '$_version:${base64Encode(salt)}:$_iterations:${base64Encode(derived)}';
   }
 
-  /// Returns true if [stored] looks like a legacy plaintext passcode from
-  /// before hashing was introduced. Used so existing installs keep working.
-  static bool isLegacyPlaintext(String stored) => !stored.startsWith('$_version:');
-
-  /// Constant-time verification against a stored hash string. Also accepts
-  /// legacy plaintext values so pre-hashing installs keep working; the caller
-  /// is expected to re-save the passcode as a hash after a successful verify.
-  static bool verify(String passcode, String stored) {
+  static bool _verifySync(List<String> args) {
     try {
-      if (isLegacyPlaintext(stored)) {
-        return _constantTimeEqualsString(passcode, stored);
-      }
+      final passcode = args[0];
+      final stored = args[1];
       final parts = stored.split(':');
       if (parts.length != 4 || parts[0] != _version) return false;
       final salt = base64Decode(parts[1]);
@@ -44,6 +54,8 @@ class PasscodeCrypto {
       return false;
     }
   }
+
+  // ── primitives ──────────────────────────────────────────────────────────
 
   static bool _constantTimeEqualsString(String a, String b) {
     if (a.length != b.length) return false;
@@ -59,7 +71,7 @@ class PasscodeCrypto {
     return Uint8List.fromList(List<int>.generate(n, (_) => r.nextInt(256)));
   }
 
-  /// PBKDF2-HMAC-SHA256 implementation using the `crypto` package's Hmac.
+  // PBKDF2-HMAC-SHA256 built on top of the `crypto` package's Hmac.
   static Uint8List _pbkdf2(
     String password,
     List<int> salt,
@@ -67,7 +79,7 @@ class PasscodeCrypto {
     int length,
   ) {
     final hmac = Hmac(sha256, utf8.encode(password));
-    final hLen = 32;
+    const hLen = 32;
     final blocks = (length / hLen).ceil();
     final out = BytesBuilder();
     for (var i = 1; i <= blocks; i++) {

@@ -86,18 +86,17 @@ class _ExportRecoveryScreenState extends State<ExportRecoveryScreen> {
               _buildMiniKeypad(entered, (val) async {
                 setDialogState(() => entered = val);
                 if (val.length == 6) {
-                  // Verify passcode
                   final stored = await _storage.read(key: 'wallet_passcode');
-                  if (stored != null && PasscodeCrypto.verify(val, stored)) {
-                    if (mounted) Navigator.pop(ctx);
+                  final ok = stored != null && await PasscodeCrypto.verify(val, stored);
+                  if (!mounted || !context.mounted) return;
+                  if (ok) {
+                    Navigator.pop(ctx);
                     setState(() => _isRevealed = true);
                   } else {
                     setDialogState(() => entered = '');
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Wrong passcode'), backgroundColor: Colors.red, duration: Duration(seconds: 1)),
-                      );
-                    }
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Wrong passcode'), backgroundColor: Colors.red, duration: Duration(seconds: 1)),
+                    );
                   }
                 }
               }),

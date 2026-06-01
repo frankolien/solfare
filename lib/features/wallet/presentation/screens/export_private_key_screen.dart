@@ -131,8 +131,9 @@ class _ExportPrivateKeyScreenState extends State<ExportPrivateKeyScreen> {
                 setDialogState(() => entered = val);
                 if (val.length == 6) {
                   final stored = await _storage.read(key: 'wallet_passcode');
-                  if (!context.mounted) return;
-                  if (stored != null && PasscodeCrypto.verify(val, stored)) {
+                  final ok = stored != null && await PasscodeCrypto.verify(val, stored);
+                  if (!mounted || !context.mounted) return;
+                  if (ok) {
                     Navigator.pop(ctx);
                     setState(() => _isRevealed = true);
                   } else {

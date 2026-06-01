@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:solfare/core/network/http_retry.dart';
 import 'package:solfare/features/swap/domain/entities/swap_token.dart';
-import 'package:solfare/core/util/app_log.dart';
 
 class JupiterDataSource {
   static const _baseUrl = 'https://api.jup.ag/swap/v2';
@@ -30,17 +30,15 @@ class JupiterDataSource {
         '&amount=$amount'
         '&slippageBps=$slippageBps';
 
-    debugLog('[Jupiter] Fetching quote: $url');
-
-    final response = await client.get(
-      Uri.parse(url),
-      headers: {
-        'Accept': 'application/json',
-        'x-api-key': _apiKey,
-      },
+    final response = await HttpRetry.send(
+      () => client.get(
+        Uri.parse(url),
+        headers: {
+          'Accept': 'application/json',
+          'x-api-key': _apiKey,
+        },
+      ),
     );
-
-    debugLog('[Jupiter] Response: ${response.statusCode}');
 
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
@@ -53,18 +51,20 @@ class JupiterDataSource {
     required Map<String, dynamic> quoteResponse,
     required String userPublicKey,
   }) async {
-    final response = await client.post(
-      Uri.parse('$_baseUrl/execute'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'x-api-key': _apiKey,
-      },
-      body: jsonEncode({
-        'quoteResponse': quoteResponse,
-        'userPublicKey': userPublicKey,
-        'wrapAndUnwrapSol': true,
-      }),
+    final response = await HttpRetry.send(
+      () => client.post(
+        Uri.parse('$_baseUrl/execute'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'x-api-key': _apiKey,
+        },
+        body: jsonEncode({
+          'quoteResponse': quoteResponse,
+          'userPublicKey': userPublicKey,
+          'wrapAndUnwrapSol': true,
+        }),
+      ),
     );
 
     if (response.statusCode == 200) {

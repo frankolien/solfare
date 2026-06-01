@@ -94,13 +94,16 @@ class CoinGeckoClient {
   ) async {
     try {
       debugLog('[CoinGecko] GET $url');
+      // Hard timeout: this client serialises requests, so one hung socket
+      // would stall every subsequent fetch. The catch below falls back to
+      // stale cache, which is what we want when an upstream is misbehaving.
       final response = await _http.get(
         Uri.parse(url),
         headers: {
           'Accept': 'application/json',
           'User-Agent': 'Solfare-Wallet/1.0',
         },
-      );
+      ).timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);

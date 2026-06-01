@@ -104,11 +104,11 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
         return;
       }
 
-      final ok = PasscodeCrypto.verify(event.passcode, storedHash);
+      final ok = await PasscodeCrypto.verify(event.passcode, storedHash);
       if (ok) {
         // Migrate legacy plaintext installs to a hashed format silently.
         if (PasscodeCrypto.isLegacyPlaintext(storedHash)) {
-          final upgraded = PasscodeCrypto.hash(event.passcode);
+          final upgraded = await PasscodeCrypto.hash(event.passcode);
           await _secureStorage.write(key: _passcodeKey, value: upgraded);
         }
         await _secureStorage.delete(key: _attemptsKey);
@@ -148,7 +148,7 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
     Emitter<PasscodeState> emit,
   ) async {
     try {
-      final hashed = PasscodeCrypto.hash(event.passcode);
+      final hashed = await PasscodeCrypto.hash(event.passcode);
       await _secureStorage.write(key: _passcodeKey, value: hashed);
       await _secureStorage.delete(key: _attemptsKey);
       await _secureStorage.delete(key: _lockoutUntilKey);

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:bs58/bs58.dart';
 import 'package:http/http.dart' as http;
 import 'package:solfare/core/constant/network.dart';
+import 'package:solfare/core/network/http_retry.dart';
 import 'package:solfare/core/util/app_log.dart';
 import 'package:solfare/features/wallet/data/model/transaction_model.dart';
 import 'package:solfare/features/wallet/domain/entities/nft.dart';
@@ -59,7 +60,6 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     return clean;
   }
 
-  /// Make a JSON-RPC call to the Solana node
   Future<dynamic> _rpcCall(String method, List<dynamic> params) async {
     final requestBody = jsonEncode({
       'jsonrpc': '2.0',
@@ -68,10 +68,12 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
       'params': params,
     });
 
-    final response = await client.post(
-      Uri.parse(rpcUrl),
-      headers: {'Content-Type': 'application/json'},
-      body: requestBody,
+    final response = await HttpRetry.send(
+      () => client.post(
+        Uri.parse(rpcUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: requestBody,
+      ),
     );
 
     if (response.statusCode == 200) {
@@ -250,20 +252,22 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
 
     try {
       // Helius DAS getAssetsByOwner returns regular + compressed NFTs with metadata.
-      final response = await client.post(
-        Uri.parse(NetworkConstants.heliusDasUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'jsonrpc': '2.0',
-          'id': 'solfare-nfts',
-          'method': 'getAssetsByOwner',
-          'params': {
-            'ownerAddress': validAddress,
-            'page': 1,
-            'limit': 1000,
-            'displayOptions': {'showUnverifiedCollections': true},
-          },
-        }),
+      final response = await HttpRetry.send(
+        () => client.post(
+          Uri.parse(NetworkConstants.heliusDasUrl),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'jsonrpc': '2.0',
+            'id': 'solfare-nfts',
+            'method': 'getAssetsByOwner',
+            'params': {
+              'ownerAddress': validAddress,
+              'page': 1,
+              'limit': 1000,
+              'displayOptions': {'showUnverifiedCollections': true},
+            },
+          }),
+        ),
       );
 
       if (response.statusCode != 200) {
@@ -296,20 +300,22 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
       // Helius DAS getAssetsByOwner with showFungible=true returns SPL tokens
       // with balance + price data in token_info. One call covers every token
       // the user holds including Token-2022.
-      final response = await client.post(
-        Uri.parse(NetworkConstants.heliusDasUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'jsonrpc': '2.0',
-          'id': 'solfare-tokens',
-          'method': 'getAssetsByOwner',
-          'params': {
-            'ownerAddress': validAddress,
-            'page': 1,
-            'limit': 1000,
-            'displayOptions': {'showFungible': true},
-          },
-        }),
+      final response = await HttpRetry.send(
+        () => client.post(
+          Uri.parse(NetworkConstants.heliusDasUrl),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'jsonrpc': '2.0',
+            'id': 'solfare-tokens',
+            'method': 'getAssetsByOwner',
+            'params': {
+              'ownerAddress': validAddress,
+              'page': 1,
+              'limit': 1000,
+              'displayOptions': {'showFungible': true},
+            },
+          }),
+        ),
       );
 
       if (response.statusCode != 200) {
@@ -538,15 +544,17 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
   @override
   Future<Nft?> getAssetByMint(String mint) async {
     try {
-      final response = await client.post(
-        Uri.parse(NetworkConstants.heliusDasUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'jsonrpc': '2.0',
-          'id': 'solfare-nft-one',
-          'method': 'getAsset',
-          'params': {'id': mint},
-        }),
+      final response = await HttpRetry.send(
+        () => client.post(
+          Uri.parse(NetworkConstants.heliusDasUrl),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'jsonrpc': '2.0',
+            'id': 'solfare-nft-one',
+            'method': 'getAsset',
+            'params': {'id': mint},
+          }),
+        ),
       );
       if (response.statusCode != 200) return null;
       final body = jsonDecode(response.body);
