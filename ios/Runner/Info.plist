@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Solfare uses the camera to scan wallet QR codes.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Solfare uses Face ID to unlock your wallet and confirm sensitive actions.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Solfare needs permission to save images to your photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
