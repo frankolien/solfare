@@ -20,7 +20,7 @@ struct PriceProvider: TimelineProvider {
   // schedule is a floor, not a ceiling.
   func getTimeline(in context: Context, completion: @escaping (Timeline<PriceEntry>) -> Void) {
     let now = Date()
-    let entry = PriceEntry(date: now, data: PriceWidgetData.read())
+    let entry = PriceEntry(date: now, data: PriceWidgetData.read() ?? .preview)
     let next = Calendar.current.date(byAdding: .minute, value: 15, to: now)!
     completion(Timeline(entries: [entry], policy: .after(next)))
   }

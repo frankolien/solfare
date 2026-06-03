@@ -24,11 +24,25 @@ struct WalletWidgetData: Codable {
   let updatedAt: Date
 
   static func read() -> WalletWidgetData? {
-    guard let raw = WidgetShared.defaults?.string(forKey: WidgetShared.walletKey),
-          let data = raw.data(using: .utf8) else { return nil }
+    guard let defaults = WidgetShared.defaults else {
+      NSLog("[WidgetRead] wallet: defaults nil — App Group missing on widget target")
+      return nil
+    }
+    guard let raw = defaults.string(forKey: WidgetShared.walletKey) else {
+      NSLog("[WidgetRead] wallet: key '\(WidgetShared.walletKey)' has no value yet")
+      return nil
+    }
+    guard let data = raw.data(using: .utf8) else { return nil }
     let decoder = JSONDecoder()
     decoder.dateDecodingStrategy = .millisecondsSince1970
-    return try? decoder.decode(WalletWidgetData.self, from: data)
+    do {
+      let v = try decoder.decode(WalletWidgetData.self, from: data)
+      NSLog("[WidgetRead] wallet: ok balance=\(v.balanceUsd)")
+      return v
+    } catch {
+      NSLog("[WidgetRead] wallet: decode failed: \(error)")
+      return nil
+    }
   }
 }
 
@@ -40,11 +54,25 @@ struct PriceWidgetData: Codable {
   let updatedAt: Date
 
   static func read() -> PriceWidgetData? {
-    guard let raw = WidgetShared.defaults?.string(forKey: WidgetShared.priceKey),
-          let data = raw.data(using: .utf8) else { return nil }
+    guard let defaults = WidgetShared.defaults else {
+      NSLog("[WidgetRead] price: defaults nil — App Group missing on widget target")
+      return nil
+    }
+    guard let raw = defaults.string(forKey: WidgetShared.priceKey) else {
+      NSLog("[WidgetRead] price: key '\(WidgetShared.priceKey)' has no value yet")
+      return nil
+    }
+    guard let data = raw.data(using: .utf8) else { return nil }
     let decoder = JSONDecoder()
     decoder.dateDecodingStrategy = .millisecondsSince1970
-    return try? decoder.decode(PriceWidgetData.self, from: data)
+    do {
+      let v = try decoder.decode(PriceWidgetData.self, from: data)
+      NSLog("[WidgetRead] price: ok price=\(v.priceUsd)")
+      return v
+    } catch {
+      NSLog("[WidgetRead] price: decode failed: \(error)")
+      return nil
+    }
   }
 }
 

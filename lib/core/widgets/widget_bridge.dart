@@ -50,13 +50,16 @@ class WidgetBridge {
 
   static Future<void> _push(String key, Map<String, Object?> payload) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return;
+    final json = jsonEncode(payload);
     try {
-      await _channel.invokeMethod('write', {
-        'key': key,
-        'json': jsonEncode(payload),
-      });
-    } on MissingPluginException {
-      // No native handler (test host, Android, older builds) — silent.
+      await _channel.invokeMethod('write', {'key': key, 'json': json});
+      debugPrint('[WidgetBridge] pushed $key (${json.length}B)');
+    } on MissingPluginException catch (e) {
+      // Loud during development — if this fires in prod it means the iOS
+      // method-channel handler never registered (engine timing bug).
+      debugPrint('[WidgetBridge] NO NATIVE HANDLER for $key: $e');
+    } catch (e) {
+      debugPrint('[WidgetBridge] push $key failed: $e');
     }
   }
 }

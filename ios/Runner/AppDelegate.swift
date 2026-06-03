@@ -85,16 +85,30 @@ import WidgetKit
       binaryMessenger: messenger
     )
     widgetChannel.setMethodCallHandler { call, result in
+      NSLog("[WidgetData] received call: \(call.method)")
       guard let args = call.arguments as? [String: Any],
             let key = args["key"] as? String,
             let json = args["json"] as? String else {
+        NSLog("[WidgetData] bad_args")
         result(FlutterError(code: "bad_args", message: "expected {key, json}", details: nil))
         return
       }
-      let defaults = UserDefaults(suiteName: AppDelegate.appGroup)
-      defaults?.set(json, forKey: key)
+      guard let defaults = UserDefaults(suiteName: AppDelegate.appGroup) else {
+        NSLog("[WidgetData] UserDefaults(suiteName: \(AppDelegate.appGroup)) returned nil — App Group not registered for this target")
+        result(FlutterError(code: "no_suite", message: "no app group", details: nil))
+        return
+      }
+      defaults.set(json, forKey: key)
+      // Cross-process App Group writes are not guaranteed to be visible to
+      // the widget extension immediately. synchronize() is deprecated but
+      // remains the only reliable way to force a flush across the process
+      // boundary.
+      defaults.synchronize()
+      let verify = defaults.string(forKey: key) ?? ""
+      NSLog("[WidgetData] wrote key=\(key) bytes=\(json.count) verified=\(verify.count)B")
       if #available(iOS 14.0, *) {
         WidgetCenter.shared.reloadAllTimelines()
+        NSLog("[WidgetData] reloadAllTimelines fired")
       }
       result(nil)
     }

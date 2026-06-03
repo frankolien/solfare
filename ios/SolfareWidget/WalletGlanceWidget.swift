@@ -19,7 +19,7 @@ struct WalletProvider: TimelineProvider {
   // every wallet update, so this is just a fallback heartbeat.
   func getTimeline(in context: Context, completion: @escaping (Timeline<WalletEntry>) -> Void) {
     let now = Date()
-    let entry = WalletEntry(date: now, data: WalletWidgetData.read())
+    let entry = WalletEntry(date: now, data: WalletWidgetData.read() ?? .preview)
     let next = Calendar.current.date(byAdding: .minute, value: 15, to: now)!
     completion(Timeline(entries: [entry], policy: .after(next)))
   }
