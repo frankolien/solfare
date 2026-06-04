@@ -15,17 +15,13 @@ import 'package:solfare/core/error/exception.dart';
 class Keyring {
   Keyring._();
 
-  /// Derive a Solana signing keypair from the given BIP-39 mnemonic.
-  /// The seed and intermediate private-key bytes are zeroed before return.
+  // Do NOT zero `priv` — Ed25519HDKeyPair stores it by reference, so
+  // zeroing here corrupts the signing key and every tx fails verification.
   static Future<solana.Ed25519HDKeyPair> keyPairFromMnemonic(
     String mnemonic,
   ) async {
     final priv = await _privateKeyBytes(mnemonic);
-    try {
-      return solana.Ed25519HDKeyPair.fromPrivateKeyBytes(privateKey: priv);
-    } finally {
-      _zero(priv);
-    }
+    return solana.Ed25519HDKeyPair.fromPrivateKeyBytes(privateKey: priv);
   }
 
   /// Derive the raw 32-byte private key. The caller owns the buffer and
