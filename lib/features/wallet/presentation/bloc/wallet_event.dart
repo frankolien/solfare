@@ -77,6 +77,17 @@ class FetchSolPriceEvent extends WalletEvent {
   const FetchSolPriceEvent();
 }
 
+/// Live ticker push from BinancePriceWsService. Carries already-parsed
+/// values so the bloc handler is pure state mutation.
+class LivePriceTickEvent extends WalletEvent {
+  final double priceUsd;
+  final double percentChange24h;
+  const LivePriceTickEvent(this.priceUsd, this.percentChange24h);
+
+  @override
+  List<Object?> get props => [priceUsd, percentChange24h];
+}
+
 class LoadWalletAddressEvent extends WalletEvent {
   const LoadWalletAddressEvent();
 

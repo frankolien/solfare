@@ -1,10 +1,14 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:solfare/core/network/coingecko_client.dart';
 import 'package:solfare/core/wallet/active_wallet.dart';
 import 'package:solfare/features/market/domain/entities/market_token.dart';
+import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
+import 'package:solfare/features/wallet/presentation/bloc/wallet_event.dart';
+import 'package:solfare/features/wallet/presentation/bloc/wallet_state.dart';
 import 'package:solfare/features/wallet/presentation/screens/send_sol_screen.dart';
 
 class TokenDetailScreen extends StatefulWidget {
@@ -28,6 +32,25 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   double? _touchedPrice;
   int? _touchedIndex;
 
+  // Live values pushed in by WalletBloc when SolPriceFetched arrives — both
+  // the 5-min CoinGecko poll and the ~1Hz Binance WS tick land here. Used
+  // ONLY for token.id == 'solana'; other tokens fall back to widget.token
+  // values frozen at navigation time.
+  double? _liveSolPrice;
+  double? _liveSolChange;
+
+  // Live mode appends each WS tick to _chartData ring-buffer style, but only
+  // on the short timeframes (1m/1H) where a 1Hz tick is visually meaningful.
+  // Longer timeframes would dilute their CoinGecko history with sub-second
+  // noise, so we leave their chart alone and only update the header.
+  static const _liveChartMaxPoints = 240;
+
+  // Bumped before every CoinGecko fetch; the in-flight call's snapshot is
+  // compared on completion so a late response from a previous timeframe
+  // can't clobber the now-selected one (and can't erase live appends that
+  // landed between dispatch and completion).
+  int _chartFetchId = 0;
+
   // Static caches shared across all instances — CoinGeckoClient handles the
   // HTTP cache on disk; these are in-memory shortcuts for mint/description.
   static final Map<String, String> _descriptionCache = {};
@@ -39,6 +62,12 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     _chartData = widget.token.sparklineData;
     _fetchMintAddress();
     _fetchChartData();
+    // SOL header should start with a real price even if WalletBloc hasn't
+    // activated a wallet yet (so the Binance WS hasn't started). One CoinGecko
+    // poll fills the header until the WS comes online; no-op for non-SOL.
+    if (widget.token.id == 'solana') {
+      context.read<WalletBloc>().add(const FetchSolPriceEvent());
+    }
   }
 
   /// True when [widget.token.id] is a Solana mint (e.g. portfolio SPL tokens)
@@ -58,6 +87,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   }
 
   Future<void> _fetchChartData() async {
+    final fetchId = ++_chartFetchId;
     setState(() => _isLoadingChart = true);
     try {
       final days = _timeframeDays[_selectedTimeframe];
@@ -69,14 +99,19 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
       final chartData = prices == null
           ? <double>[]
           : prices.map((p) => (p[1] as num).toDouble()).toList();
-      if (mounted) {
-        setState(() {
-          _chartData = chartData;
-          _isLoadingChart = false;
-        });
-      }
+      // Drop the result if another fetch was kicked off after us (timeframe
+      // changed) — without this, a slow response can clobber a freshly-
+      // selected timeframe's data, or erase live-tick appends that landed
+      // while this request was in flight.
+      if (!mounted || fetchId != _chartFetchId) return;
+      setState(() {
+        _chartData = chartData;
+        _isLoadingChart = false;
+      });
     } catch (_) {
-      if (mounted) setState(() => _isLoadingChart = false);
+      if (mounted && fetchId == _chartFetchId) {
+        setState(() => _isLoadingChart = false);
+      }
     }
   }
 
@@ -137,6 +172,36 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     return '\$${value.toStringAsFixed(2)}';
   }
 
+  // Called by BlocListener when WalletBloc emits SolPriceFetched. Updates
+  // the header price/change for the SOL detail screen and appends a chart
+  // point only on the short timeframes (1m / 1H) where 1Hz ticks are useful.
+  //
+  // Skipped entirely while the candlestick WebView is visible — its
+  // controller is rebuilt on every build(), so a 1Hz setState there would
+  // tear down and reload the WebView (refetching Binance klines) every
+  // second. The candle view has its own live Binance feed via injected JS,
+  // so users on candle view aren't losing realtime — they keep it via the
+  // chart's own pipeline.
+  void _onLivePriceTick(double priceUsd, double changePct) {
+    if (widget.token.id != 'solana') return;
+    if (!mounted) return;
+    if (!_isLineChart) return;
+    setState(() {
+      _liveSolPrice = priceUsd;
+      _liveSolChange = changePct;
+      // Append to chart only when a short timeframe is visible AND the user
+      // is not currently touching the chart — appending mid-hover shifts
+      // every spot's x-position and the touched dot drifts visibly.
+      final shouldAppend = _selectedTimeframe <= 1 && _touchedPrice == null;
+      if (shouldAppend) {
+        _chartData = [..._chartData, priceUsd];
+        if (_chartData.length > _liveChartMaxPoints) {
+          _chartData = _chartData.sublist(_chartData.length - _liveChartMaxPoints);
+        }
+      }
+    });
+  }
+
   String _formatPrice(double price) {
     if (price >= 1) return '\$${price.toStringAsFixed(2)}';
     if (price >= 0.01) return '\$${price.toStringAsFixed(4)}';
@@ -146,11 +211,27 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final token = widget.token;
+    // Live values feed the HEADER price + % text only. Chart palette
+    // (chartColor / glow / crosshair) stays bound to the navigation-time
+    // 24h direction so a Binance tick crossing zero doesn't flip the line
+    // purple↔red mid-session — that would be a visible design change, not
+    // a transparent data refresh.
+    final displayedPrice = _liveSolPrice ?? token.currentPrice;
+    final displayedChange = _liveSolChange ?? token.priceChangePercentage24h;
+    final headerIsPositive = displayedChange >= 0;
+    final changeColor = headerIsPositive ? const Color(0xFF4CAF50) : const Color(0xFFFF5252);
     final isPositive = token.priceChangePercentage24h >= 0;
-    final changeColor = isPositive ? const Color(0xFF4CAF50) : const Color(0xFFFF5252);
     final chartColor = isPositive ? const Color(0xFF7B61FF) : const Color(0xFFFF5252);
 
-    return Scaffold(
+    return BlocListener<WalletBloc, WalletState>(
+      listenWhen: (prev, curr) =>
+          curr is SolPriceFetched && widget.token.id == 'solana',
+      listener: (context, state) {
+        if (state is SolPriceFetched) {
+          _onLivePriceTick(state.priceUsd, state.priceChange24h);
+        }
+      },
+      child: Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -206,7 +287,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _formatPrice(_touchedPrice ?? token.currentPrice),
+                    _formatPrice(_touchedPrice ?? displayedPrice),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 28,
@@ -217,7 +298,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                   const SizedBox(height: 4),
                   if (_touchedPrice != null)
                     Builder(builder: (context) {
-                      final pctChange = ((_touchedPrice! - token.currentPrice) / token.currentPrice * 100);
+                      final pctChange = ((_touchedPrice! - displayedPrice) / displayedPrice * 100);
                       final touchChangeColor = pctChange >= 0 ? const Color(0xFF4CAF50) : const Color(0xFFFF5252);
                       final arrow = pctChange >= 0 ? '↗' : '↘';
 
@@ -269,12 +350,12 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                   Row(
                     children: [
                       Text(
-                        isPositive ? '↗' : '↘',
+                        headerIsPositive ? '↗' : '↘',
                         style: TextStyle(color: changeColor, fontSize: 13),
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '${token.priceChangePercentage24h.abs().toStringAsFixed(2)}%',
+                        '${displayedChange.abs().toStringAsFixed(2)}%',
                         style: TextStyle(
                           color: changeColor,
                           fontSize: 13,
@@ -552,6 +633,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 

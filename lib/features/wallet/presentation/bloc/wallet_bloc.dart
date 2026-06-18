@@ -10,6 +10,7 @@ import 'package:solfare/core/constant/network.dart';
 import 'package:solfare/core/wallet/keyring.dart';
 import 'package:solfare/core/widgets/widget_bridge.dart';
 import 'package:solfare/features/wallet/data/datasource/balance_ws_service.dart';
+import 'package:solfare/features/wallet/data/datasource/binance_price_ws_service.dart';
 import 'package:solfare/features/wallet/data/datasource/crypto_price_datasource.dart';
 import 'package:solfare/features/wallet/data/datasource/solana_rpc_datasource.dart';
 import 'package:solfare/features/wallet/data/datasource/wallet_local_datasource.dart';
@@ -29,16 +30,18 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
   final SolanaRpcDataSource _rpcDataSource;
   final CryptoPriceDataSource _priceDataSource;
   late final BalanceWsService _balanceWs;
+  late final BinancePriceWsService _priceWs;
 
   // Tracks the address the WS is currently watching so we can re-subscribe
   // after network switches / app resume without duplicate subscriptions.
   String? _watchedAddress;
 
-  // Periodic refresh of the SOL price. CoinGecko's /simple/price is cheap and
-  // CoinGeckoClient throttles + dedupes — 30s cadence keeps the price card
-  // feeling live without hammering the rate limit.
+  // CoinGecko is the cold-start snapshot + slow fallback heartbeat. Live
+  // price feel comes from BinancePriceWsService (1Hz pushes over public WS).
+  // The HTTP poll drops to 5min so we don't burn rate limit when the WS is
+  // already feeding fresh data — it only matters if Binance is unreachable.
   Timer? _priceTimer;
-  static const _priceRefreshInterval = Duration(seconds: 30);
+  static const _priceRefreshInterval = Duration(minutes: 5);
 
   // Last-known SOL price + 24h change + lamports, cached so either side of
   // the widget push (price arrives / balance arrives) can fill in the other.
@@ -69,6 +72,16 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       if (addr != null) add(FetchBalanceEvent(addr));
     });
 
+    // Binance public WS pushes ticker frames ~1Hz. Re-emit as an event so
+    // the handler runs on the bloc's serialized queue and shares the same
+    // state-emission path as the polled fetch.
+    _priceWs = BinancePriceWsService(
+      onTick: (priceUsd, change) {
+        if (isClosed) return;
+        add(LivePriceTickEvent(priceUsd, change));
+      },
+    );
+
     NetworkConstants.addListener(_onNetworkChanged);
 
     on<CreateWalletEvent>(_onCreateWallet);
@@ -79,6 +92,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     on<ResetWalletEvent>(_onResetWallet);
     on<ClearWalletEvent>(_onClearWallet);
     on<FetchSolPriceEvent>(_onFetchSolPrice);
+    on<LivePriceTickEvent>(_onLivePriceTick);
     on<LoadWalletAddressEvent>(_onLoadWalletAddress);
     on<ImportWalletEvent>(_onImportWallet);
     on<FetchTransactionsEvent>(_onFetchTransactions);
@@ -317,6 +331,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     _watchedAddress = wallet.address;
     _balanceWs.watch(wallet.address);
     _startPricePolling();
+    _priceWs.start();
     emit(WalletCustomizationLoaded(
       walletName: wallet.name,
       cardBackground: wallet.cardBackground,
@@ -453,6 +468,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     NetworkConstants.removeListener(_onNetworkChanged);
     _stopPricePolling();
     _balanceWs.dispose();
+    _priceWs.dispose();
     return super.close();
   }
 
@@ -614,6 +630,27 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       // Price is not critical for app functionality
       debugLog('Failed to fetch SOL price: $e');
     }
+  }
+
+  // Live ticker from Binance — same emission shape as the polled fetch so
+  // the UI doesn't care which source served the latest value.
+  Future<void> _onLivePriceTick(
+    LivePriceTickEvent event,
+    Emitter<WalletState> emit,
+  ) async {
+    _lastSolPriceUsd = event.priceUsd;
+    _lastSolPriceChange = event.percentChange24h;
+    emit(SolPriceFetched(
+      priceUsd: event.priceUsd,
+      priceChange24h: event.percentChange24h,
+    ));
+    WidgetBridge.pushPrice(
+      symbol: 'SOL',
+      priceUsd: event.priceUsd,
+      percentChange24h: event.percentChange24h,
+      sparkline: const [],
+    );
+    _pushWalletWidget();
   }
 
   // Best-effort push to the iOS widget extension. Skipped silently on
