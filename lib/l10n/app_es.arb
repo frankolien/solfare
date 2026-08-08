@@ -32,9 +32,9 @@
 
   "getStartedWithSol": "Empieza con SOL",
   "getStartedDescDevnet": "Solicita SOL de prueba gratis en devnet para empezar a operar, hacer staking y explorar.",
-  "getStartedDescMainnet": "Compra SOL para empezar a operar, hacer staking y explorar.",
+  "getStartedDescMainnet": "Deposita SOL para empezar a operar, hacer staking y explorar.",
   "requestTestSol": "Solicitar SOL de prueba",
-  "buySol": "Comprar SOL",
+  "buySol": "Depositar",
 
   "airdropRequested": "¡Airdrop solicitado! El saldo se actualizará pronto.",
   "errorPrefix": "Error: {message}",

@@ -33,7 +33,7 @@
 
   "getStartedWithSol": "Get Started With SOL",
   "getStartedDescDevnet": "Request free test SOL on devnet to start trading, staking, and exploring. You'll need a tiny amount of SOL for each Solana transaction.",
-  "getStartedDescMainnet": "Buy SOL to start trading, staking, and exploring. You'll need a tiny amount of SOL for each Solana transaction.",
+  "getStartedDescMainnet": "Deposit SOL to start trading, staking, and exploring. You'll need a tiny amount of SOL for each Solana transaction.",
   "requestTestSol": "Request Test SOL",
   "buySol": "Deposit",
 

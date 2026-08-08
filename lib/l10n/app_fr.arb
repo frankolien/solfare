@@ -32,9 +32,9 @@
 
   "getStartedWithSol": "Commencez avec SOL",
   "getStartedDescDevnet": "Demandez des SOL de test gratuits sur devnet pour commencer à trader, staker et explorer. Vous aurez besoin d'un petit montant de SOL pour chaque transaction Solana.",
-  "getStartedDescMainnet": "Achetez des SOL pour commencer à trader, staker et explorer. Vous aurez besoin d'un petit montant de SOL pour chaque transaction Solana.",
+  "getStartedDescMainnet": "Déposez des SOL pour commencer à trader, staker et explorer. Vous aurez besoin d'un petit montant de SOL pour chaque transaction Solana.",
   "requestTestSol": "Demander des SOL de test",
-  "buySol": "Acheter des SOL",
+  "buySol": "Déposer",
 
   "airdropRequested": "Airdrop demandé ! Le solde sera mis à jour bientôt.",
   "errorPrefix": "Erreur : {message}",

@@ -32,9 +32,9 @@
 
   "getStartedWithSol": "Starte mit SOL",
   "getStartedDescDevnet": "Fordere kostenlose Test-SOL auf Devnet an, um zu handeln, zu staken und zu erkunden.",
-  "getStartedDescMainnet": "Kaufe SOL, um zu handeln, zu staken und zu erkunden.",
+  "getStartedDescMainnet": "Zahle SOL ein, um zu handeln, zu staken und zu erkunden.",
   "requestTestSol": "Test-SOL anfordern",
-  "buySol": "SOL kaufen",
+  "buySol": "Einzahlen",
 
   "airdropRequested": "Airdrop angefordert! Guthaben wird bald aktualisiert.",
   "errorPrefix": "Fehler: {message}",

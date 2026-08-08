@@ -89,13 +89,13 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get getStartedDescMainnet =>
-      'Achetez des SOL pour commencer à trader, staker et explorer. Vous aurez besoin d\'un petit montant de SOL pour chaque transaction Solana.';
+      'Déposez des SOL pour commencer à trader, staker et explorer. Vous aurez besoin d\'un petit montant de SOL pour chaque transaction Solana.';
 
   @override
   String get requestTestSol => 'Demander des SOL de test';
 
   @override
-  String get buySol => 'Acheter des SOL';
+  String get buySol => 'Déposer';
 
   @override
   String get airdropRequested =>

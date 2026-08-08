@@ -261,7 +261,7 @@ abstract class AppLocalizations {
   /// No description provided for @getStartedDescMainnet.
   ///
   /// In en, this message translates to:
-  /// **'Buy SOL to start trading, staking, and exploring. You\'ll need a tiny amount of SOL for each Solana transaction.'**
+  /// **'Deposit SOL to start trading, staking, and exploring. You\'ll need a tiny amount of SOL for each Solana transaction.'**
   String get getStartedDescMainnet;
 
   /// No description provided for @requestTestSol.

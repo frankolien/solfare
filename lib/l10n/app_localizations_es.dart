@@ -89,13 +89,13 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get getStartedDescMainnet =>
-      'Compra SOL para empezar a operar, hacer staking y explorar.';
+      'Deposita SOL para empezar a operar, hacer staking y explorar.';
 
   @override
   String get requestTestSol => 'Solicitar SOL de prueba';
 
   @override
-  String get buySol => 'Comprar SOL';
+  String get buySol => 'Depositar';
 
   @override
   String get airdropRequested =>

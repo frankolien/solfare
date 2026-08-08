@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lottie/lottie.dart';
 import 'package:go_router/go_router.dart';
+import 'package:solfare/core/constant/network.dart';
 import 'package:solfare/core/router/app_router.dart';
 import 'package:solfare/features/homepage/data/portfolio_history.dart';
 import 'package:solfare/features/homepage/presentation/bloc/homepage_bloc.dart';
@@ -97,6 +98,8 @@ class _HomepageScreenState extends State<HomepageScreen> {
   }
 
   void _requestAirdrop() {
+    // The faucet only funds devnet/testnet; on mainnet there is nothing to ask for.
+    if (NetworkConstants.current == SolanaNetwork.mainnet) return;
     if (_walletAddress != null) {
       context.read<WalletBloc>().add(RequestAirdropEvent(address: _walletAddress!));
     }
@@ -566,6 +569,11 @@ class _HomepageScreenState extends State<HomepageScreen> {
                 GetStartedSection(
                   walletAddress: data.address,
                   onRequestAirdrop: _requestAirdrop,
+                  onDeposit: () {
+                    if (_walletAddress != null) {
+                      _showDepositSheet(context, _walletAddress!);
+                    }
+                  },
                 ),
             ],
           ),

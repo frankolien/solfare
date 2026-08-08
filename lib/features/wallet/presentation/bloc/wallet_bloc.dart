@@ -531,6 +531,12 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     RequestAirdropEvent event,
     Emitter<WalletState> emit,
   ) async {
+    // The faucet is devnet/testnet-only — never hit it on mainnet.
+    if (NetworkConstants.current == SolanaNetwork.mainnet) {
+      emit(const WalletError('Airdrops are only available on devnet or testnet.'));
+      return;
+    }
+
     emit(const WalletLoading());
 
     try {
