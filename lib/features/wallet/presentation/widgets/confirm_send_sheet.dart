@@ -47,6 +47,40 @@ class _ConfirmSendSheetState extends State<ConfirmSendSheet> {
     return name.substring(0, name.length >= 2 ? 2 : 1).toUpperCase();
   }
 
+  /// A token with no metadata has no icon. Falling back to the Solana logo
+  /// would put SOL's badge on something that is not SOL, so unknown assets
+  /// get a neutral initial instead.
+  Widget _assetIcon() {
+    final url = widget.iconUrl ?? (widget.symbol == 'SOL'
+        ? 'https://assets.coingecko.com/coins/images/4128/large/solana.png'
+        : null);
+
+    if (url != null) {
+      return Image.network(
+        url,
+        width: 56,
+        height: 56,
+        errorBuilder: (_, __, ___) => _initialBadge(),
+      );
+    }
+    return _initialBadge();
+  }
+
+  Widget _initialBadge() => Container(
+        width: 56,
+        height: 56,
+        color: const Color(0xFF2A2D35),
+        alignment: Alignment.center,
+        child: Text(
+          widget.symbol.isEmpty ? '?' : widget.symbol.characters.first.toUpperCase(),
+          style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontFamily: 'FKGrotesk',
+              fontWeight: FontWeight.bold),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -91,15 +125,7 @@ class _ConfirmSendSheetState extends State<ConfirmSendSheet> {
               color: Colors.black,
               shape: BoxShape.circle,
             ),
-            child: ClipOval(
-              child: Image.network(
-                widget.iconUrl ??
-                    'https://assets.coingecko.com/coins/images/4128/large/solana.png',
-                width: 56,
-                height: 56,
-                errorBuilder: (_, __, ___) => const SizedBox(),
-              ),
-            ),
+            child: ClipOval(child: _assetIcon()),
           ),
           const SizedBox(height: 12),
 
@@ -173,7 +199,9 @@ class _ConfirmSendSheetState extends State<ConfirmSendSheet> {
     // Nothing is approvable until the simulation answers. A preview that
     // could not run still unlocks the control — the sheet says it could not
     // be checked, and the choice is the user's.
-    final ready = preview != null;
+    // A blocked preview is a refusal, so the control stays dead rather than
+    // inviting a slide that cannot succeed.
+    final ready = preview != null && !preview.blocked;
     final danger = preview?.hasDanger ?? false;
     final fill = danger ? const Color(0xFFE03131) : Colors.yellow;
 
@@ -203,11 +231,13 @@ class _ConfirmSendSheetState extends State<ConfirmSendSheet> {
                 ),
                 Center(
                   child: Text(
-                    !ready
-                        ? 'Checking…'
-                        : danger
-                            ? 'Slide to approve anyway'
-                            : 'Slide to approve',
+                    preview?.blocked == true
+                        ? 'Cannot be sent'
+                        : !ready
+                            ? 'Checking…'
+                            : danger
+                                ? 'Slide to approve anyway'
+                                : 'Slide to approve',
                     style: TextStyle(color: Colors.grey[500], fontSize: 13, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500),
                   ),
                 ),

@@ -101,6 +101,7 @@ class PreviewEngine {
       ownerAddress: ownerAddress,
       symbols: symbols,
       instructionsUnavailable: instructions.isEmpty,
+      userInitiated: false,
     );
   }
 
@@ -112,6 +113,7 @@ class PreviewEngine {
     required Map<String, String> symbols,
     List<RiskFlag> extraFlags = const [],
     bool instructionsUnavailable = false,
+    bool userInitiated = true,
   }) async {
     final Map<String, dynamic> sim;
     try {
@@ -136,6 +138,7 @@ class PreviewEngine {
         deltas: deltas,
         willFail: err != null,
         instructionsUnavailable: instructionsUnavailable,
+        userInitiated: userInitiated,
       ),
     ]..sort((a, b) => b.severity.index.compareTo(a.severity.index));
 

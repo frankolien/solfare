@@ -92,8 +92,20 @@ void main() {
   });
 
   group('one-way transfers', () {
-    test('tokens leaving with nothing back is a caution', () {
+    test('a send the user composed is not flagged', () {
+      // They typed the amount and the recipient. "Nothing comes back"
+      // describes what they asked for, and firing on every send is how
+      // warnings get ignored.
       final flags = risk.evaluate(instructions: const [], deltas: [token(-5000000)]);
+      expect(has(flags, RiskSeverity.caution, 'nothing comes back'), isFalse);
+    });
+
+    test('the same shape from a dapp is a caution', () {
+      final flags = risk.evaluate(
+        instructions: const [],
+        deltas: [token(-5000000)],
+        userInitiated: false,
+      );
       expect(has(flags, RiskSeverity.caution, 'nothing comes back'), isTrue);
     });
 
@@ -101,6 +113,7 @@ void main() {
       final flags = risk.evaluate(
         instructions: const [],
         deltas: [token(-5000000), token(2000000, mint: 'MintBBB')],
+        userInitiated: false,
       );
       expect(has(flags, RiskSeverity.caution, 'nothing comes back'), isFalse);
     });

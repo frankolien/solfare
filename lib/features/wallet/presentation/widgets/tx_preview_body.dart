@@ -24,6 +24,7 @@ class TxPreviewBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (p.blocked) _blocked(p.failureReason),
         if (p.unverified) _unverified(p.failureReason),
         if (p.willFail) _willFail(p.failureReason),
         for (final flag in p.flags) _flagTile(flag),
@@ -32,6 +33,13 @@ class TxPreviewBody extends StatelessWidget {
       ],
     );
   }
+
+  Widget _blocked(String? reason) => _banner(
+        icon: Icons.block,
+        color: _danger,
+        title: 'This cannot be sent',
+        detail: reason ?? 'This transfer is not possible.',
+      );
 
   Widget _unverified(String? reason) => _banner(
         icon: Icons.help_outline,
@@ -161,7 +169,7 @@ class TxPreviewBody extends StatelessWidget {
               style: TextStyle(color: Colors.grey[500], fontSize: 12, fontFamily: 'FKGrotesk')),
           const Spacer(),
           Text(
-            p.unverified ? '—' : '${_sol(p.feeLamports)} SOL',
+            p.unverified || p.blocked ? '—' : '${_sol(p.feeLamports)} SOL',
             style: const TextStyle(
                 color: Colors.white,
                 fontSize: 12,

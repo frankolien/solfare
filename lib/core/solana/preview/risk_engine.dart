@@ -26,10 +26,11 @@ class RiskEngine {
     bool willFail = false,
     bool instructionsUnavailable = false,
     Set<String> previouslyUsedPrograms = const {},
+    bool userInitiated = true,
   }) {
     final flags = <RiskFlag>[
       ..._instructionFlags(instructions, previouslyUsedPrograms),
-      ..._deltaFlags(deltas),
+      ..._deltaFlags(deltas, userInitiated: userInitiated),
     ];
 
     if (instructionsUnavailable) {
@@ -146,7 +147,7 @@ class RiskEngine {
     return flags;
   }
 
-  List<RiskFlag> _deltaFlags(List<BalanceDelta> deltas) {
+  List<RiskFlag> _deltaFlags(List<BalanceDelta> deltas, {required bool userInitiated}) {
     final flags = <RiskFlag>[];
 
     for (final d in deltas.where((d) => d.isOwnAccount && d.isNative && !d.isIncoming)) {
@@ -168,9 +169,11 @@ class RiskEngine {
         .toSet();
     final incoming = deltas.where((d) => d.isOwnAccount && d.isIncoming).isNotEmpty;
 
-    // Tokens leaving with nothing coming back is the shape of a drain. It is
-    // also the shape of a legitimate gift, so it is a caution, not a block.
-    if (outgoingMints.isNotEmpty && !incoming) {
+    // Tokens leaving with nothing coming back is the shape of a drain — but
+    // only when somebody else composed the transaction. On a send the user
+    // typed themselves it describes exactly what they asked for, and a
+    // warning on every send is how warnings get ignored.
+    if (!userInitiated && outgoingMints.isNotEmpty && !incoming) {
       flags.add(RiskFlag(
         severity: RiskSeverity.caution,
         title: 'Nothing comes back',

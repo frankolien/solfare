@@ -133,6 +133,12 @@ class TxPreview {
   /// could not verify the transaction rather than imply it is safe.
   final bool unverified;
 
+  /// Set when the transaction cannot be made at all — a non-transferable
+  /// mint, a missing account. Distinct from [unverified]: that one means
+  /// "proceed at your own risk", this one means there is nothing to proceed
+  /// with, and the approve control must not be offered.
+  final bool blocked;
+
   const TxPreview({
     required this.deltas,
     required this.flags,
@@ -142,6 +148,7 @@ class TxPreview {
     this.willFail = false,
     this.failureReason,
     this.unverified = false,
+    this.blocked = false,
   });
 
   const TxPreview.unverified(String reason)
@@ -152,7 +159,21 @@ class TxPreview {
         computeUnits = 0,
         willFail = false,
         failureReason = reason,
-        unverified = true;
+        unverified = true,
+        blocked = false;
+
+  /// This transaction cannot be made. [reason] is shown instead of an
+  /// approval control.
+  const TxPreview.blocked(String reason)
+      : deltas = const [],
+        flags = const [],
+        instructions = const [],
+        feeLamports = 0,
+        computeUnits = 0,
+        willFail = false,
+        failureReason = reason,
+        unverified = false,
+        blocked = true;
 
   /// Deltas that leave or enter the signer's own accounts.
   List<BalanceDelta> get ownDeltas =>

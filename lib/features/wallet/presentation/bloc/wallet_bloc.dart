@@ -12,6 +12,7 @@ import 'package:solfare/core/solana/pay/pay_resolver.dart';
 import 'package:solfare/core/solana/preview/preview_engine.dart';
 import 'package:solfare/core/solana/preview/recipient_check.dart';
 import 'package:solfare/core/solana/preview/tx_preview.dart';
+import 'package:solfare/core/solana/token/mint_info.dart';
 import 'package:solfare/core/solana/token/token_service.dart';
 import 'package:solfare/core/solana/transaction_service.dart';
 import 'package:solfare/core/solana/tx_outcome.dart';
@@ -893,13 +894,17 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
         signers: [keyPair],
         ownerAddress: keyPair.address,
         symbols: {event.mint: ''},
-        extraFlags: [if (recipientFlag != null) recipientFlag],
+        extraFlags: [
+          if (recipientFlag != null) recipientFlag,
+          ..._tokenSendNotes(mint, instructions, event.amount),
+        ],
       );
       emit(SendPreviewReady(preview));
     } on TokenTransferException catch (e) {
-      // A mint that cannot be sent is a fact, not a network hiccup — say so
-      // rather than presenting an unchecked transaction as approvable.
-      emit(SendPreviewReady(TxPreview.unverified(e.message)));
+      // A mint that cannot be sent is a fact, not a network hiccup. Blocked
+      // rather than unverified, so the sheet refuses instead of offering to
+      // send something it just said is impossible.
+      emit(SendPreviewReady(TxPreview.blocked(e.message)));
     } catch (e) {
       debugLog('[BLoC] PreviewTokenSend failed: $e');
       emit(const SendPreviewReady(
@@ -956,6 +961,51 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       debugLog('[BLoC] SendToken failed: $e');
       emit(WalletError(e.toString()));
     }
+  }
+
+  /// Things the balance deltas cannot say for themselves.
+  ///
+  /// A transfer fee is withheld in flight, so the sender's delta is the full
+  /// amount and the recipient quietly gets less. Account rent shows up only
+  /// as SOL leaving, with nothing to say where it went.
+  List<RiskFlag> _tokenSendNotes(
+    MintInfo mint,
+    List<encoder.Instruction> instructions,
+    double amount,
+  ) {
+    final notes = <RiskFlag>[];
+
+    final fee = mint.transferFee;
+    if (fee != null) {
+      final base = _baseUnits(amount, mint.decimals);
+      final net = fee.netOf(base);
+      var divisor = 1.0;
+      for (var i = 0; i < mint.decimals; i++) {
+        divisor *= 10;
+      }
+      notes.add(RiskFlag(
+        severity: RiskSeverity.info,
+        title: 'This token charges a transfer fee',
+        detail: '${fee.percent}% is withheld, so they receive '
+            '${(net / divisor).toStringAsFixed(mint.decimals > 6 ? 6 : mint.decimals)} '
+            'of the $amount you send.',
+      ));
+    }
+
+    final createsAccount = instructions.any(
+      (i) => i.programId.toBase58() == 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',
+    );
+    if (createsAccount) {
+      notes.add(const RiskFlag(
+        severity: RiskSeverity.info,
+        title: 'They have no account for this token yet',
+        detail: 'You pay a one-off rent deposit to open one for them. It is '
+            'part of the SOL leaving below, and they can reclaim it by '
+            'closing the account.',
+      ));
+    }
+
+    return notes;
   }
 
   Future<solana.Ed25519HDKeyPair> _keyPair() async {
