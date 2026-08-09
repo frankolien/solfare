@@ -44,7 +44,18 @@ class _SendSolScreenState extends State<SendSolScreen> {
   // The screen reads these instead of the SOL-specific fields, so the same
   // flow works for a token without branching through the whole widget tree.
   SplToken? get _token => widget.token;
-  String get _symbol => _token?.symbol ?? 'SOL';
+
+  String get _symbol {
+    final token = _token;
+    if (token == null) return 'SOL';
+    if (token.symbol.isNotEmpty) return token.symbol;
+    // A mint with no metadata has no ticker. Showing nothing beside the
+    // amount reads as broken, so fall back to the mint itself.
+    final mint = token.mint;
+    return mint.length <= 8
+        ? mint
+        : '${mint.substring(0, 4)}…${mint.substring(mint.length - 4)}';
+  }
   double get _balance => _token?.balance ?? widget.balanceInSol;
   double get _priceUsd => _token?.priceUsd ?? widget.solPriceUsd;
 
