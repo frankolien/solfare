@@ -15,14 +15,42 @@ abstract class SolanaRpcDataSource {
   Future<String> requestAirdrop(String address, int lamports);
   Future<int> getBalance(String address);
   Future<List<TransactionModel>> getTransactionHistory(String address, {int limit});
-  Future<Map<String, dynamic>> getLatestBlockhash();
-  Future<String> sendTransaction(String signedTransaction);
+  Future<Map<String, dynamic>> getLatestBlockhash({String commitment});
+  Future<String> sendTransaction(String signedTransaction, {bool skipPreflight});
   Future<List<Nft>> getNfts(String address);
   Future<Nft?> getAssetByMint(String mint);
   Future<List<SplToken>> getTokens(String address);
   Future<List<Map<String, dynamic>>> getStakeAccounts(String address);
   Future<List<Map<String, dynamic>>> getVoteAccounts();
   Future<int> getMinimumBalanceForRentExemption(int dataLength);
+
+  // ── Transaction lifecycle ──
+
+  /// Micro-lamports per compute unit paid in recent slots by transactions
+  /// touching [writableAccounts]. Empty means the fee market is idle.
+  Future<List<int>> getRecentPrioritizationFees(List<String> writableAccounts);
+
+  /// Dry-run against the current bank. Returns the raw `value`:
+  /// `{err, logs, unitsConsumed, ...}`.
+  Future<Map<String, dynamic>> simulateTransaction(String base64Tx);
+
+  /// Null if the cluster has never seen [signature] — dropped, or not yet
+  /// propagated.
+  Future<Map<String, dynamic>?> getSignatureStatus(String signature);
+
+  /// Compared against a blockhash's lastValidBlockHeight to detect expiry.
+  Future<int> getBlockHeight();
+
+  /// jsonParsed account data, or null when the account does not exist.
+  Future<Map<String, dynamic>?> getAccountInfo(String address);
+
+  /// Expiry check for transactions we didn't build and have no block
+  /// height for.
+  Future<bool> isBlockhashValid(String blockhash);
+
+  /// UI balance [owner] holds of [mint], summed across their token accounts.
+  /// Zero when they hold none.
+  Future<double> getTokenBalance(String owner, String mint);
 }
 
 class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
@@ -216,11 +244,13 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     }
   }
 
+  /// Defaults to `confirmed` — a finalized blockhash is already ~32 slots
+  /// into its 150-block validity window.
   @override
-  Future<Map<String, dynamic>> getLatestBlockhash() async {
+  Future<Map<String, dynamic>> getLatestBlockhash({String commitment = 'confirmed'}) async {
     try {
       final result = await _rpcCall('getLatestBlockhash', [
-        {'commitment': 'finalized'},
+        {'commitment': commitment},
       ]);
       return {
         'blockhash': result['value']['blockhash'] as String,
@@ -231,19 +261,125 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     }
   }
 
+  /// [skipPreflight] on rebroadcasts: preflight re-simulates against a bank
+  /// where the tx already landed and rejects it as AlreadyProcessed.
   @override
-  Future<String> sendTransaction(String signedTransaction) async {
+  Future<String> sendTransaction(String signedTransaction, {bool skipPreflight = false}) async {
     try {
-      debugLog('[RPC] Sending transaction...');
       final result = await _rpcCall('sendTransaction', [
         signedTransaction,
-        {'encoding': 'base64'},
+        {
+          'encoding': 'base64',
+          'skipPreflight': skipPreflight,
+          'preflightCommitment': 'confirmed',
+          // We own the rebroadcast loop; the node's blind retry would only
+          // duplicate traffic.
+          'maxRetries': 0,
+        },
       ]);
       debugLog('[RPC] Transaction sent! Signature: $result');
       return result as String;
     } catch (e) {
       throw Exception('Failed to send transaction: $e');
     }
+  }
+
+  @override
+  Future<List<int>> getRecentPrioritizationFees(List<String> writableAccounts) async {
+    try {
+      // The RPC caps the address list at 128; beyond that it errors outright.
+      final addresses = writableAccounts.take(128).toList();
+      final result = await _rpcCall('getRecentPrioritizationFees', [addresses]);
+      final entries = (result as List?) ?? const [];
+      return entries
+          .map((e) => (e as Map)['prioritizationFee'])
+          .whereType<int>()
+          .toList();
+    } catch (e) {
+      debugLog('[RPC] Prioritization fee lookup failed: $e');
+      return const [];
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> simulateTransaction(String base64Tx) async {
+    final result = await _rpcCall('simulateTransaction', [
+      base64Tx,
+      {
+        'encoding': 'base64',
+        'commitment': 'confirmed',
+        // The probe carries a signature over a blockhash the simulator will
+        // swap out, so signature verification would necessarily fail.
+        'sigVerify': false,
+        'replaceRecentBlockhash': true,
+      },
+    ]);
+    return Map<String, dynamic>.from(result['value'] as Map);
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getSignatureStatus(String signature) async {
+    final result = await _rpcCall('getSignatureStatuses', [
+      [signature],
+      {'searchTransactionHistory': false},
+    ]);
+    final values = (result['value'] as List?) ?? const [];
+    if (values.isEmpty || values.first == null) return null;
+    return Map<String, dynamic>.from(values.first as Map);
+  }
+
+  @override
+  Future<int> getBlockHeight() async {
+    final result = await _rpcCall('getBlockHeight', [
+      {'commitment': 'confirmed'},
+    ]);
+    return result as int;
+  }
+
+  @override
+  Future<double> getTokenBalance(String owner, String mint) async {
+    try {
+      final cleanOwner = _validateAddress(owner);
+      final result = await _rpcCall('getTokenAccountsByOwner', [
+        cleanOwner,
+        {'mint': _validateAddress(mint)},
+        {'encoding': 'jsonParsed', 'commitment': 'confirmed'},
+      ]);
+
+      // A wallet can hold the same mint in more than one account — the ATA
+      // plus anything an airdrop or a program created for it.
+      var total = 0.0;
+      for (final account in (result['value'] as List?) ?? const []) {
+        final amount = account['account']?['data']?['parsed']?['info']?['tokenAmount'];
+        final ui = amount?['uiAmount'];
+        if (ui is num) total += ui.toDouble();
+      }
+      return total;
+    } catch (e) {
+      debugLog('[RPC] Token balance lookup failed: $e');
+      return 0;
+    }
+  }
+
+  @override
+  Future<bool> isBlockhashValid(String blockhash) async {
+    final result = await _rpcCall('isBlockhashValid', [
+      blockhash,
+      {'commitment': 'confirmed'},
+    ]);
+    return result['value'] as bool? ?? false;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getAccountInfo(String address) async {
+    final cleanAddress = _validateAddress(address);
+    final result = await _rpcCall('getAccountInfo', [
+      cleanAddress,
+      {'encoding': 'jsonParsed', 'commitment': 'confirmed'},
+    ]);
+    final value = result?['value'];
+    if (value == null) return null;
+    return Map<String, dynamic>.from(value as Map);
   }
 
   @override
