@@ -51,6 +51,10 @@ abstract class SolanaRpcDataSource {
   /// UI balance [owner] holds of [mint], summed across their token accounts.
   /// Zero when they hold none.
   Future<double> getTokenBalance(String owner, String mint);
+
+  /// Current epoch — decides which of a Token-2022 mint's two transfer fee
+  /// schedules is in force.
+  Future<int> getEpoch();
 }
 
 class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
@@ -339,6 +343,14 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
       {'commitment': 'confirmed'},
     ]);
     return result as int;
+  }
+
+  @override
+  Future<int> getEpoch() async {
+    final result = await _rpcCall('getEpochInfo', [
+      {'commitment': 'confirmed'},
+    ]);
+    return result['epoch'] as int;
   }
 
   @override
