@@ -1,7 +1,8 @@
 import 'package:bloc/bloc.dart';
 import 'package:solana/solana.dart' as solana;
 import 'package:solana/src/rpc/dto/account_data/stake_program/authorized.dart';
-import 'package:solana/src/rpc/dto/latest_blockhash.dart';
+import 'package:solfare/core/solana/transaction_service.dart';
+import 'package:solfare/core/solana/tx_outcome.dart';
 import 'package:solfare/core/wallet/keyring.dart';
 import 'package:solfare/features/staking/domain/entities/stake_account.dart';
 import 'package:solfare/features/staking/domain/entities/validator_info.dart';
@@ -15,6 +16,7 @@ import 'package:solfare/core/util/app_log.dart';
 class StakingBloc extends Bloc<StakingEvent, StakingState> {
   final SolanaRpcDataSource _rpcDataSource;
   final WalletRepositoryImpl _repository;
+  late final TransactionService _txService;
 
   StakingBloc({
     SolanaRpcDataSource? rpcDataSource,
@@ -25,6 +27,7 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
               localDataSource: WalletLocalDataSourceImpl(),
             ),
         super(const StakingInitial()) {
+    _txService = TransactionService(_rpcDataSource);
     on<FetchStakeAccountsEvent>(_onFetchStakeAccounts);
     on<FetchValidatorsEvent>(_onFetchValidators);
     on<DelegateStakeEvent>(_onDelegateStake);
@@ -111,12 +114,6 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
       // funded on top of the staked amount or the account gets purged.
       final rentExemption = await _rpcDataSource.getMinimumBalanceForRentExemption(200);
 
-      final blockhashData = await _rpcDataSource.getLatestBlockhash();
-      final latestBlockhash = LatestBlockhash(
-        blockhash: blockhashData['blockhash'] as String,
-        lastValidBlockHeight: blockhashData['lastValidBlockHeight'] as int,
-      );
-
       // Bundle createAccount + initialize + delegate into one transaction
       // — splitting them risks landing the create without the delegate and
       // leaving an idle stake account on the user's wallet.
@@ -137,21 +134,37 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
         authority: senderKeyPair.publicKey,
       );
 
-      final signedTx = await solana.signTransaction(
-        latestBlockhash,
-        solana.Message(instructions: [...createAndInitInstructions, delegateInstruction]),
-        [senderKeyPair, stakeAccountKeyPair],
+      final outcome = await _txService.sendAndConfirm(
+        instructions: [...createAndInitInstructions, delegateInstruction],
+        // The stake account signs its own creation — second signer, second
+        // 5000-lamport signature fee.
+        signers: [senderKeyPair, stakeAccountKeyPair],
       );
 
-      final signature = await _rpcDataSource.sendTransaction(signedTx.encode());
+      if (!outcome.isConfirmed) {
+        emit(StakingError(_failureMessage(outcome)));
+        return;
+      }
+
       emit(StakeDelegated(
-        signature: signature,
+        signature: outcome.signature,
         amountInSol: event.amountInSol,
       ));
     } catch (e) {
       debugLog('[StakingBloc] delegate failed: $e');
       emit(StakingError(e.toString()));
     }
+  }
+
+  /// After an expiry the stake was never touched; after a failure the fee
+  /// is gone. Different copy for each.
+  String _failureMessage(TxOutcome outcome) {
+    debugLog('[StakingBloc] $outcome');
+    if (outcome.status == TxStatus.expired) {
+      return 'The network did not include this transaction in time. '
+          'Nothing was staked and no fee was charged — try again.';
+    }
+    return outcome.error ?? 'The transaction failed on chain.';
   }
 
   Future<solana.Ed25519HDKeyPair> _deriveKeyPair() async {
@@ -170,25 +183,22 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
     try {
       final keyPair = await _deriveKeyPair();
 
-      final blockhashData = await _rpcDataSource.getLatestBlockhash();
-      final latestBlockhash = LatestBlockhash(
-        blockhash: blockhashData['blockhash'] as String,
-        lastValidBlockHeight: blockhashData['lastValidBlockHeight'] as int,
-      );
-
       final instruction = solana.StakeInstruction.deactivate(
         stake: solana.Ed25519HDPublicKey.fromBase58(event.stakeAccountPubkey),
         authority: keyPair.publicKey,
       );
 
-      final signedTx = await solana.signTransaction(
-        latestBlockhash,
-        solana.Message(instructions: [instruction]),
-        [keyPair],
+      final outcome = await _txService.sendAndConfirm(
+        instructions: [instruction],
+        signers: [keyPair],
       );
 
-      final signature = await _rpcDataSource.sendTransaction(signedTx.encode());
-      emit(StakeDeactivated(signature: signature));
+      if (!outcome.isConfirmed) {
+        emit(StakingError(_failureMessage(outcome)));
+        return;
+      }
+
+      emit(StakeDeactivated(signature: outcome.signature));
     } catch (e) {
       emit(StakingError(e.toString()));
     }
@@ -202,12 +212,6 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
     try {
       final keyPair = await _deriveKeyPair();
 
-      final blockhashData = await _rpcDataSource.getLatestBlockhash();
-      final latestBlockhash = LatestBlockhash(
-        blockhash: blockhashData['blockhash'] as String,
-        lastValidBlockHeight: blockhashData['lastValidBlockHeight'] as int,
-      );
-
       final instruction = solana.StakeInstruction.withdraw(
         stake: solana.Ed25519HDPublicKey.fromBase58(event.stakeAccountPubkey),
         recipient: keyPair.publicKey,
@@ -215,14 +219,17 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
         lamports: event.lamports,
       );
 
-      final signedTx = await solana.signTransaction(
-        latestBlockhash,
-        solana.Message(instructions: [instruction]),
-        [keyPair],
+      final outcome = await _txService.sendAndConfirm(
+        instructions: [instruction],
+        signers: [keyPair],
       );
 
-      final signature = await _rpcDataSource.sendTransaction(signedTx.encode());
-      emit(StakeWithdrawn(signature: signature));
+      if (!outcome.isConfirmed) {
+        emit(StakingError(_failureMessage(outcome)));
+        return;
+      }
+
+      emit(StakeWithdrawn(signature: outcome.signature));
     } catch (e) {
       emit(StakingError(e.toString()));
     }
