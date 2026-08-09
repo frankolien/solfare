@@ -36,7 +36,12 @@ abstract class AppRoutes {
   static const String stakeSol = '/stake-sol';
 }
 
+/// The Navigator GoRouter builds. Anything mounted in MaterialApp.builder
+/// sits above that Navigator and cannot present over it without this.
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 final GoRouter appRouter = GoRouter(
+  navigatorKey: rootNavigatorKey,
   initialLocation: AppRoutes.splash,
   // A URL that is not a page — a dapp request, or anything malformed —
   // reaches the router on some launch paths. Hand it to the deeplink bridge

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:solana/solana.dart' as solana;
 import 'package:solfare/core/deeplink/deep_link_bridge.dart';
+import 'package:solfare/core/router/app_router.dart';
 import 'package:solfare/core/solana/preview/preview_engine.dart';
 import 'package:solfare/core/solana/session/dapp_connect_service.dart';
 import 'package:solfare/core/solana/session/dapp_request.dart';
@@ -82,9 +83,14 @@ class _DappRequestHostState extends State<DappRequestHost> {
         return;
       }
 
-      if (!mounted) return;
+      // This widget wraps MaterialApp.builder, so its own context is above
+      // the Navigator and cannot host a sheet. Present over the router's
+      // Navigator instead.
+      final navigatorContext = rootNavigatorKey.currentContext;
+      if (!mounted || navigatorContext == null) return;
+
       final approved = await showModalBottomSheet<bool>(
-            context: context,
+            context: navigatorContext,
             backgroundColor: Colors.transparent,
             isScrollControlled: true,
             isDismissible: false,
@@ -109,8 +115,10 @@ class _DappRequestHostState extends State<DappRequestHost> {
       await _reply(await _service.reject(request,
           message: 'Could not read that request.',
           code: DappRequestParser.errorInvalidRequest));
-    } catch (e) {
-      debugLog('[Dapp] request failed: $e');
+    } catch (e, stack) {
+      // A failure in our own UI must not masquerade to the dapp as the user
+      // saying no, so it is logged loudly rather than quietly swallowed.
+      debugLog('[Dapp] request failed: $e\n$stack');
       await _reply(await _service.reject(request,
           message: 'Something went wrong.', code: DappRequestParser.errorInvalidRequest));
     } finally {
