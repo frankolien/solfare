@@ -31,67 +31,21 @@ class TokenService {
       throw const TokenTransferException('That token does not exist on this network.');
     }
 
-    final programId = account['owner'] as String? ?? MintInfo.tokenProgramId;
-    final info = account['data']?['parsed']?['info'] as Map<String, dynamic>?;
-    if (info == null) {
-      throw const TokenTransferException('That account is not a token mint.');
-    }
-
-    final extensions = (info['extensions'] as List?) ?? const [];
-    Map<String, dynamic>? extension(String name) {
-      for (final e in extensions) {
-        if ((e as Map)['extension'] == name) return Map<String, dynamic>.from(e);
+    // The epoch only matters when the mint has a fee change pending, which
+    // is rare — so the common path keeps its single round trip.
+    int? epoch;
+    if (MintInfo.needsEpoch(account)) {
+      try {
+        epoch = await _rpc.getEpoch();
+      } catch (e) {
+        debugLog('[Token] epoch lookup failed, assuming the newer fee: $e');
       }
-      return null;
     }
 
-    final feeConfig = extension('transferFeeConfig');
-    return MintInfo(
-      mint: mint,
-      programId: programId,
-      decimals: (info['decimals'] as int?) ?? 0,
-      isToken2022: programId == MintInfo.token2022ProgramId,
-      nonTransferable: extension('nonTransferable') != null,
-      transferFee: feeConfig == null ? null : await _transferFee(feeConfig),
-      hasTransferHook: extension('transferHook') != null,
-      hasPermanentDelegate: extension('permanentDelegate') != null,
-      defaultFrozen: extension('defaultAccountState')?['state']?['accountState'] == 'frozen',
-      interestBearing: extension('interestBearingConfig') != null,
-    );
-  }
-
-  /// A fee config carries two schedules so a change can be announced ahead of
-  /// time. Which one applies depends on the current epoch, so quoting the
-  /// wrong one would misstate what the recipient receives.
-  Future<TransferFee?> _transferFee(Map<String, dynamic> config) async {
-    final state = config['state'] as Map<String, dynamic>?;
-    if (state == null) return null;
-
-    final newer = state['newerTransferFee'] as Map<String, dynamic>?;
-    final older = state['olderTransferFee'] as Map<String, dynamic>?;
-
-    var chosen = newer ?? older;
-    if (newer != null && older != null) {
-      final activationEpoch = int.tryParse('${newer['epoch']}') ?? 0;
-      final epoch = await _currentEpoch();
-      chosen = (epoch != null && epoch < activationEpoch) ? older : newer;
-    }
-    if (chosen == null) return null;
-
-    return TransferFee(
-      basisPoints: int.tryParse('${chosen['transferFeeBasisPoints']}') ?? 0,
-      maximumFee: int.tryParse('${chosen['maximumFee']}') ?? 0,
-    );
-  }
-
-  Future<int?> _currentEpoch() async {
     try {
-      return await _rpc.getEpoch();
-    } catch (e) {
-      // Only reached for mints that actually carry a fee schedule, and the
-      // newer schedule is the right guess when we cannot tell.
-      debugLog('[Token] epoch lookup failed, assuming newer fee: $e');
-      return null;
+      return MintInfo.parse(mint, account, currentEpoch: epoch);
+    } on FormatException catch (e) {
+      throw TokenTransferException(e.message);
     }
   }
 
