@@ -30,7 +30,9 @@ class MarketState extends Equatable {
     this.category = MarketCategory.tokens,
     this.feed = MarketFeed.trending,
     this.window = MarketWindow.h24,
-    this.sort = MarketSort.volume,
+    // Tokens is the opening category, and it is feed-driven, so the opening
+    // order is the feed's own ranking rather than a column of ours.
+    this.sort = MarketSort.rank,
     this.descending = true,
     this.tokens = const [],
     this.dropped = 0,
