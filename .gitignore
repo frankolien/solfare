@@ -52,6 +52,6 @@ app.*.map.json
 *.md
 *.pdf
 !README.md
-!docs/adr/*.md
+!docs/**/*.md
 !docs/*.md
 
