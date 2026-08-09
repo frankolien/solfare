@@ -31,8 +31,8 @@ abstract class SolanaRpcDataSource {
   Future<List<int>> getRecentPrioritizationFees(List<String> writableAccounts);
 
   /// Dry-run against the current bank. Returns the raw `value`:
-  /// `{err, logs, unitsConsumed, ...}`.
-  Future<Map<String, dynamic>> simulateTransaction(String base64Tx);
+  /// `{err, logs, unitsConsumed, preBalances, postBalances, ...}`.
+  Future<Map<String, dynamic>> simulateTransaction(String base64Tx, {bool innerInstructions});
 
   /// Null if the cluster has never seen [signature] — dropped, or not yet
   /// propagated.
@@ -302,12 +302,17 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
   }
 
   @override
-  Future<Map<String, dynamic>> simulateTransaction(String base64Tx) async {
+  Future<Map<String, dynamic>> simulateTransaction(
+    String base64Tx, {
+    bool innerInstructions = false,
+  }) async {
     final result = await _rpcCall('simulateTransaction', [
       base64Tx,
       {
         'encoding': 'base64',
         'commitment': 'confirmed',
+        // CPI is where a transfer hides — the preview needs to see it.
+        if (innerInstructions) 'innerInstructions': true,
         // The probe carries a signature over a blockhash the simulator will
         // swap out, so signature verification would necessarily fail.
         'sigVerify': false,

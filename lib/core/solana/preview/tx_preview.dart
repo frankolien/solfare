@@ -35,6 +35,10 @@ class BalanceDelta {
   /// True when [owner] is the wallet being asked to sign.
   final bool isOwnAccount;
 
+  /// Balance the simulation left behind, when known. Needed to tell "sends
+  /// most of it" from "sends all of it and closes the account".
+  final int? postRaw;
+
   const BalanceDelta({
     required this.mint,
     required this.owner,
@@ -42,6 +46,7 @@ class BalanceDelta {
     required this.decimals,
     required this.isOwnAccount,
     this.symbol,
+    this.postRaw,
   });
 
   bool get isNative => mint == null;
