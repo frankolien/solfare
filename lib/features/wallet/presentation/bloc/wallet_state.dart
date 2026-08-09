@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:solfare/core/solana/preview/tx_preview.dart';
 import 'package:solfare/core/solana/tx_outcome.dart';
 import 'package:solfare/features/wallet/domain/entities/nft.dart';
 import 'package:solfare/features/wallet/domain/entities/spl_token.dart';
@@ -166,6 +167,23 @@ class WalletCustomizationLoaded extends WalletState {
 
   @override
   List<Object?> get props => [walletName, cardBackground];
+}
+
+/// The pending send is being simulated. The sheet is already open, showing
+/// a skeleton, so a slow RPC never blocks the user behind a spinner.
+class SendPreviewLoading extends WalletState {
+  const SendPreviewLoading();
+}
+
+/// Simulation finished. [preview] carries the balance changes and risk
+/// flags, or an unverified result when the network could not be reached.
+class SendPreviewReady extends WalletState {
+  final TxPreview preview;
+
+  const SendPreviewReady(this.preview);
+
+  @override
+  List<Object?> get props => [preview];
 }
 
 /// SOL is being sent. [phase] lets the status sheet tell "simulating"

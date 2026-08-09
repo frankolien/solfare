@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:solfare/core/solana/preview/tx_preview.dart';
+import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
+import 'package:solfare/features/wallet/presentation/bloc/wallet_state.dart';
+import 'package:solfare/features/wallet/presentation/widgets/tx_preview_body.dart';
 
 /// Bottom sheet for confirming a SOL transfer with slide-to-approve gesture.
+///
+/// The sheet opens straight away and fills in the simulated balance changes
+/// when they land, so a slow RPC never leaves the user waiting on a spinner.
 class ConfirmSendSheet extends StatefulWidget {
   final String recipientAddress;
   final String recipientName;
@@ -133,32 +141,35 @@ class _ConfirmSendSheetState extends State<ConfirmSendSheet> {
           const Divider(color: Colors.white10, height: 1, indent: 20, endIndent: 20),
           const SizedBox(height: 20),
 
-          // Network fee — estimated, actual fee determined by Solana at transaction time
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Text('Network fee', style: TextStyle(color: Colors.grey[500], fontSize: 12, fontFamily: 'FKGrotesk')),
-                const SizedBox(width: 4),
-                Container(
-                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: Colors.grey),
-                  child: Icon(Icons.info_outline, color: Colors.grey[800], size: 14),
-                ),
-                const Spacer(),
-                const Text('0.0000149 SOL', style: TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w500)),
-              ],
-            ),
+          // Balance changes, risk flags and the real fee, straight from the
+          // simulation. The fee used to be a hardcoded 0.0000149 SOL.
+          BlocBuilder<WalletBloc, WalletState>(
+            buildWhen: (_, s) => s is SendPreviewLoading || s is SendPreviewReady,
+            builder: (context, state) {
+              final preview = state is SendPreviewReady ? state.preview : null;
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TxPreviewBody(preview: preview),
+                  const SizedBox(height: 8),
+                  _buildSlideToApprove(preview),
+                ],
+              );
+            },
           ),
-          const SizedBox(height: 20),
-
-          // Slide to approve
-          _buildSlideToApprove(),
         ],
       ),
     );
   }
 
-  Widget _buildSlideToApprove() {
+  Widget _buildSlideToApprove(TxPreview? preview) {
+    // Nothing is approvable until the simulation answers. A preview that
+    // could not run still unlocks the control — the sheet says it could not
+    // be checked, and the choice is the user's.
+    final ready = preview != null;
+    final danger = preview?.hasDanger ?? false;
+    final fill = danger ? const Color(0xFFE03131) : Colors.yellow;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: LayoutBuilder(
@@ -178,10 +189,20 @@ class _ConfirmSendSheetState extends State<ConfirmSendSheet> {
                   duration: const Duration(milliseconds: 50),
                   width: 56 + (_slidePosition * maxSlide),
                   height: 56,
-                  decoration: BoxDecoration(color: Colors.yellow, borderRadius: BorderRadius.circular(28)),
+                  decoration: BoxDecoration(
+                    color: ready ? fill : const Color(0xFF3A3D45),
+                    borderRadius: BorderRadius.circular(28),
+                  ),
                 ),
                 Center(
-                  child: Text('Slide to approve', style: TextStyle(color: Colors.grey[500], fontSize: 13, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500)),
+                  child: Text(
+                    !ready
+                        ? 'Checking…'
+                        : danger
+                            ? 'Slide to approve anyway'
+                            : 'Slide to approve',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 13, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500),
+                  ),
                 ),
                 // Draggable circle
                 Positioned(
@@ -189,12 +210,14 @@ class _ConfirmSendSheetState extends State<ConfirmSendSheet> {
                   top: 0,
                   child: GestureDetector(
                     onHorizontalDragUpdate: (details) {
+                      if (!ready) return;
                       setState(() {
                         _slidePosition += details.delta.dx / maxSlide;
                         _slidePosition = _slidePosition.clamp(0.0, 1.0);
                       });
                     },
                     onHorizontalDragEnd: (details) {
+                      if (!ready) return;
                       if (_slidePosition >= _slideThreshold) {
                         widget.onConfirm();
                       } else {
@@ -204,8 +227,12 @@ class _ConfirmSendSheetState extends State<ConfirmSendSheet> {
                     child: Container(
                       width: 56,
                       height: 56,
-                      decoration: const BoxDecoration(color: Colors.yellow, shape: BoxShape.circle),
-                      child: const Icon(Icons.chevron_right, color: Colors.black, size: 28),
+                      decoration: BoxDecoration(
+                        color: ready ? fill : const Color(0xFF3A3D45),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.chevron_right,
+                          color: ready ? Colors.black : Colors.grey[600], size: 28),
                     ),
                   ),
                 ),

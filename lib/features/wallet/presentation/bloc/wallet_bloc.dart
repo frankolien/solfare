@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:solana/solana.dart' as solana;
 import 'package:solfare/core/util/app_log.dart';
 import 'package:solfare/core/constant/network.dart';
+import 'package:solfare/core/solana/preview/preview_engine.dart';
+import 'package:solfare/core/solana/preview/tx_preview.dart';
 import 'package:solfare/core/solana/transaction_service.dart';
 import 'package:solfare/core/solana/tx_outcome.dart';
 import 'package:solfare/core/wallet/keyring.dart';
@@ -33,6 +35,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
   late final BalanceWsService _balanceWs;
   late final BinancePriceWsService _priceWs;
   late final TransactionService _txService;
+  late final PreviewEngine _previewEngine;
 
   // Tracks the address the WS is currently watching so we can re-subscribe
   // after network switches / app resume without duplicate subscriptions.
@@ -68,6 +71,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     _createWallet = CreateWalletUseCase(repository: _repository);
     _saveWallet = SaveWalletUseCase(repository: _repository);
     _txService = TransactionService(_rpcDataSource);
+    _previewEngine = PreviewEngine(_rpcDataSource);
 
     // WS push → fetch event so the normal HTTP path renders the state.
     _balanceWs = BalanceWsService(onChange: () {
@@ -99,6 +103,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     on<LoadWalletAddressEvent>(_onLoadWalletAddress);
     on<ImportWalletEvent>(_onImportWallet);
     on<FetchTransactionsEvent>(_onFetchTransactions);
+    on<PreviewSendEvent>(_onPreviewSend);
     on<SendSolEvent>(_onSendSol);
     on<FetchNftsEvent>(_onFetchNfts, transformer: _concurrent());
     on<FetchTokensEvent>(_onFetchTokens, transformer: _concurrent());
@@ -697,6 +702,42 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       emit(TransactionsFetched(transactions));
     } catch (e) {
       emit(WalletError(e.toString()));
+    }
+  }
+
+  /// Simulate the pending send. Never signs, never broadcasts — the result
+  /// only decides what the approval sheet shows.
+  Future<void> _onPreviewSend(
+    PreviewSendEvent event,
+    Emitter<WalletState> emit,
+  ) async {
+    emit(const SendPreviewLoading());
+    try {
+      final mnemonic = await _repository.getStoredMnemonic();
+      if (mnemonic == null) {
+        emit(const SendPreviewReady(TxPreview.unverified('No wallet found.')));
+        return;
+      }
+      final keyPair = await Keyring.keyPairFromMnemonic(mnemonic);
+
+      final instruction = solana.SystemInstruction.transfer(
+        fundingAccount: keyPair.publicKey,
+        recipientAccount: solana.Ed25519HDPublicKey.fromBase58(event.recipientAddress),
+        lamports: (event.amountInSol * 1000000000).round(),
+      );
+
+      final preview = await _previewEngine.preview(
+        instructions: [instruction],
+        signers: [keyPair],
+        ownerAddress: keyPair.address,
+      );
+      emit(SendPreviewReady(preview));
+    } catch (e) {
+      // A preview that cannot run must not block the send. It says so, and
+      // the user decides whether to approve something we could not check.
+      debugLog('[BLoC] PreviewSend failed: $e');
+      emit(const SendPreviewReady(
+          TxPreview.unverified('Could not check this transaction.')));
     }
   }
 

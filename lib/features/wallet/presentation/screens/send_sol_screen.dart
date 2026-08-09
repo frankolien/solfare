@@ -146,6 +146,13 @@ class _SendSolScreenState extends State<SendSolScreen> {
   void _showConfirmSheet() {
     if (_amountInSol <= 0 || _amountInSol > widget.balanceInSol) return;
 
+    // Kick the simulation off as the sheet opens rather than before it, so
+    // the sheet is on screen for the whole wait instead of after it.
+    context.read<WalletBloc>().add(PreviewSendEvent(
+          recipientAddress: _recipientAddress,
+          amountInSol: _amountInSol,
+        ));
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,

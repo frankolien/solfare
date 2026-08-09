@@ -185,6 +185,21 @@ class LoadWalletCustomizationEvent extends WalletEvent {
 }
 
 /// Event to send SOL to another address
+/// Simulate a pending send so the approval sheet can show what it does.
+/// Read-only — nothing is signed or broadcast.
+class PreviewSendEvent extends WalletEvent {
+  final String recipientAddress;
+  final double amountInSol;
+
+  const PreviewSendEvent({
+    required this.recipientAddress,
+    required this.amountInSol,
+  });
+
+  @override
+  List<Object?> get props => [recipientAddress, amountInSol];
+}
+
 class SendSolEvent extends WalletEvent {
   final String recipientAddress;
   final double amountInSol;
