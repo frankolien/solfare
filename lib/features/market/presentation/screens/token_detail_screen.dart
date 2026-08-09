@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:solfare/core/network/coingecko_client.dart';
+import 'package:solfare/core/util/copied_toast.dart';
 import 'package:solfare/core/wallet/active_wallet.dart';
 import 'package:solfare/features/wallet/domain/entities/spl_token.dart';
 import 'package:solfare/features/market/domain/entities/market_token.dart';
@@ -163,6 +164,15 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
         });
       }
     } catch (_) {}
+  }
+
+  /// Copies the full mint, not the truncated form on screen — the shortened
+  /// version is for reading, and pasting it anywhere would fail.
+  void _copyMintAddress() {
+    final mint = _mintAddress;
+    if (mint == null) return;
+    Clipboard.setData(ClipboardData(text: mint));
+    showCopiedToast(context);
   }
 
   String _truncateMint(String address) {
@@ -596,20 +606,31 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Text(
-                                _mintAddress != null ? _truncateMint(_mintAddress!) : '...',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontFamily: 'FKGroteskSemiMono',
-                                  fontWeight: FontWeight.w500,
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _mintAddress == null ? null : _copyMintAddress,
+                            child: Row(
+                              children: [
+                                Text(
+                                  _mintAddress != null ? _truncateMint(_mintAddress!) : '...',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontFamily: 'FKGroteskSemiMono',
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 6),
-                              Icon(Icons.copy, color: Colors.grey[500], size: 13),
-                            ],
+                                const SizedBox(width: 6),
+                                Icon(
+                                  Icons.copy,
+                                  // Greyed out until the address has loaded,
+                                  // so the icon never invites a tap that
+                                  // would copy nothing.
+                                  color: _mintAddress == null ? Colors.grey[800] : Colors.grey[500],
+                                  size: 13,
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
