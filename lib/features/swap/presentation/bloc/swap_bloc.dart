@@ -1,14 +1,10 @@
-import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:solana/encoder.dart' as encoder;
-import 'package:solana/solana.dart' as solana;
-import 'package:solfare/core/solana/transaction_service.dart';
 import 'package:solfare/core/util/app_log.dart';
 import 'package:solfare/core/wallet/active_wallet.dart';
 import 'package:solfare/core/wallet/keyring.dart';
 import 'package:solfare/features/swap/data/datasource/jupiter_datasource.dart';
+import 'package:solfare/features/swap/domain/swap_executor.dart';
 import 'package:solfare/features/wallet/data/datasource/solana_rpc_datasource.dart';
 import 'package:solfare/features/swap/domain/entities/swap_token.dart';
 import 'package:solfare/features/swap/presentation/bloc/swap_event.dart';
@@ -16,7 +12,7 @@ import 'package:solfare/features/swap/presentation/bloc/swap_state.dart';
 
 class SwapBloc extends Bloc<SwapEvent, SwapState> {
   late final JupiterDataSource _jupiter;
-  late final TransactionService _txService;
+  late final SwapExecutor _executor;
   late final SolanaRpcDataSource _rpc;
 
   // Held so a token switch can refresh the balance without the screen
@@ -27,7 +23,7 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
       : super(const SwapInitial()) {
     _jupiter = jupiter ?? JupiterDataSource();
     _rpc = rpcDataSource ?? SolanaRpcDataSourceImpl();
-    _txService = TransactionService(_rpc);
+    _executor = SwapExecutor(jupiter: _jupiter, rpc: _rpc);
 
     on<LoadTokenListEvent>(_onLoadTokens);
     on<SelectInputTokenEvent>(_onSelectInput);
@@ -202,82 +198,22 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
       if (mnemonic == null) throw Exception('No wallet found');
       final keyPair = await Keyring.keyPairFromMnemonic(mnemonic);
 
-      // The displayed quote was fetched without a taker, so it carries no
-      // transaction. Re-order with the wallet attached to get the built
-      // transaction and the requestId /execute is keyed on.
-      final lamports = (amount * pow(10, s.inputToken.decimals)).round();
-      final order = await _jupiter.getQuote(
+      final prepared = await _executor.prepare(
         inputMint: s.inputToken.mint,
         outputMint: s.outputToken.mint,
-        amount: lamports,
-        taker: event.walletAddress,
+        amountRaw: (amount * pow(10, s.inputToken.decimals)).round(),
+        walletAddress: event.walletAddress,
+        keyPair: keyPair,
       );
 
-      final swapTxBase64 = order['transaction'] as String?;
-      final requestId = order['requestId'] as String?;
-      if (swapTxBase64 == null || swapTxBase64.isEmpty || requestId == null) {
-        throw Exception(order['errorMessage'] ?? order['error'] ?? 'Jupiter could not build this swap');
-      }
-
-      final signedBytes = await _signTransaction(base64Decode(swapTxBase64), keyPair);
-
-      // Jupiter broadcasts and polls for landing itself, so there is no
-      // sendTransaction here — handing it back is what requestId is for.
-      final result = await _jupiter.execute(
-        signedTransaction: base64Encode(signedBytes),
-        requestId: requestId,
-      );
-
-      final status = result['status']?.toString();
-      final signature = (result['signature'] ?? result['txid'] ?? result['transactionId'])?.toString();
-      debugLog('[Swap] execute -> status=$status sig=$signature code=${result['code']}');
-
-      if (status == 'Success' && signature != null) {
-        emit(SwapSuccess(signature));
+      final result = await _executor.send(prepared);
+      if (result.isConfirmed) {
+        emit(SwapSuccess(result.signature!));
         return;
       }
-
-      // Jupiter timing out on its own polling is not the same as the swap
-      // failing — check the chain before telling the user it didn't happen.
-      if (signature != null) {
-        final outcome = await _txService.confirmSigned(
-          signature: signature,
-          blockhash: encoder.SignedTx.decode(base64Encode(signedBytes)).blockhash,
-        );
-        if (outcome.isConfirmed) {
-          emit(SwapSuccess(signature));
-          return;
-        }
-        emit(SwapError(outcome.error ?? 'The swap did not confirm.'));
-        return;
-      }
-
-      throw Exception(result['error'] ?? 'Swap failed');
+      emit(SwapError(result.error!));
     } catch (e) {
       emit(SwapError('Swap failed: $e'));
     }
-  }
-
-  // Jupiter returns a v0 VersionedTransaction with a placeholder signature
-  // slot. Layout: [compact-u16 sig count][sigs * 64 bytes][message]. We
-  // sign the message and patch our signature into the first slot.
-  Future<Uint8List> _signTransaction(
-    Uint8List txBytes,
-    solana.Ed25519HDKeyPair keyPair,
-  ) async {
-    int offset = 0;
-    int sigCount = txBytes[offset++];
-    if (sigCount >= 0x80) {
-      sigCount = (sigCount & 0x7f) | (txBytes[offset++] << 7);
-    }
-
-    final messageBytes = txBytes.sublist(offset + (sigCount * 64));
-    final signature = await keyPair.sign(messageBytes);
-
-    final signed = Uint8List.fromList(txBytes);
-    for (int i = 0; i < 64; i++) {
-      signed[offset + i] = signature.bytes[i];
-    }
-    return signed;
   }
 }

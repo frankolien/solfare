@@ -9,10 +9,13 @@ import 'package:solfare/core/wallet/active_wallet.dart';
 import 'package:solfare/features/wallet/domain/entities/spl_token.dart';
 import 'package:solfare/features/market/domain/entities/market_token.dart';
 import 'package:solfare/features/market/presentation/market_format.dart';
+import 'package:solfare/features/market/presentation/widgets/buy_sheet.dart';
+import 'package:solfare/features/swap/presentation/screens/swap_screen.dart';
 import 'package:solfare/features/swap/domain/entities/swap_token.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_event.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_state.dart';
+import 'package:solfare/features/wallet/presentation/screens/receive_screen.dart';
 import 'package:solfare/features/wallet/presentation/screens/send_sol_screen.dart';
 
 class TokenDetailScreen extends StatefulWidget {
@@ -181,6 +184,34 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     if (mint == null) return;
     Clipboard.setData(ClipboardData(text: mint));
     showCopiedToast(context);
+  }
+
+  /// Buying routes through Jupiter, which needs the mint and its decimals.
+  /// A row that arrived without them can be looked at but not bought.
+  bool get _canBuy => _isMintId && widget.token.decimals > 0;
+
+  Future<void> _openBuy() async {
+    final address = await ActiveWallet.address();
+    if (address == null || !mounted) return;
+    final signature = await BuySheet.show(
+      context,
+      asset: widget.token,
+      walletAddress: address,
+    );
+    if (signature == null || !mounted) return;
+    // The purchase changed the wallet, so the balances behind this screen
+    // are now stale.
+    context.read<WalletBloc>()
+      ..add(FetchBalanceEvent(address))
+      ..add(FetchTokensEvent(address));
+  }
+
+  Future<void> _openReceive() async {
+    final address = await ActiveWallet.address();
+    if (address == null || !mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => ReceiveScreen(walletAddress: address)),
+    );
   }
 
   String _truncateMint(String address) {
@@ -521,9 +552,26 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildActionButton(Icons.arrow_downward, 'Deposit', enabled: false),
-                  _buildActionButton(Icons.swap_horiz, 'Swap', enabled: false),
-                  _buildActionButton(Icons.trending_up, 'Limit', enabled: false),
+                  _buildActionButton(
+                    Icons.add,
+                    'Buy',
+                    // Needs a mint to route to. A holding reached from the
+                    // portfolio has one; a CoinGecko slug never did.
+                    enabled: _canBuy,
+                    onTap: _openBuy,
+                  ),
+                  _buildActionButton(
+                    Icons.swap_horiz,
+                    'Swap',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SwapScreen()),
+                    ),
+                  ),
+                  _buildActionButton(
+                    Icons.arrow_downward,
+                    'Deposit',
+                    onTap: _openReceive,
+                  ),
                   _buildActionButton(
                     Icons.send,
                     'Send',
