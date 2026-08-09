@@ -641,3 +641,150 @@ mint/ticker block; Buy as a preset swap; Add funds → Receive or Bridge.
 
 Out: limit orders, price alerts, and a `1s` chart. The first two have no implementation, the
 third has no data.
+
+---
+
+# Part four — the chart takes its colour from the coin
+
+**Status:** proposed
+**Date:** 2026-08-09
+
+The chart line is purple when the token is up and red when it is down, which says the same
+thing the arrow and the percentage already say, twice. Taking the colour from the token's own
+logo says something new: which asset you are looking at, before you have read the name.
+
+## 14. Research findings
+
+Eight real logos were pulled from the URLs Jupiter serves and run through candidate algorithms
+offline. Every number below is measured, not assumed.
+
+### 14.1 Frequency picks the background, not the brand
+
+Counting pixels gives the wrong answer almost every time, because a logo is mostly the disc it
+sits on:
+
+```
+JUP    #000020 navy   963px   ← background
+       #80E0A0 green   61px   ← brand
+PUMP   #000020 navy  1331px   ← background
+       #40C080 green   90px   ← brand
+```
+
+So pixels are filtered before they are counted — transparent ones dropped, then anything with
+saturation under 0.25 or lightness outside 0.18–0.92. That removes the disc, the drop shadow
+and the white plate, and leaves only pixels that carry a hue.
+
+Lightness 0.18 rather than 0.10 matters: the navy plate under JUP and PUMP sits at about 0.06
+to 0.12, and a lower floor lets it back in and wins with it.
+
+### 14.2 Vividness has to be weighted, and saturation must not be invented
+
+Surviving pixels are bucketed by hue into 24 buckets of 15°, each weighted
+`saturation × (1 − |lightness − 0.5| × 1.2)` so a vivid mid-tone beats a pale or muddy one of
+the same hue. The winning bucket's weighted mean becomes the colour.
+
+The first version then raised *saturation* to a floor to make the result pop. That was a
+mistake and the measurement caught it: it turned barely-tinted anti-aliasing into vivid pink.
+Only lightness is lifted now, to 0.55, which is what a line needs to read on a near-black
+background. A colour that was never saturated stays unsaturated, and if that means it loses,
+it loses.
+
+### 14.3 A corner badge beat the logo, which is what centre-sampling is for
+
+The worst failure was Portal-wrapped ETH:
+
+```
+whole image →  #C85079   magenta, 8.1% coverage
+```
+
+Its logo is a grey diamond on a white plate with a small **magenta Wormhole badge in the
+bottom-right corner**. The diamond is half the image and carries no hue at all; the badge is
+4.5% of it and is the only thing with one. Any hue-based reading of the whole image returns the
+badge.
+
+Sampling only the centre disc — radius 0.62 of the half-width — fixes it, on the principle
+that a logo's identity is what sits in the middle of it:
+
+```
+                centre disc          whole image
+ETH             none    (1.4%)       #C85079  (8.1%)   ← badge excluded
+SOL             #803EED (53.2%)      #7F3CEC (16.1%)
+cbBTC           #1E64FF (53.5%)      #1D64FF (41.0%)
+JUP             #4CCCBB (52.5%)      #40C9D9 (32.1%)
+PUMP            #5FC988 (28.8%)      #5FC988 (11.0%)
+SPYx            none    (0.0%)       none    (0.0%)
+```
+
+Coverage rises across the board too, because the centre is where the mark is, which makes the
+"is there a brand colour at all" test far less marginal.
+
+### 14.4 The coverage floor is what makes "no colour" an answer
+
+If fewer than 6% of the visible centre pixels carry a hue, there is no brand colour and the
+extractor returns null rather than a guess. Two of the eight logos take that path and should:
+
+- **SPYx** is a charcoal SPDR wordmark. Greyscale.
+- **ETH** is a grey diamond once the corner badge is out of frame.
+
+Both fall back to the existing up/down colour. A chart drawn in a hue invented from four
+anti-aliased pixels would look deliberate and be meaningless.
+
+### 14.5 Checked against the reference app, token by token
+
+The same tokens the reference shows, run through the final algorithm:
+
+```
+Solana          #803EED   purple       reference: purple      ✓
+cbBTC           #1E64FF   blue         reference: blue        ✓
+HYPE            #98FCE5   mint         reference: mint        ✓
+TRON            #D84941   red          reference: red         ✓
+Zcash           —         SVG          reference: gold        ✗
+```
+
+TRON is +0.34% and drawn red; HYPE is −0.58% and drawn mint. So the reference's chart colour is
+purely the brand, with direction left to the arrow and the percentage. This follows that:
+**brand colour wins, direction is not encoded in the line.**
+
+Zcash is the one miss and it is not the algorithm's. Its icon is an SVG, which
+`Image.network` cannot decode — that token already falls back to initials in the market list
+today. It falls back here too, honestly, and rendering SVG icons is a separate fix.
+
+## 15. Algorithm
+
+```
+brandColour(image):
+    stride ← chosen so roughly 48×48 samples are read, whatever the source size
+    centre ← the disc of radius 0.62 × half-width
+
+    for each sampled pixel inside centre:
+        skip if alpha < 128                        # invisible pixels have no colour
+        visible += 1
+        (h, s, l) ← hsl(pixel)
+        skip if s < 0.25                           # the disc, the plate, the shadow
+        skip if l < 0.18 or l > 0.92               # the near-black plate, the white plate
+        coloured += 1
+        bucket ← floor(h × 24)
+        weight ← s × (1 − |l − 0.5| × 1.2)
+        accumulate h, s, l into bucket, by weight
+
+    if coloured / visible < 0.06: return null      # greyscale logo, no brand colour
+    (h, s, l) ← weighted mean of the heaviest bucket
+    l ← max(l, 0.55)                               # legible on near-black; s is left alone
+    return rgb(h, s, l)
+```
+
+Everything about it is a pure function of pixel bytes, so it is tested against buffers built in
+the test rather than against the network.
+
+## 16. Where it is used, and what it costs
+
+Loading is one resolve through `NetworkImage`, so the logo is normally already decoded and in
+Flutter's image cache from the icon on the same screen. The result is memoised per URL —
+including the nulls, so a greyscale logo is measured once and never again.
+
+The colour drives the chart line and the glow behind it. It does not drive the price text, the
+percentage, or the balance deltas: those mean up and down, and a token whose brand happens to
+be red must not make a gain look like a loss.
+
+Failure at any step — no URL, a network error, an SVG, a decode error, a greyscale logo —
+returns null, and the caller keeps the colour it uses today.
