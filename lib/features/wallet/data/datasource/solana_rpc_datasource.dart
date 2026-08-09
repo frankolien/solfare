@@ -516,11 +516,21 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
 
     final content = asset['content'] as Map<String, dynamic>?;
     final metadata = content?['metadata'] as Map<String, dynamic>?;
-    final name = metadata?['name'] as String? ??
-        tokenInfo['symbol'] as String? ??
-        'Unknown token';
-    final symbol = tokenInfo['symbol'] as String? ??
-        metadata?['symbol'] as String? ??
+    // A mint with no metadata has neither. Naming them all "Unknown token"
+    // makes two such holdings indistinguishable in the list, so fall back to
+    // the mint — which at least identifies which one is which.
+    final shortMint = mint.length <= 8
+        ? mint
+        : '${mint.substring(0, 4)}…${mint.substring(mint.length - 4)}';
+    final name = _firstNonEmpty([
+          metadata?['name'] as String?,
+          tokenInfo['symbol'] as String?,
+        ]) ??
+        shortMint;
+    final symbol = _firstNonEmpty([
+          tokenInfo['symbol'] as String?,
+          metadata?['symbol'] as String?,
+        ]) ??
         '';
 
     String? imageUrl;
@@ -544,6 +554,16 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
       decimals: decimals,
       priceUsd: priceUsd,
     );
+  }
+
+  /// First value that is present and not blank. DAS returns both null and
+  /// empty strings for missing metadata, and only one of those is caught by
+  /// a `??` chain.
+  String? _firstNonEmpty(List<String?> candidates) {
+    for (final value in candidates) {
+      if (value != null && value.trim().isNotEmpty) return value;
+    }
+    return null;
   }
 
   double _pow10(int exp) {
