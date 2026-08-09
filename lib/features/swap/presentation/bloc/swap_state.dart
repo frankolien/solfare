@@ -26,6 +26,9 @@ class SwapReady extends SwapState {
   final bool isLoadingQuote;
   final String? error;
 
+  /// Wallet balance of [inputToken], null until it has been fetched.
+  final double? inputBalance;
+
   const SwapReady({
     required this.tokens,
     required this.inputToken,
@@ -36,6 +39,7 @@ class SwapReady extends SwapState {
     this.rate,
     this.isLoadingQuote = false,
     this.error,
+    this.inputBalance,
   });
 
   SwapReady copyWith({
@@ -48,6 +52,7 @@ class SwapReady extends SwapState {
     double? rate,
     bool? isLoadingQuote,
     String? error,
+    double? inputBalance,
   }) {
     return SwapReady(
       tokens: tokens ?? this.tokens,
@@ -59,11 +64,12 @@ class SwapReady extends SwapState {
       rate: rate ?? this.rate,
       isLoadingQuote: isLoadingQuote ?? this.isLoadingQuote,
       error: error,
+      inputBalance: inputBalance ?? this.inputBalance,
     );
   }
 
   @override
-  List<Object?> get props => [tokens, inputToken, outputToken, inputAmount, outputAmount, priceImpact, rate, isLoadingQuote, error];
+  List<Object?> get props => [tokens, inputToken, outputToken, inputAmount, outputAmount, priceImpact, rate, isLoadingQuote, error, inputBalance];
 }
 
 class SwapExecuting extends SwapState {

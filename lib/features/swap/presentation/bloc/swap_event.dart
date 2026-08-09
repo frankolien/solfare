@@ -47,6 +47,15 @@ class ExecuteSwapEvent extends SwapEvent {
   List<Object?> get props => [walletAddress];
 }
 
+/// Fetch the wallet's balance of whichever token is currently selected as
+/// the input, so the swap button can tell "no balance" from "no quote".
+class LoadInputBalanceEvent extends SwapEvent {
+  final String walletAddress;
+  const LoadInputBalanceEvent(this.walletAddress);
+  @override
+  List<Object?> get props => [walletAddress];
+}
+
 class FlipTokensEvent extends SwapEvent {
   const FlipTokensEvent();
 }

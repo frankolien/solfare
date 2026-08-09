@@ -17,6 +17,10 @@ class SwapScreen extends StatefulWidget {
 }
 
 class _SwapScreenState extends State<SwapScreen> {
+  // SOL held back from a swap to cover the signature fee, the priority bid
+  // and any associated token account rent the route has to create.
+  static const double _solFeeReserve = 0.01;
+
   final _inputController = TextEditingController();
   String? _walletAddress;
   int _selectedTab = 0; // 0 = Swap, 1 = Limit
@@ -31,7 +35,11 @@ class _SwapScreenState extends State<SwapScreen> {
 
   Future<void> _loadAddress() async {
     final address = await ActiveWallet.address();
-    if (mounted) setState(() => _walletAddress = address);
+    if (!mounted) return;
+    setState(() => _walletAddress = address);
+    if (address != null) {
+      context.read<SwapBloc>().add(LoadInputBalanceEvent(address));
+    }
   }
 
   void _showTokenSelector(BuildContext context, List<SwapToken> tokens, SwapToken current, bool isInput) async {
@@ -421,11 +429,27 @@ class _SwapScreenState extends State<SwapScreen> {
   }
 
   Widget _buildSwapButton(BuildContext context, SwapReady state) {
-    // TODO: check actual wallet balance for inputToken to determine sufficiency
     final hasQuote = state.outputAmount != null;
-    final hasSufficientBalance = false; // Will be true when user has enough balance
+    final amount = double.tryParse(state.inputAmount) ?? 0;
+    final balance = state.inputBalance;
+
+    // Swapping native SOL spends from the same balance that pays the fee and
+    // any ATA rent, so leave headroom instead of letting the whole balance go.
+    final reserve = state.inputToken.mint == SwapToken.sol.mint ? _solFeeReserve : 0;
+    final hasSufficientBalance = balance != null && amount > 0 && amount + reserve <= balance;
+
     final isMainnet = NetworkConstants.current == SolanaNetwork.mainnet;
     final enabled = hasQuote && hasSufficientBalance && isMainnet && _walletAddress != null;
+
+    final label = !isMainnet
+        ? 'Swap available on Mainnet'
+        : amount <= 0
+            ? 'Enter an amount'
+            : balance == null
+                ? 'Checking balance'
+                : !hasSufficientBalance
+                    ? 'Insufficient ${state.inputToken.symbol}'
+                    : 'Swap';
 
     void onTap() {
       if (enabled) {
@@ -444,7 +468,7 @@ class _SwapScreenState extends State<SwapScreen> {
         ),
         onPressed: enabled ? onTap : null,
         child: Text(
-          !isMainnet ? 'Swap available on Mainnet' : 'Swap',
+          label,
           style: TextStyle(
             color: enabled ? Colors.black : Colors.grey[600],
             fontSize: 13,

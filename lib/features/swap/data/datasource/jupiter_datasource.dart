@@ -17,18 +17,24 @@ class JupiterDataSource {
     return _popularTokens;
   }
 
-  /// Get a swap quote from Jupiter v2 (/order endpoint)
+  /// Get an order from Jupiter v2 (/order endpoint).
+  ///
+  /// Without [taker] this is a price quote and `transaction` comes back
+  /// empty. Pass the wallet address to have Jupiter build the transaction
+  /// and issue the `requestId` that [execute] needs.
   Future<Map<String, dynamic>> getQuote({
     required String inputMint,
     required String outputMint,
     required int amount,
     int slippageBps = 50,
+    String? taker,
   }) async {
     final url = '$_baseUrl/order'
         '?inputMint=$inputMint'
         '&outputMint=$outputMint'
         '&amount=$amount'
-        '&slippageBps=$slippageBps';
+        '&slippageBps=$slippageBps'
+        '${taker != null ? '&taker=$taker' : ''}';
 
     final response = await HttpRetry.send(
       () => client.get(
@@ -46,10 +52,15 @@ class JupiterDataSource {
     throw Exception('Quote failed: ${response.statusCode} ${response.body}');
   }
 
-  /// Execute a swap via Jupiter v2 (/execute endpoint)
-  Future<String> executeSwap({
-    required Map<String, dynamic> quoteResponse,
-    required String userPublicKey,
+  /// Hand the signed order back to Jupiter, which broadcasts it and polls for
+  /// landing on its own infrastructure. Returns the raw result — `status` is
+  /// "Success" or "Failed", alongside `signature`, `error` and `code`.
+  ///
+  /// [requestId] ties the signature to the order Jupiter built; it only comes
+  /// from an /order call that included a taker.
+  Future<Map<String, dynamic>> execute({
+    required String signedTransaction,
+    required String requestId,
   }) async {
     final response = await HttpRetry.send(
       () => client.post(
@@ -60,18 +71,23 @@ class JupiterDataSource {
           'x-api-key': _apiKey,
         },
         body: jsonEncode({
-          'quoteResponse': quoteResponse,
-          'userPublicKey': userPublicKey,
-          'wrapAndUnwrapSol': true,
+          'signedTransaction': signedTransaction,
+          'requestId': requestId,
         }),
       ),
     );
 
-    if (response.statusCode == 200) {
+    // Jupiter reports a landed-but-reverted swap as HTTP 200 with
+    // status "Failed", so the body is parsed either way.
+    try {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      return data['swapTransaction'] as String;
+      if (response.statusCode == 200 || data['status'] != null || data['error'] != null) {
+        return data;
+      }
+    } catch (_) {
+      // Fall through to the status-code error below.
     }
-    throw Exception('Swap execute failed: ${response.statusCode}');
+    throw Exception('Swap execute failed: HTTP ${response.statusCode}');
   }
 
   // Top Solana tokens with correct mint addresses and decimals
