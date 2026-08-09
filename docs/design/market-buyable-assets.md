@@ -531,3 +531,113 @@ In: the two screens, the four shelves, the watchlist, the ticker strip, display 
 warning badge, and a disclaimer footer saying what a tokenised equity is and is not.
 
 Out: Cards and Earn tabs, price alerts, and any section the wallet cannot fill with real mints.
+
+---
+
+# Part three — the token screen
+
+**Status:** proposed
+**Date:** 2026-08-09
+
+The detail screen has the right information in the wrong shape: four small action circles where
+one decision belongs, a header with a dead star and a dead overflow, and a chart whose
+timeframe labels do not describe the data behind them.
+
+## 10. Research findings
+
+### 10.1 Two of the five timeframe chips cannot be honest
+
+The chart asks CoinGecko for `/market_chart?days=N`, whose granularity is fixed by the range:
+five-minute points for `days ≤ 1`, hourly to ninety days, daily beyond. So the finest thing the
+chart can draw is a five-minute candle.
+
+The chips today are labelled `1m 1H 1D 1W 1M` over `days = 0.04 0.08 1 7 30`. The first two are
+already wrong: `1m` fetches an hour of five-minute points, `1H` fetches two hours of them.
+
+Relabelled to what the request actually returns:
+
+```
+1H  days=0.04     4H  days=0.17     1D  days=1     1W  days=7     1M  days=30
+```
+
+A `1s` chip drawing five-minute candles would be a chip that lies about its own axis, so there
+is not one.
+
+### 10.2 Bridging has a real destination and no integration
+
+`jup.ag/bridge` is a 404. `portalbridge.com` — Wormhole's own front end, the canonical route
+onto Solana from another chain — answers 200, as do deBridge and Jumper.
+
+Solfare has no bridge integration and is not getting one here. What it has is
+`DappBrowserScreen(initialUrl:, title:)`. So Bridge opens Portal in that browser: a real
+destination, in-app, rather than a row that does nothing.
+
+### 10.3 Sharing needs no new dependency
+
+`share_plus 12.0.2` is already in the project and already used by the receive screen and the
+transaction history. `ShareParams` takes `files: List<XFile>` alongside `text`, and
+`path_provider` is present for the temp file. A card rendered under a `RepaintBoundary`,
+captured to PNG and handed to the system sheet needs nothing new installed.
+
+## 11. Shape
+
+```
+TokenDetailScreen
+  ├── header:  ✕   logo · name   ★ watchlist   ⇪ share   ⋮ more
+  │                                                        └── Add funds
+  │                                                              └── sheet
+  │                                                                   ├── Receive crypto
+  │                                                                   └── Bridge → Portal
+  ├── price + change over the selected window
+  ├── chart (line | candles), timeframes 1H 4H 1D 1W 1M
+  ├── market cap · volume 24h · liquidity
+  ├── about
+  ├── mint address (copy) · ticker
+  ├── homepage · X
+  └── Buy  ─────────────────────────────► swap sheet, output preset to this token
+```
+
+Four action circles become one primary control plus an overflow. Deposit and Swap were only
+ever ways of getting to two screens that already exist; Buy is the thing the screen is for.
+
+## 12. Algorithms
+
+### 12.1 Buy opens the swap that already works
+
+```
+buy(token):
+    output ← SwapToken(mint, symbol, name, decimals, icon)   from the market row
+    present SwapScreen modally with output preset
+```
+
+Not a second swap surface. The screen underneath is the one with the balance handling, the
+reserve, the quote refresh and the Jupiter execute path already tested on device. Presetting
+its output is the whole change.
+
+The buy sheet from part two stays for the shelves, where the question is "put fifty dollars
+into this" rather than "trade this pair" — but the token screen's Buy is a swap, because that
+is what the reference does and what the mint deserves: a pair, a rate, and a slippage setting.
+
+### 12.2 Sharing a token
+
+```
+share(token):
+    render the card off-screen under a RepaintBoundary
+    wait one frame so it has painted
+    image ← boundary.toImage(pixelRatio: 3)
+    png   ← image.toByteData(format: png)
+    write png to a temp file
+    SharePlus.share(files: [png], text: "<name> on Solfare — <mint>")
+```
+
+Everything on the card comes from what the screen is already showing. A share image is a claim
+that travels further than the screen it came from, so it gets no number the screen does not
+have.
+
+## 13. Scope
+
+In: the header row with a live star, share and overflow; honest timeframes; the stats row; the
+mint/ticker block; Buy as a preset swap; Add funds → Receive or Bridge.
+
+Out: limit orders, price alerts, and a `1s` chart. The first two have no implementation, the
+third has no data.
