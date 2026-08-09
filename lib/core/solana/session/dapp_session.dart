@@ -94,6 +94,12 @@ class SessionCrypto {
     );
   }
 
+  /// An opaque session token for the dapp to echo back. 32 bytes from the
+  /// same CSPRNG the keys come from.
+  static String randomToken() => base58.encode(
+        Uint8List.fromList(nacl.PrivateKey.generate().publicKey.toList()),
+      );
+
   static nacl.Box _box({required String privateKey, required String theirPublicKey}) => nacl.Box(
         myPrivateKey: nacl.PrivateKey(base58.decode(privateKey)),
         theirPublicKey: nacl.PublicKey(base58.decode(theirPublicKey)),

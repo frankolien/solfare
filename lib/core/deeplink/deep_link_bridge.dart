@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solfare/core/router/app_router.dart';
+import 'package:solfare/core/solana/session/dapp_request.dart';
 import 'package:solfare/core/util/app_log.dart';
 
 // Receives solfare:// URLs from the native side (AppDelegate forwards them
@@ -34,9 +35,25 @@ class DeepLinkBridge {
     });
   }
 
+  /// A dapp request that arrived and has not been shown to the user yet.
+  /// Separate from [intent] because these are not navigation — they are
+  /// somebody asking for a signature, and they get their own approval sheet.
+  static final ValueNotifier<DappRequest?> dappRequest = ValueNotifier<DappRequest?>(null);
+
   static void _handle(String raw) {
     final uri = Uri.tryParse(raw);
     if (uri == null || uri.scheme != 'solfare') return;
+
+    // v1/* is the dApp Connect surface. Checked before the navigation hosts
+    // so a signing request can never be mistaken for "open the send screen".
+    final request = DappRequestParser.parse(uri);
+    if (request != null) {
+      debugLog('[DeepLink] dapp request: ${uri.host}${uri.path}');
+      dappRequest.value = request;
+      _router?.go(AppRoutes.homepage);
+      return;
+    }
+
     final host = uri.host;
     debugLog('[DeepLink] $raw → $host');
     intent.value = host;

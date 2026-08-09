@@ -133,16 +133,18 @@ class TransactionService {
     return lastExpired!;
   }
 
-  /// Sign a transaction somebody else built, broadcast it, and confirm it.
+  /// Sign a transaction somebody else built, without broadcasting it.
   ///
   /// The payload arrives serialised with an empty slot for our signature, so
   /// the message is signed and the signature written into the first slot
   /// rather than the transaction being rebuilt — rebuilding would change the
   /// bytes the merchant or dapp expects to see land.
-  Future<TxOutcome> signAndSendPayload({
+  ///
+  /// Returns the signed transaction, base64. A dapp asking for signTransaction
+  /// gets this and decides for itself when to send it.
+  Future<String> signPayloadOnly({
     required String base64Tx,
     required solana.Ed25519HDKeyPair signer,
-    Duration timeout = const Duration(seconds: 90),
   }) async {
     final raw = base64Decode(base64Tx);
 
@@ -164,8 +166,16 @@ class TransactionService {
     final signature = await signer.sign(raw.sublist(messageStart));
     final signed = Uint8List.fromList(raw);
     signed.setRange(offset, offset + 64, signature.bytes);
+    return base64Encode(signed);
+  }
 
-    final encoded = base64Encode(signed);
+  /// Sign a transaction somebody else built, broadcast it, and confirm it.
+  Future<TxOutcome> signAndSendPayload({
+    required String base64Tx,
+    required solana.Ed25519HDKeyPair signer,
+    Duration timeout = const Duration(seconds: 90),
+  }) async {
+    final encoded = await signPayloadOnly(base64Tx: base64Tx, signer: signer);
     final decoded = encoder.SignedTx.decode(encoded);
 
     await _rpc.sendTransaction(encoded, skipPreflight: false);
