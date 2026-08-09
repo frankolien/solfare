@@ -3,126 +3,160 @@ import 'package:solfare/features/market/domain/entities/market_token.dart';
 import 'package:solfare/features/market/domain/entities/market_window.dart';
 import 'package:solfare/features/market/presentation/market_format.dart';
 import 'package:solfare/features/market/presentation/widgets/market_token_icon.dart';
+import 'package:solfare/features/market/presentation/widgets/watchlist_star.dart';
 
-/// One asset in the market list: what it is, what it costs, how it traded.
+/// One asset in a market list: what it is, what it costs, how big it is.
 class MarketRow extends StatelessWidget {
   final MarketToken token;
   final MarketWindow window;
   final VoidCallback? onTap;
+
+  /// Shown on the full list, left off the home's preview rows where the
+  /// point is to read five things quickly.
+  final bool showStar;
 
   const MarketRow({
     super.key,
     required this.token,
     required this.window,
     this.onTap,
+    this.showStar = false,
   });
 
-  static const _up = Color(0xFF7BD64B);
-  static const _down = Color(0xFFFF5252);
+  static const up = Color(0xFF7BD64B);
+  static const down = Color(0xFFFF5252);
 
   @override
   Widget build(BuildContext context) {
     final stats = token.statsFor(window);
-    final changeColor = stats.priceChange >= 0 ? _up : _down;
-    final netColor = stats.netVolume >= 0 ? _up : _down;
 
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: EdgeInsets.fromLTRB(20, 12, showStar ? 8 : 20, 12),
         child: Row(
           children: [
-            MarketTokenIcon(token: token, size: 38),
+            MarketTokenIcon(token: token, size: 40, warn: !token.isVerified),
             const SizedBox(width: 12),
-            Expanded(flex: 5, child: _identity()),
             Expanded(
-              flex: 4,
-              child: _pair(
-                MarketFormat.price(token.currentPrice),
-                MarketFormat.percent(stats.priceChange),
-                changeColor,
+              flex: 6,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    token.displayName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontFamily: 'FKGrotesk',
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          MarketFormat.price(token.currentPrice),
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 12,
+                            fontFamily: 'FKGroteskSemiMono',
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        MarketFormat.percent(stats.priceChange),
+                        style: TextStyle(
+                          color: stats.priceChange >= 0 ? up : down,
+                          fontSize: 12,
+                          fontFamily: 'FKGroteskSemiMono',
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            Expanded(
-              flex: 4,
-              child: _pair(
-                MarketFormat.compact(stats.volume),
-                stats.volume == 0 ? '—' : MarketFormat.compact(stats.netVolume),
-                netColor,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  MarketFormat.compact(token.marketCap),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontFamily: 'FKGroteskSemiMono',
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  stats.volume == 0 ? '—' : MarketFormat.compact(stats.volume),
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                    fontFamily: 'FKGroteskSemiMono',
+                  ),
+                ),
+              ],
             ),
+            if (showStar) WatchlistStar(mint: token.id),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Rows in the shape of the ones about to arrive.
+///
+/// A spinner says "wait"; this says "here is what is coming", which is the
+/// difference between a screen that feels slow and one that feels busy.
+class MarketRowSkeleton extends StatelessWidget {
+  final int rows;
+  final bool shrinkWrap;
+
+  const MarketRowSkeleton({super.key, this.rows = 10, this.shrinkWrap = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.only(top: 8),
+      itemCount: rows,
+      shrinkWrap: shrinkWrap,
+      physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
+      itemBuilder: (_, __) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(color: Colors.grey[900], shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 12),
+            Expanded(flex: 6, child: _bar(80)),
+            _bar(50),
           ],
         ),
       ),
     );
   }
 
-  Widget _identity() {
-    final age = MarketFormat.age(token.createdAt);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          children: [
-            Flexible(
-              child: Text(
-                token.symbol.isNotEmpty ? token.symbol : MarketFormat.shortMint(token.id),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontFamily: 'FKGrotesk',
-                  fontWeight: FontWeight.w600,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (token.isVerified) ...[
-              const SizedBox(width: 4),
-              const Icon(Icons.verified, color: _up, size: 12),
-            ],
-          ],
+  Widget _bar(double width) => Container(
+        width: width,
+        height: 10,
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(4),
         ),
-        const SizedBox(height: 2),
-        Text(
-          age ?? token.name,
-          style: TextStyle(color: Colors.grey[600], fontSize: 11, fontFamily: 'FKGrotesk'),
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    );
-  }
-
-  /// A headline number with its secondary underneath, right-aligned so the
-  /// columns line up down the list.
-  Widget _pair(String top, String bottom, Color bottomColor) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          top,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            fontFamily: 'FKGroteskSemiMono',
-            fontWeight: FontWeight.w500,
-          ),
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: 2),
-        Text(
-          bottom,
-          style: TextStyle(
-            color: bottomColor,
-            fontSize: 11,
-            fontFamily: 'FKGroteskSemiMono',
-            fontWeight: FontWeight.w500,
-          ),
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    );
-  }
+      );
 }

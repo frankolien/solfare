@@ -17,6 +17,7 @@ void main() {
     bool verified = true,
     List<String> tags = const ['rwa', 'commodities'],
     double? price = 4325.17,
+    double? liquidity = 491604,
   }) =>
       {
         'id': mint,
@@ -26,6 +27,7 @@ void main() {
         'decimals': 6,
         'tokenProgram': 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
         'usdPrice': price,
+        'liquidity': liquidity,
         'isVerified': verified,
         'tags': tags,
         'stats24h': {'priceChange': -0.01, 'buyVolume': 100.0, 'sellVolume': 50.0},
@@ -63,6 +65,13 @@ void main() {
           reason: 'a shelf that is short is honest, a shelf that is wrong is not');
     });
 
+    test('a mint nobody is quoting is dropped, price or not', () async {
+      final source = sourceReturning([row(gold, liquidity: 0)]);
+      final result = await source.shelf(MarketCategory.commodities);
+      expect(result.tokens, isEmpty,
+          reason: 'no liquidity means no route, so the card could not be bought');
+    });
+
     test('a mint with no price is dropped rather than shown at zero', () async {
       final source = sourceReturning([row(gold, price: null)]);
       final result = await source.shelf(MarketCategory.commodities);
@@ -77,12 +86,13 @@ void main() {
 
     test('the response is matched by mint, not by position', () async {
       // The API is under no obligation to answer in the order it was asked.
+      final stocks = TokenizedAssetRegistry.mintsFor(MarketCategory.stocks);
       final source = sourceReturning([
-        row(shelf[2], tags: const ['rwa']),
-        row(gold),
+        row(stocks[2], tags: const ['rwa']),
+        row(stocks[0], tags: const ['rwa']),
       ]);
-      final result = await source.shelf(MarketCategory.commodities);
-      expect(result.tokens.map((t) => t.id).toList(), [gold, shelf[2]],
+      final result = await source.shelf(MarketCategory.stocks);
+      expect(result.tokens.map((t) => t.id).toList(), [stocks[0], stocks[2]],
           reason: 'the registry decides the order the shelf is built in');
     });
   });

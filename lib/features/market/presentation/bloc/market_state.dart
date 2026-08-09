@@ -1,18 +1,19 @@
 import 'package:equatable/equatable.dart';
-import 'package:solfare/features/market/domain/entities/market_category.dart';
+import 'package:solfare/features/market/domain/entities/market_section.dart';
 import 'package:solfare/features/market/domain/entities/market_sort.dart';
 import 'package:solfare/features/market/domain/entities/market_token.dart';
 import 'package:solfare/features/market/domain/entities/market_window.dart';
 
 enum MarketStatus { initial, loading, ready, failure }
 
-/// One state object rather than a class per phase, so a category that is
-/// still loading can keep the previous rows on screen instead of replacing
-/// them with a skeleton the user has already read.
+/// One section, in full, sorted.
+///
+/// A single state object rather than a class per phase, so a refresh can run
+/// over rows that are already on screen instead of replacing them with a
+/// skeleton the user has already read.
 class MarketState extends Equatable {
   final MarketStatus status;
-  final MarketCategory category;
-  final MarketFeed feed;
+  final MarketSection section;
   final MarketWindow window;
   final MarketSort sort;
   final bool descending;
@@ -26,12 +27,9 @@ class MarketState extends Equatable {
   final String? error;
 
   const MarketState({
+    this.section = MarketSection.trending,
     this.status = MarketStatus.initial,
-    this.category = MarketCategory.tokens,
-    this.feed = MarketFeed.trending,
     this.window = MarketWindow.h24,
-    // Tokens is the opening category, and it is feed-driven, so the opening
-    // order is the feed's own ranking rather than a column of ours.
     this.sort = MarketSort.rank,
     this.descending = true,
     this.tokens = const [],
@@ -44,8 +42,7 @@ class MarketState extends Equatable {
 
   MarketState copyWith({
     MarketStatus? status,
-    MarketCategory? category,
-    MarketFeed? feed,
+    MarketSection? section,
     MarketWindow? window,
     MarketSort? sort,
     bool? descending,
@@ -56,8 +53,7 @@ class MarketState extends Equatable {
   }) {
     return MarketState(
       status: status ?? this.status,
-      category: category ?? this.category,
-      feed: feed ?? this.feed,
+      section: section ?? this.section,
       window: window ?? this.window,
       sort: sort ?? this.sort,
       descending: descending ?? this.descending,
@@ -69,5 +65,5 @@ class MarketState extends Equatable {
 
   @override
   List<Object?> get props =>
-      [status, category, feed, window, sort, descending, tokens, dropped, error];
+      [status, section, window, sort, descending, tokens, dropped, error];
 }

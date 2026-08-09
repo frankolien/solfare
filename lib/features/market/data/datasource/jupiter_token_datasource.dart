@@ -39,11 +39,25 @@ class JupiterTokenDataSource {
   /// Hydrates a registry shelf.
   ///
   /// Returns what came back and what did not: a mint the API no longer serves,
-  /// or no longer tags as a real-world asset, is dropped here rather than
-  /// shown under a heading it has stopped belonging to. The caller is told how
-  /// many so the shelf can say so instead of quietly looking short.
-  Future<MarketFeedResult> shelf(MarketCategory category) async {
-    final mints = TokenizedAssetRegistry.mintsFor(category);
+  /// no longer tags as a real-world asset, or no longer has any liquidity, is
+  /// dropped here rather than shown under a heading it has stopped belonging
+  /// to. The caller is told how many so the shelf can say so instead of
+  /// quietly looking short.
+  Future<MarketFeedResult> shelf(MarketCategory category) =>
+      _hydrate(TokenizedAssetRegistry.mintsFor(category), category: category);
+
+  /// Hydrates an arbitrary set of mints — the watchlist, mostly.
+  ///
+  /// No shelf guard: somebody who starred a token gets to keep seeing it,
+  /// whatever Jupiter has since decided about its tags. A mint the API no
+  /// longer serves at all is still dropped, because there is nothing to draw.
+  Future<MarketFeedResult> hydrate(List<String> mints) =>
+      _hydrate(mints, category: null);
+
+  Future<MarketFeedResult> _hydrate(
+    List<String> mints, {
+    required MarketCategory? category,
+  }) async {
     final tokens = <MarketTokenModel>[];
     var dropped = 0;
 
@@ -57,11 +71,16 @@ class JupiterTokenDataSource {
 
       for (final mint in chunk) {
         final row = byMint[mint];
-        if (row == null || !_stillAnAsset(row)) {
+        if (row == null || (category != null && !_stillListable(row, category))) {
           dropped++;
           continue;
         }
-        tokens.add(MarketTokenModel.fromJupiter(row, category: category));
+        tokens.add(MarketTokenModel.fromJupiter(
+          row,
+          category: category ??
+              TokenizedAssetRegistry.categoryOf(mint) ??
+              MarketCategory.tokens,
+        ));
       }
     }
 
@@ -84,11 +103,18 @@ class JupiterTokenDataSource {
     ];
   }
 
-  bool _stillAnAsset(Map<String, dynamic> row) {
+  bool _stillListable(Map<String, dynamic> row, MarketCategory category) {
     if (row['isVerified'] != true) return false;
-    if (!TokenizedAssetRegistry.tagsSupportRwa(MarketTokenModel.tagsOf(row))) return false;
+    if (category.requiresRwaTag &&
+        !TokenizedAssetRegistry.tagsSupportRwa(MarketTokenModel.tagsOf(row))) {
+      return false;
+    }
     final price = (row['usdPrice'] as num?)?.toDouble();
-    return price != null && price > 0;
+    if (price == null || price <= 0) return false;
+    // No liquidity means no route. A card that cannot be bought is worse
+    // than a shelf that is one shorter.
+    final liquidity = (row['liquidity'] as num?)?.toDouble();
+    return liquidity != null && liquidity > 0;
   }
 
   Future<List<dynamic>> _getArray(String url) async {

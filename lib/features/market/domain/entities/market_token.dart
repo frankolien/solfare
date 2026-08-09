@@ -10,6 +10,12 @@ class MarketToken {
   /// The mint address.
   final String id;
   final String name;
+
+  /// What a card calls this, with the issuer stripped off. The full [name]
+  /// stays available, because "which issuer" is exactly the question worth
+  /// answering before buying a tokenised equity.
+  final String displayName;
+
   final String symbol;
   final String imageUrl;
   final double currentPrice;
@@ -47,6 +53,7 @@ class MarketToken {
     required this.id,
     required this.name,
     required this.symbol,
+    String? displayName,
     required this.imageUrl,
     required this.currentPrice,
     this.decimals = 0,
@@ -60,7 +67,7 @@ class MarketToken {
     this.category = MarketCategory.tokens,
     this.stats = const {},
     this.sparklineData = const [],
-  });
+  }) : displayName = displayName ?? name;
 
   MarketStats statsFor(MarketWindow window) => stats[window] ?? const MarketStats();
 

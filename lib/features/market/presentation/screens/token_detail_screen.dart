@@ -11,6 +11,7 @@ import 'package:solfare/features/wallet/domain/entities/spl_token.dart';
 import 'package:solfare/features/market/domain/entities/market_token.dart';
 import 'package:solfare/features/market/presentation/market_format.dart';
 import 'package:solfare/features/market/presentation/widgets/buy_sheet.dart';
+import 'package:solfare/features/market/presentation/widgets/watchlist_star.dart';
 import 'package:solfare/features/swap/presentation/screens/swap_screen.dart';
 import 'package:solfare/features/swap/domain/entities/swap_token.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
@@ -334,10 +335,9 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
         ),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.star_border, color: Colors.white, size: 22),
-            onPressed: () {},
-          ),
+          // Only for a real mint. There is nothing to star about a listing
+          // that arrived without one.
+          if (_isMintId) WatchlistStar(mint: widget.token.id, size: 22),
           IconButton(
             icon: const Icon(Icons.more_vert, color: Colors.white, size: 22),
             onPressed: () {},

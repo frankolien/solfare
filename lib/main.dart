@@ -13,7 +13,7 @@ import 'package:solfare/features/explore/presentation/bloc/explore_bloc.dart';
 import 'package:solfare/features/staking/presentation/bloc/staking_bloc.dart';
 import 'package:solfare/features/swap/presentation/bloc/swap_bloc.dart';
 import 'package:solfare/features/homepage/presentation/bloc/homepage_bloc.dart';
-import 'package:solfare/features/market/presentation/bloc/market_bloc.dart';
+import 'package:solfare/features/market/presentation/bloc/market_home_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/passcode_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
 import 'package:solfare/l10n/app_localizations.dart';
@@ -76,7 +76,7 @@ class _MainAppState extends State<MainApp> {
         BlocProvider(create: (context) => WalletBloc()),
         BlocProvider(create: (context) => PasscodeBloc()),
         BlocProvider(create: (context) => HomepageBloc()),
-        BlocProvider(create: (context) => MarketBloc()),
+        BlocProvider(create: (context) => MarketHomeBloc()),
         BlocProvider(create: (context) => ExploreBloc()),
         BlocProvider(create: (context) => SwapBloc()),
         BlocProvider(create: (context) => StakingBloc()),

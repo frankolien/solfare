@@ -1,3 +1,4 @@
+import 'package:solfare/features/market/data/registry/tokenized_asset_registry.dart';
 import 'package:solfare/features/market/domain/entities/market_category.dart';
 import 'package:solfare/features/market/domain/entities/market_token.dart';
 import 'package:solfare/features/market/domain/entities/market_window.dart';
@@ -8,6 +9,7 @@ class MarketTokenModel extends MarketToken {
     required super.id,
     required super.name,
     required super.symbol,
+    super.displayName,
     required super.imageUrl,
     required super.currentPrice,
     super.decimals,
@@ -35,6 +37,10 @@ class MarketTokenModel extends MarketToken {
       // as nothing at all, so the ticker is the better fallback.
       name: _nonEmpty(json['name']) ?? symbol,
       symbol: symbol,
+      displayName: TokenizedAssetRegistry.displayName(
+        json['id'] as String? ?? '',
+        _nonEmpty(json['name']) ?? symbol,
+      ),
       imageUrl: json['icon'] as String? ?? '',
       currentPrice: _num(json['usdPrice']) ?? 0,
       decimals: (json['decimals'] as num?)?.toInt() ?? 0,

@@ -5,7 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:solfare/features/market/data/datasource/jupiter_token_datasource.dart';
 import 'package:solfare/features/market/data/registry/tokenized_asset_registry.dart';
+import 'package:solfare/features/market/data/watchlist_store.dart';
 import 'package:solfare/features/market/domain/entities/market_category.dart';
+import 'package:solfare/features/market/domain/entities/market_section.dart';
 import 'package:solfare/features/market/domain/entities/market_sort.dart';
 import 'package:solfare/features/market/domain/entities/market_window.dart';
 import 'package:solfare/features/market/presentation/bloc/market_bloc.dart';
@@ -21,6 +23,7 @@ void main() {
     double h24 = 0,
     double h1 = 0,
     double volume = 0,
+    double? mcap,
   }) =>
       {
         'id': mint ?? symbol.padRight(32, 'x'),
@@ -29,6 +32,8 @@ void main() {
         'icon': '',
         'decimals': 6,
         'usdPrice': 1.0,
+        'liquidity': 5000.0,
+        'mcap': mcap,
         'isVerified': true,
         'tags': ['rwa', 'stocks'],
         'stats24h': {'priceChange': h24, 'buyVolume': volume, 'sellVolume': 0.0},
@@ -37,9 +42,10 @@ void main() {
 
   late List<String> requested;
 
-  MarketBloc blocReturning(List<Map<String, dynamic>> rows) {
+  MarketBloc blocFor(MarketSection section, List<Map<String, dynamic>> rows) {
     requested = [];
     return MarketBloc(
+      section: section,
       source: JupiterTokenDataSource(
         client: MockClient((request) async {
           requested.add(request.url.path);
@@ -56,8 +62,8 @@ void main() {
     return bloc.stream.firstWhere((s) => s.status != MarketStatus.loading);
   }
 
-  test('the opening list keeps the feed ranking rather than a column of ours', () async {
-    final bloc = blocReturning([row('C'), row('A'), row('B')]);
+  test('a feed keeps its own ranking rather than a column of ours', () async {
+    final bloc = blocFor(MarketSection.trending, [row('C'), row('A'), row('B')]);
     expect(bloc.state.sort, MarketSort.rank);
     bloc.add(const FetchMarketTokensEvent());
     final state = await settle(bloc);
@@ -66,31 +72,17 @@ void main() {
   });
 
   test('a shelf opens on market cap, since it has no ranking of its own', () async {
-    final bloc = blocReturning([row('A', mint: shelf.first)]);
-    bloc.add(const SelectCategoryEvent(MarketCategory.stocks));
-    await settle(bloc);
+    final bloc = blocFor(MarketSection.stocks, [row('A', mint: shelf.first)]);
     expect(bloc.state.sort, MarketSort.marketCap);
     await bloc.close();
   });
 
-  test('the old rows go when the shelf changes', () async {
-    final bloc = blocReturning([row('A')]);
-    bloc.add(const FetchMarketTokensEvent());
-    await settle(bloc);
-
-    final cleared = bloc.stream.firstWhere((s) => s.category == MarketCategory.stocks);
-    bloc.add(const SelectCategoryEvent(MarketCategory.stocks));
-    expect((await cleared).tokens, isEmpty,
-        reason: 'tokens under a Stocks heading for the length of a fetch is a lie');
-    await bloc.close();
-  });
-
   test('changing the window on a shelf re-reads what is held, it does not refetch', () async {
-    final bloc = blocReturning([
+    final bloc = blocFor(MarketSection.stocks, [
       row('A', mint: shelf[0], h24: 1, h1: 9),
       row('B', mint: shelf[1], h24: 5, h1: 2),
     ]);
-    bloc.add(const SelectCategoryEvent(MarketCategory.stocks));
+    bloc.add(const FetchMarketTokensEvent());
     await settle(bloc);
     final callsAfterLoad = requested.length;
 
@@ -105,7 +97,7 @@ void main() {
 
   test('changing the window on a feed asks for that window, since it is a different ranking',
       () async {
-    final bloc = blocReturning([row('A')]);
+    final bloc = blocFor(MarketSection.trending, [row('A')]);
     bloc.add(const FetchMarketTokensEvent());
     await settle(bloc);
 
@@ -115,8 +107,19 @@ void main() {
     await bloc.close();
   });
 
+  test('most traded reads a different feed to trending', () async {
+    final bloc = blocFor(MarketSection.mostTraded, [row('A')]);
+    bloc.add(const FetchMarketTokensEvent());
+    await settle(bloc);
+    expect(requested.last, contains('/toptraded/24h'));
+    await bloc.close();
+  });
+
   test('tapping the active column flips it, a different column starts descending', () async {
-    final bloc = blocReturning([row('A', h24: 1, volume: 9), row('B', h24: 5, volume: 1)]);
+    final bloc = blocFor(MarketSection.trending, [
+      row('A', h24: 1, volume: 9, mcap: 10),
+      row('B', h24: 5, volume: 1, mcap: 90),
+    ]);
     bloc.add(const FetchMarketTokensEvent());
     await settle(bloc);
 
@@ -129,34 +132,29 @@ void main() {
     await bloc.stream.firstWhere((s) => !s.descending);
     expect(bloc.state.tokens.first.symbol, 'A', reason: 'flipping change is the losers view');
 
-    bloc.add(const SelectSortEvent(MarketSort.volume));
-    await bloc.stream.firstWhere((s) => s.sort == MarketSort.volume);
+    bloc.add(const SelectSortEvent(MarketSort.marketCap));
+    await bloc.stream.firstWhere((s) => s.sort == MarketSort.marketCap);
     expect(bloc.state.descending, isTrue);
+    expect(bloc.state.tokens.first.symbol, 'B');
     await bloc.close();
   });
 
-  test('a second visit to a category is served from cache', () async {
-    final bloc = blocReturning([row('A')]);
+  test('a repeat load of the same window is served from cache', () async {
+    final bloc = blocFor(MarketSection.trending, [row('A')]);
     bloc.add(const FetchMarketTokensEvent());
     await settle(bloc);
     final callsAfterFirst = requested.length;
 
-    bloc.add(const SelectCategoryEvent(MarketCategory.stocks));
-    await settle(bloc);
-
-    // A cache hit never reaches the loading state at all, which is the whole
-    // point — so this waits on the rows, not on a load.
-    bloc.add(const SelectCategoryEvent(MarketCategory.tokens));
-    await bloc.stream.firstWhere(
-      (s) => s.category == MarketCategory.tokens && s.tokens.isNotEmpty,
-    );
-
-    expect(requested.length, callsAfterFirst + 1, reason: 'only the stocks shelf was new');
+    // A cache hit never reaches the loading state, and re-emitting an equal
+    // state is a no-op, so there is nothing to wait on but the event loop.
+    bloc.add(const FetchMarketTokensEvent());
+    await pumpEventQueue();
+    expect(requested.length, callsAfterFirst);
     await bloc.close();
   });
 
   test('pull to refresh goes past the cache', () async {
-    final bloc = blocReturning([row('A')]);
+    final bloc = blocFor(MarketSection.trending, [row('A')]);
     bloc.add(const FetchMarketTokensEvent());
     await settle(bloc);
     final callsAfterFirst = requested.length;
@@ -167,8 +165,31 @@ void main() {
     await bloc.close();
   });
 
+  test('the watchlist list shows the starred mints, in the order they were starred', () async {
+    final watchlist = WatchlistStore.instance..resetForTest();
+    await watchlist.add(shelf[1]);
+    await watchlist.add(shelf[0]);
+
+    final bloc = MarketBloc(
+      section: MarketSection.watchlist,
+      watchlist: watchlist,
+      source: JupiterTokenDataSource(
+        client: MockClient((_) async => http.Response(
+              jsonEncode([row('SECOND', mint: shelf[0]), row('FIRST', mint: shelf[1])]),
+              200,
+            )),
+      ),
+    );
+    bloc.add(const FetchMarketTokensEvent());
+    final state = await settle(bloc);
+    expect(state.tokens.map((t) => t.symbol).toList(), ['FIRST', 'SECOND']);
+    await bloc.close();
+    watchlist.resetForTest();
+  });
+
   test('a failed load says so rather than showing an empty market', () async {
     final bloc = MarketBloc(
+      section: MarketSection.trending,
       source: JupiterTokenDataSource(
         client: MockClient((_) async => http.Response('nope', 500)),
       ),
