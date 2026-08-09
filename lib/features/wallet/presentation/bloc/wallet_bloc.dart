@@ -10,6 +10,7 @@ import 'package:solfare/core/constant/network.dart';
 import 'package:solfare/core/solana/pay/pay_request.dart';
 import 'package:solfare/core/solana/pay/pay_resolver.dart';
 import 'package:solfare/core/solana/preview/preview_engine.dart';
+import 'package:solfare/core/solana/preview/recipient_check.dart';
 import 'package:solfare/core/solana/preview/tx_preview.dart';
 import 'package:solfare/core/solana/token/token_service.dart';
 import 'package:solfare/core/solana/transaction_service.dart';
@@ -40,6 +41,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
   late final BinancePriceWsService _priceWs;
   late final TransactionService _txService;
   late final PreviewEngine _previewEngine;
+  late final RecipientCheck _recipientCheck;
   late final TokenService _tokenService;
   late final PayResolver _payResolver;
 
@@ -84,6 +86,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     _saveWallet = SaveWalletUseCase(repository: _repository);
     _txService = TransactionService(_rpcDataSource);
     _previewEngine = PreviewEngine(_rpcDataSource);
+    _recipientCheck = RecipientCheck(_rpcDataSource);
     _tokenService = TokenService(_rpcDataSource);
     _payResolver = PayResolver(_tokenService);
 
@@ -744,10 +747,15 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
         lamports: (event.amountInSol * 1000000000).round(),
       );
 
+      // What the destination is cannot be read off the transaction — a
+      // transfer to a mint looks exactly like a transfer to a person.
+      final recipientFlag = await _recipientCheck.inspect(event.recipientAddress);
+
       final preview = await _previewEngine.preview(
         instructions: [instruction],
         signers: [keyPair],
         ownerAddress: keyPair.address,
+        extraFlags: [if (recipientFlag != null) recipientFlag],
       );
       emit(SendPreviewReady(preview));
     } catch (e) {
@@ -878,11 +886,14 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
         amount: _baseUnits(event.amount, mint.decimals),
       );
 
+      final recipientFlag = await _recipientCheck.inspect(event.recipientAddress);
+
       final preview = await _previewEngine.preview(
         instructions: instructions,
         signers: [keyPair],
         ownerAddress: keyPair.address,
         symbols: {event.mint: ''},
+        extraFlags: [if (recipientFlag != null) recipientFlag],
       );
       emit(SendPreviewReady(preview));
     } on TokenTransferException catch (e) {

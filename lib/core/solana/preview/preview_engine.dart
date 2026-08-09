@@ -33,6 +33,7 @@ class PreviewEngine {
     required List<solana.Ed25519HDKeyPair> signers,
     required String ownerAddress,
     Map<String, String> symbols = const {},
+    List<RiskFlag> extraFlags = const [],
   }) async {
     if (signers.isEmpty) {
       return const TxPreview.unverified('No signer available for this transaction.');
@@ -62,6 +63,7 @@ class PreviewEngine {
       instructions: instructions,
       ownerAddress: ownerAddress,
       symbols: symbols,
+      extraFlags: extraFlags,
     );
   }
 
@@ -108,6 +110,7 @@ class PreviewEngine {
     required List<encoder.Instruction> instructions,
     required String ownerAddress,
     required Map<String, String> symbols,
+    List<RiskFlag> extraFlags = const [],
     bool instructionsUnavailable = false,
   }) async {
     final Map<String, dynamic> sim;
@@ -126,12 +129,15 @@ class PreviewEngine {
     final err = sim['err'];
     final logs = ((sim['logs'] as List?) ?? const []).cast<String>();
 
-    final flags = _risk.evaluate(
-      instructions: decoded,
-      deltas: deltas,
-      willFail: err != null,
-      instructionsUnavailable: instructionsUnavailable,
-    );
+    final flags = [
+      ...extraFlags,
+      ..._risk.evaluate(
+        instructions: decoded,
+        deltas: deltas,
+        willFail: err != null,
+        instructionsUnavailable: instructionsUnavailable,
+      ),
+    ]..sort((a, b) => b.severity.index.compareTo(a.severity.index));
 
     return TxPreview(
       deltas: deltas,
