@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:solfare/core/solana/pay/pay_request.dart';
 import 'package:solfare/core/solana/preview/tx_preview.dart';
 import 'package:solfare/core/solana/tx_outcome.dart';
 import 'package:solfare/features/wallet/domain/entities/nft.dart';
@@ -167,6 +168,36 @@ class WalletCustomizationLoaded extends WalletState {
 
   @override
   List<Object?> get props => [walletName, cardBackground];
+}
+
+/// A scanned payment is being resolved: parsed, fetched from the merchant
+/// where applicable, and simulated.
+class PayResolving extends WalletState {
+  const PayResolving();
+}
+
+/// A payment is ready to approve. [merchant] is only set for transaction
+/// requests, where the endpoint tells us what it calls itself.
+class PayReady extends WalletState {
+  final PayRequest request;
+  final PayMerchant? merchant;
+  final TxPreview preview;
+
+  const PayReady({required this.request, required this.preview, this.merchant});
+
+  @override
+  List<Object?> get props => [request, merchant, preview];
+}
+
+/// The payment could not be prepared at all — bad URL, merchant down, or a
+/// payload we refuse to sign.
+class PayFailed extends WalletState {
+  final String message;
+
+  const PayFailed(this.message);
+
+  @override
+  List<Object?> get props => [message];
 }
 
 /// The pending send is being simulated. The sheet is already open, showing

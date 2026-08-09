@@ -16,9 +16,13 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     var value = result.text;
     if (value.isEmpty) return;
 
-    // Handle solana: URI scheme — strip prefix and any query params.
-    if (value.startsWith('solana:')) {
-      value = value.substring(7).split('?').first;
+    // A solana: URL is returned whole. Stripping the scheme and query here
+    // used to throw away the amount, token, reference and label, which is
+    // everything that makes a Solana Pay code more than an address.
+    if (value.toLowerCase().startsWith('solana:')) {
+      _hasScanned = true;
+      Navigator.pop(context, value);
+      return;
     }
 
     // Basic Solana address validation (32-44 chars, base58 length range).

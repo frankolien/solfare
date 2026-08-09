@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:solana/dto.dart' show LatestBlockhash;
 // Prefixed on purpose: dto.dart exports a same-named Instruction for *parsed*
@@ -129,6 +131,52 @@ class TransactionService {
     }
 
     return lastExpired!;
+  }
+
+  /// Sign a transaction somebody else built, broadcast it, and confirm it.
+  ///
+  /// The payload arrives serialised with an empty slot for our signature, so
+  /// the message is signed and the signature written into the first slot
+  /// rather than the transaction being rebuilt — rebuilding would change the
+  /// bytes the merchant or dapp expects to see land.
+  Future<TxOutcome> signAndSendPayload({
+    required String base64Tx,
+    required solana.Ed25519HDKeyPair signer,
+    Duration timeout = const Duration(seconds: 90),
+  }) async {
+    final raw = base64Decode(base64Tx);
+
+    // Layout: [compact-u16 signature count][count * 64 bytes][message].
+    var offset = 0;
+    var signatureCount = raw[offset++];
+    if (signatureCount >= 0x80) {
+      signatureCount = (signatureCount & 0x7f) | (raw[offset++] << 7);
+    }
+    if (signatureCount == 0) {
+      throw const TxSimulationException('That transaction has no room for a signature.');
+    }
+
+    final messageStart = offset + signatureCount * 64;
+    if (messageStart > raw.length) {
+      throw const TxSimulationException('That transaction is malformed.');
+    }
+
+    final signature = await signer.sign(raw.sublist(messageStart));
+    final signed = Uint8List.fromList(raw);
+    signed.setRange(offset, offset + 64, signature.bytes);
+
+    final encoded = base64Encode(signed);
+    final decoded = encoder.SignedTx.decode(encoded);
+
+    await _rpc.sendTransaction(encoded, skipPreflight: false);
+    debugLog('[Tx] Broadcast external payload ${decoded.id}');
+
+    return confirmSigned(
+      signature: decoded.id,
+      blockhash: decoded.blockhash,
+      encoded: encoded,
+      timeout: timeout,
+    );
   }
 
   /// Confirm a transaction built elsewhere (a Jupiter route, a dApp payload).

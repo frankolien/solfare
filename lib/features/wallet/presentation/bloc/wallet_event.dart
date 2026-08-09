@@ -185,6 +185,22 @@ class LoadWalletCustomizationEvent extends WalletEvent {
 }
 
 /// Event to send SOL to another address
+/// A Solana Pay URL was scanned. Resolves it, asks the merchant who they
+/// are when it is a transaction request, and previews the result.
+class ResolvePayEvent extends WalletEvent {
+  final String url;
+
+  const ResolvePayEvent(this.url);
+
+  @override
+  List<Object?> get props => [url];
+}
+
+/// Approve the payment that ResolvePayEvent prepared.
+class ExecutePayEvent extends WalletEvent {
+  const ExecutePayEvent();
+}
+
 /// Simulate a pending SPL token send. [amount] is in display units; the
 /// mint's decimals turn it into base units.
 class PreviewTokenSendEvent extends WalletEvent {

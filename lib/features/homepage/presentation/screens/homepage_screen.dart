@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lottie/lottie.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solfare/core/constant/network.dart';
+import 'package:solfare/core/solana/pay/pay_resolver.dart';
 import 'package:solfare/core/router/app_router.dart';
 import 'package:solfare/features/homepage/data/portfolio_history.dart';
 import 'package:solfare/features/homepage/presentation/bloc/homepage_bloc.dart';
@@ -37,6 +38,7 @@ import 'package:solfare/features/wallet/presentation/screens/edit_background_scr
 import 'package:solfare/features/wallet/presentation/screens/qr_scanner_screen.dart';
 import 'package:solfare/features/wallet/presentation/screens/receive_screen.dart';
 import 'package:solfare/features/wallet/presentation/screens/rename_wallet_screen.dart';
+import 'package:solfare/features/wallet/presentation/widgets/solana_pay_sheet.dart';
 
 class HomepageScreen extends StatefulWidget {
   const HomepageScreen({super.key});
@@ -105,6 +107,31 @@ class _HomepageScreenState extends State<HomepageScreen> {
     }
   }
 
+  /// A scanned code is either a payment request or an address. The scan
+  /// action used to discard its result entirely.
+  void _handleScan(String? scanned) {
+    if (scanned == null || !mounted) return;
+
+    if (PayResolver.parse(scanned) != null) {
+      context.read<WalletBloc>().add(ResolvePayEvent(scanned));
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (_) => const SolanaPaySheet(),
+      );
+      return;
+    }
+
+    if (_walletAddress != null) {
+      context.push(AppRoutes.sendSol, extra: {
+        'address': _walletAddress,
+        'balance': _cachedBalanceInSol,
+        'priceUsd': _cachedSolPriceUsd,
+      });
+    }
+  }
+
   void _showDepositSheet(BuildContext context, String address) {
     showModalBottomSheet(
       context: context,
@@ -166,9 +193,9 @@ class _HomepageScreenState extends State<HomepageScreen> {
   void _handleCardAction(String action) {
     switch (action) {
       case 'scan_qr':
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const QrScannerScreen()),
-        );
+        Navigator.of(context)
+            .push<String>(MaterialPageRoute(builder: (_) => const QrScannerScreen()))
+            .then(_handleScan);
       case 'rename':
         Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => RenameWalletScreen(currentName: _walletName)),

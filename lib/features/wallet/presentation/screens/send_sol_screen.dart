@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solfare/core/router/app_router.dart';
+import 'package:solfare/core/solana/pay/pay_request.dart';
+import 'package:solfare/core/solana/pay/pay_resolver.dart';
 import 'package:solfare/core/solana/tx_outcome.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_event.dart';
@@ -307,7 +309,18 @@ class _SendSolScreenState extends State<SendSolScreen> {
                     MaterialPageRoute(builder: (_) => const QrScannerScreen()),
                   );
                   if (address != null && mounted) {
-                    _selectRecipient(address: address);
+                    // The scanner returns solana: URLs whole now, so a pay
+                    // code has to be unpacked rather than used as an address.
+                    final request = PayResolver.parse(address);
+                    if (request is PayTransferRequest) {
+                      _selectRecipient(address: request.recipient);
+                      final amount = request.amount;
+                      if (amount != null) {
+                        setState(() => _amount = amount.toString());
+                      }
+                    } else {
+                      _selectRecipient(address: address);
+                    }
                   }
                 },
               ),

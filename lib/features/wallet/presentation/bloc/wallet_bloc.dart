@@ -3,9 +3,12 @@ import 'dart:convert';
 
 import 'package:bloc/bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:solana/encoder.dart' as encoder;
 import 'package:solana/solana.dart' as solana;
 import 'package:solfare/core/util/app_log.dart';
 import 'package:solfare/core/constant/network.dart';
+import 'package:solfare/core/solana/pay/pay_request.dart';
+import 'package:solfare/core/solana/pay/pay_resolver.dart';
 import 'package:solfare/core/solana/preview/preview_engine.dart';
 import 'package:solfare/core/solana/preview/tx_preview.dart';
 import 'package:solfare/core/solana/token/token_service.dart';
@@ -38,6 +41,13 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
   late final TransactionService _txService;
   late final PreviewEngine _previewEngine;
   late final TokenService _tokenService;
+  late final PayResolver _payResolver;
+
+  // The instructions (or merchant payload) resolved for the payment now on
+  // screen. Held because a transaction request cannot be rebuilt on approval
+  // without asking the merchant for a second transaction.
+  List<encoder.Instruction>? _pendingPayInstructions;
+  String? _pendingPayPayload;
 
   // Tracks the address the WS is currently watching so we can re-subscribe
   // after network switches / app resume without duplicate subscriptions.
@@ -75,6 +85,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     _txService = TransactionService(_rpcDataSource);
     _previewEngine = PreviewEngine(_rpcDataSource);
     _tokenService = TokenService(_rpcDataSource);
+    _payResolver = PayResolver(_tokenService);
 
     // WS push → fetch event so the normal HTTP path renders the state.
     _balanceWs = BalanceWsService(onChange: () {
@@ -108,6 +119,8 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     on<FetchTransactionsEvent>(_onFetchTransactions);
     on<PreviewSendEvent>(_onPreviewSend);
     on<SendSolEvent>(_onSendSol);
+    on<ResolvePayEvent>(_onResolvePay);
+    on<ExecutePayEvent>(_onExecutePay);
     on<PreviewTokenSendEvent>(_onPreviewTokenSend);
     on<SendTokenEvent>(_onSendToken);
     on<FetchNftsEvent>(_onFetchNfts, transformer: _concurrent());
@@ -743,6 +756,107 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       debugLog('[BLoC] PreviewSend failed: $e');
       emit(const SendPreviewReady(
           TxPreview.unverified('Could not check this transaction.')));
+    }
+  }
+
+  /// Resolve a scanned Solana Pay URL into something approvable.
+  Future<void> _onResolvePay(ResolvePayEvent event, Emitter<WalletState> emit) async {
+    emit(const PayResolving());
+    _pendingPayInstructions = null;
+    _pendingPayPayload = null;
+
+    try {
+      final request = PayResolver.parse(event.url);
+      if (request == null) {
+        emit(const PayFailed('That code is not a Solana Pay request.'));
+        return;
+      }
+
+      final keyPair = await _keyPair();
+      PayMerchant? merchant;
+      TxPreview preview;
+
+      switch (request) {
+        case PayTransferRequest():
+          final instructions = await _payResolver.buildTransfer(
+            request: request,
+            payer: keyPair.address,
+          );
+          _pendingPayInstructions = instructions;
+          preview = await _previewEngine.preview(
+            instructions: instructions,
+            signers: [keyPair],
+            ownerAddress: keyPair.address,
+          );
+
+        case PayTransactionRequest():
+          // Ask who they are before asking for anything to sign, so the
+          // origin is on screen before the payload is even fetched.
+          merchant = await _payResolver.fetchMerchant(request);
+          final payload = await _payResolver.fetchTransaction(
+            request: request,
+            account: keyPair.address,
+          );
+          _pendingPayPayload = payload;
+          preview = await _previewEngine.previewSigned(
+            base64Tx: payload,
+            ownerAddress: keyPair.address,
+          );
+      }
+
+      emit(PayReady(request: request, merchant: merchant, preview: preview));
+    } on PayRequestException catch (e) {
+      emit(PayFailed(e.message));
+    } on TokenTransferException catch (e) {
+      emit(PayFailed(e.message));
+    } catch (e) {
+      debugLog('[BLoC] ResolvePay failed: $e');
+      emit(const PayFailed('That payment could not be prepared.'));
+    }
+  }
+
+  Future<void> _onExecutePay(ExecutePayEvent event, Emitter<WalletState> emit) async {
+    final instructions = _pendingPayInstructions;
+    final payload = _pendingPayPayload;
+    if (instructions == null && payload == null) return;
+
+    emit(const SendingSol());
+    try {
+      final keyPair = await _keyPair();
+
+      final outcome = payload != null
+          ? await _txService.signAndSendPayload(base64Tx: payload, signer: keyPair)
+          : await _txService.sendAndConfirm(
+              instructions: instructions!,
+              signers: [keyPair],
+              onPhase: (phase) {
+                if (!isClosed) emit(SendingSol(phase: phase));
+              },
+            );
+
+      _pendingPayInstructions = null;
+      _pendingPayPayload = null;
+
+      if (!outcome.isConfirmed) {
+        emit(SolSendFailed(
+          message: outcome.error ?? 'The payment did not confirm.',
+          signature: outcome.signature,
+          expired: outcome.status == TxStatus.expired,
+        ));
+        return;
+      }
+
+      emit(SolSent(
+        signature: outcome.signature,
+        amountInSol: 0,
+        recipientAddress: '',
+      ));
+
+      add(FetchBalanceEvent(keyPair.address));
+      add(FetchTokensEvent(keyPair.address));
+    } catch (e) {
+      debugLog('[BLoC] ExecutePay failed: $e');
+      emit(WalletError(e.toString()));
     }
   }
 
