@@ -8,6 +8,7 @@ import 'package:solfare/core/util/app_log.dart';
 import 'package:solfare/core/constant/network.dart';
 import 'package:solfare/core/solana/preview/preview_engine.dart';
 import 'package:solfare/core/solana/preview/tx_preview.dart';
+import 'package:solfare/core/solana/token/token_service.dart';
 import 'package:solfare/core/solana/transaction_service.dart';
 import 'package:solfare/core/solana/tx_outcome.dart';
 import 'package:solfare/core/wallet/keyring.dart';
@@ -36,6 +37,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
   late final BinancePriceWsService _priceWs;
   late final TransactionService _txService;
   late final PreviewEngine _previewEngine;
+  late final TokenService _tokenService;
 
   // Tracks the address the WS is currently watching so we can re-subscribe
   // after network switches / app resume without duplicate subscriptions.
@@ -72,6 +74,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     _saveWallet = SaveWalletUseCase(repository: _repository);
     _txService = TransactionService(_rpcDataSource);
     _previewEngine = PreviewEngine(_rpcDataSource);
+    _tokenService = TokenService(_rpcDataSource);
 
     // WS push → fetch event so the normal HTTP path renders the state.
     _balanceWs = BalanceWsService(onChange: () {
@@ -105,6 +108,8 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     on<FetchTransactionsEvent>(_onFetchTransactions);
     on<PreviewSendEvent>(_onPreviewSend);
     on<SendSolEvent>(_onSendSol);
+    on<PreviewTokenSendEvent>(_onPreviewTokenSend);
+    on<SendTokenEvent>(_onSendToken);
     on<FetchNftsEvent>(_onFetchNfts, transformer: _concurrent());
     on<FetchTokensEvent>(_onFetchTokens, transformer: _concurrent());
     on<LoadAllWalletsEvent>(_onLoadAllWallets);
@@ -739,6 +744,111 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       emit(const SendPreviewReady(
           TxPreview.unverified('Could not check this transaction.')));
     }
+  }
+
+  /// Simulate an SPL token send. Reads the mint first, because Token-2022
+  /// extensions decide both what the instructions are and whether the send
+  /// is possible at all.
+  Future<void> _onPreviewTokenSend(
+    PreviewTokenSendEvent event,
+    Emitter<WalletState> emit,
+  ) async {
+    emit(const SendPreviewLoading());
+    try {
+      final keyPair = await _keyPair();
+      final mint = await _tokenService.mintInfo(event.mint);
+      final instructions = await _tokenService.buildTransfer(
+        mint: mint,
+        owner: keyPair.address,
+        recipient: event.recipientAddress,
+        amount: _baseUnits(event.amount, mint.decimals),
+      );
+
+      final preview = await _previewEngine.preview(
+        instructions: instructions,
+        signers: [keyPair],
+        ownerAddress: keyPair.address,
+        symbols: {event.mint: ''},
+      );
+      emit(SendPreviewReady(preview));
+    } on TokenTransferException catch (e) {
+      // A mint that cannot be sent is a fact, not a network hiccup — say so
+      // rather than presenting an unchecked transaction as approvable.
+      emit(SendPreviewReady(TxPreview.unverified(e.message)));
+    } catch (e) {
+      debugLog('[BLoC] PreviewTokenSend failed: $e');
+      emit(const SendPreviewReady(
+          TxPreview.unverified('Could not check this transaction.')));
+    }
+  }
+
+  Future<void> _onSendToken(
+    SendTokenEvent event,
+    Emitter<WalletState> emit,
+  ) async {
+    emit(const SendingSol());
+    try {
+      final keyPair = await _keyPair();
+      final mint = await _tokenService.mintInfo(event.mint);
+      final instructions = await _tokenService.buildTransfer(
+        mint: mint,
+        owner: keyPair.address,
+        recipient: event.recipientAddress,
+        amount: _baseUnits(event.amount, mint.decimals),
+      );
+
+      final outcome = await _txService.sendAndConfirm(
+        instructions: instructions,
+        signers: [keyPair],
+        onPhase: (phase) {
+          if (!isClosed) emit(SendingSol(phase: phase));
+        },
+      );
+
+      if (!outcome.isConfirmed) {
+        emit(SolSendFailed(
+          message: outcome.error ?? 'The transfer did not confirm.',
+          signature: outcome.signature,
+          expired: outcome.status == TxStatus.expired,
+        ));
+        return;
+      }
+
+      emit(SolSent(
+        signature: outcome.signature,
+        amountInSol: event.amount,
+        recipientAddress: event.recipientAddress,
+        symbol: event.symbol,
+      ));
+
+      add(FetchTokensEvent(keyPair.address));
+      add(FetchTransactionsEvent(keyPair.address));
+    } on TokenTransferException catch (e) {
+      emit(WalletError(e.message));
+    } on TxSimulationException catch (e) {
+      emit(WalletError(e.message));
+    } catch (e) {
+      debugLog('[BLoC] SendToken failed: $e');
+      emit(WalletError(e.toString()));
+    }
+  }
+
+  Future<solana.Ed25519HDKeyPair> _keyPair() async {
+    final mnemonic = await _repository.getStoredMnemonic();
+    if (mnemonic == null) {
+      throw Exception('No wallet found. Please create or import a wallet first.');
+    }
+    return Keyring.keyPairFromMnemonic(mnemonic);
+  }
+
+  /// Display units to base units. Done in integer space after rounding, since
+  /// a double multiply on a 9-decimal token loses the last digit.
+  int _baseUnits(double amount, int decimals) {
+    var factor = 1.0;
+    for (var i = 0; i < decimals; i++) {
+      factor *= 10;
+    }
+    return (amount * factor).round();
   }
 
   Future<void> _onSendSol(

@@ -8,6 +8,7 @@ import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_event.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_state.dart';
 import 'package:solfare/features/wallet/data/datasource/contacts_local_datasource.dart';
+import 'package:solfare/features/wallet/domain/entities/spl_token.dart';
 import 'package:solfare/features/wallet/presentation/screens/qr_scanner_screen.dart';
 import 'package:solfare/features/wallet/presentation/widgets/confirm_send_sheet.dart';
 import 'package:solfare/features/wallet/presentation/widgets/send_status_sheet.dart';
@@ -19,11 +20,16 @@ class SendSolScreen extends StatefulWidget {
   final double balanceInSol;
   final double solPriceUsd;
 
+  /// Null sends native SOL. Set to send that SPL token instead — the screen
+  /// is the same, only the asset it moves changes.
+  final SplToken? token;
+
   const SendSolScreen({
     super.key,
     required this.senderAddress,
     required this.balanceInSol,
     required this.solPriceUsd,
+    this.token,
   });
 
   @override
@@ -32,6 +38,14 @@ class SendSolScreen extends StatefulWidget {
 
 class _SendSolScreenState extends State<SendSolScreen> {
   _SendStage _stage = _SendStage.recipient;
+
+  // The screen reads these instead of the SOL-specific fields, so the same
+  // flow works for a token without branching through the whole widget tree.
+  SplToken? get _token => widget.token;
+  String get _symbol => _token?.symbol ?? 'SOL';
+  double get _balance => _token?.balance ?? widget.balanceInSol;
+  double get _priceUsd => _token?.priceUsd ?? widget.solPriceUsd;
+
   final TextEditingController _addressController = TextEditingController();
   String _amount = '0';
   String _recipientName = '';
@@ -69,7 +83,7 @@ class _SendSolScreenState extends State<SendSolScreen> {
     return parsed ?? 0.0;
   }
 
-  double get _amountInUsd => _amountInSol * widget.solPriceUsd;
+  double get _amountInUsd => _amountInSol * _priceUsd;
 
   String _truncateAddress(String address) {
     if (address.length <= 8) return address;
@@ -136,7 +150,7 @@ class _SendSolScreenState extends State<SendSolScreen> {
 
   void _setPercentage(double pct) {
     HapticFeedback.lightImpact();
-    final value = widget.balanceInSol * pct;
+    final value = _balance * pct;
     setState(() {
       _amount = value.toStringAsFixed(9).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
       if (_amount.isEmpty) _amount = '0';
@@ -144,14 +158,21 @@ class _SendSolScreenState extends State<SendSolScreen> {
   }
 
   void _showConfirmSheet() {
-    if (_amountInSol <= 0 || _amountInSol > widget.balanceInSol) return;
+    if (_amountInSol <= 0 || _amountInSol > _balance) return;
 
     // Kick the simulation off as the sheet opens rather than before it, so
     // the sheet is on screen for the whole wait instead of after it.
-    context.read<WalletBloc>().add(PreviewSendEvent(
-          recipientAddress: _recipientAddress,
-          amountInSol: _amountInSol,
-        ));
+    final token = _token;
+    context.read<WalletBloc>().add(token == null
+        ? PreviewSendEvent(
+            recipientAddress: _recipientAddress,
+            amountInSol: _amountInSol,
+          )
+        : PreviewTokenSendEvent(
+            mint: token.mint,
+            recipientAddress: _recipientAddress,
+            amount: _amountInSol,
+          ));
 
     showModalBottomSheet(
       context: context,
@@ -163,6 +184,8 @@ class _SendSolScreenState extends State<SendSolScreen> {
         recipientName: _recipientName,
         amountInSol: _amountInSol,
         amountInUsd: _amountInUsd,
+        symbol: _symbol,
+        iconUrl: _token?.imageUrl,
         onConfirm: () {
           Navigator.of(context).pop();
           _executeSend();
@@ -172,10 +195,18 @@ class _SendSolScreenState extends State<SendSolScreen> {
   }
 
   void _executeSend() {
-    context.read<WalletBloc>().add(SendSolEvent(
-          recipientAddress: _recipientAddress,
-          amountInSol: _amountInSol,
-        ));
+    final token = _token;
+    context.read<WalletBloc>().add(token == null
+        ? SendSolEvent(
+            recipientAddress: _recipientAddress,
+            amountInSol: _amountInSol,
+          )
+        : SendTokenEvent(
+            mint: token.mint,
+            symbol: token.symbol,
+            recipientAddress: _recipientAddress,
+            amount: _amountInSol,
+          ));
   }
 
   @override
@@ -491,7 +522,7 @@ class _SendSolScreenState extends State<SendSolScreen> {
   // STAGE 2: Enter amount
   // ─────────────────────────────────────────────
   Widget _buildAmountStage() {
-    final isValidAmount = _amountInSol > 0 && _amountInSol <= widget.balanceInSol;
+    final isValidAmount = _amountInSol > 0 && _amountInSol <= _balance;
 
     return Column(
       children: [
@@ -508,7 +539,7 @@ class _SendSolScreenState extends State<SendSolScreen> {
               Text(
                 _amount,
                 style: TextStyle(
-                  color: _amountInSol > widget.balanceInSol ? Colors.red : Colors.white,
+                  color: _amountInSol > _balance ? Colors.red : Colors.white,
                   fontSize: 35,
                   fontFamily: 'FKGroteskSemiMono',
                   fontWeight: FontWeight.bold,
@@ -516,7 +547,7 @@ class _SendSolScreenState extends State<SendSolScreen> {
               ),
               const SizedBox(width: 4),
               Text(
-                'SOL',
+                _symbol,
                 style: TextStyle(
                   color: Colors.grey[500],
                   fontSize: 12,
@@ -579,7 +610,7 @@ class _SendSolScreenState extends State<SendSolScreen> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      '${widget.balanceInSol.toStringAsFixed(3)} SOL',
+                      '${_balance.toStringAsFixed(3)} $_symbol',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 11,

@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:solfare/core/network/coingecko_client.dart';
 import 'package:solfare/core/wallet/active_wallet.dart';
+import 'package:solfare/features/wallet/domain/entities/spl_token.dart';
 import 'package:solfare/features/market/domain/entities/market_token.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_event.dart';
@@ -14,7 +15,11 @@ import 'package:solfare/features/wallet/presentation/screens/send_sol_screen.dar
 class TokenDetailScreen extends StatefulWidget {
   final MarketToken token;
 
-  const TokenDetailScreen({super.key, required this.token});
+  /// The wallet's holding of this token, when it has one. Sending needs the
+  /// mint's decimals and the balance, which a market listing does not carry.
+  final SplToken? holding;
+
+  const TokenDetailScreen({super.key, required this.token, this.holding});
 
   @override
   State<TokenDetailScreen> createState() => _TokenDetailScreenState();
@@ -506,20 +511,28 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                   _buildActionButton(Icons.arrow_downward, 'Deposit', enabled: false),
                   _buildActionButton(Icons.swap_horiz, 'Swap', enabled: false),
                   _buildActionButton(Icons.trending_up, 'Limit', enabled: false),
-                  _buildActionButton(Icons.send, 'Send', enabled: token.id == 'solana', onTap: () async {
-                    final address = await ActiveWallet.address();
-                    if (address != null && mounted) {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => SendSolScreen(
-                            senderAddress: address,
-                            balanceInSol: 0,
-                            solPriceUsd: token.currentPrice,
+                  _buildActionButton(
+                    Icons.send,
+                    'Send',
+                    // Native SOL always; an SPL token only when it is actually
+                    // held, since sending needs its decimals and balance.
+                    enabled: token.id == 'solana' || widget.holding != null,
+                    onTap: () async {
+                      final address = await ActiveWallet.address();
+                      if (address != null && mounted) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => SendSolScreen(
+                              senderAddress: address,
+                              balanceInSol: 0,
+                              solPriceUsd: token.currentPrice,
+                              token: widget.holding,
+                            ),
                           ),
-                        ),
-                      );
-                    }
-                  }),
+                        );
+                      }
+                    },
+                  ),
                 ],
               ),
             ),

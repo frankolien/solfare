@@ -16,6 +16,10 @@ class ConfirmSendSheet extends StatefulWidget {
   final double amountInUsd;
   final VoidCallback onConfirm;
 
+  /// Ticker of the asset being sent, and its icon. Default to native SOL.
+  final String symbol;
+  final String? iconUrl;
+
   const ConfirmSendSheet({
     super.key,
     required this.recipientAddress,
@@ -23,6 +27,8 @@ class ConfirmSendSheet extends StatefulWidget {
     required this.amountInSol,
     required this.amountInUsd,
     required this.onConfirm,
+    this.symbol = 'SOL',
+    this.iconUrl,
   });
 
   @override
@@ -87,7 +93,8 @@ class _ConfirmSendSheetState extends State<ConfirmSendSheet> {
             ),
             child: ClipOval(
               child: Image.network(
-                "https://assets.coingecko.com/coins/images/4128/large/solana.png",
+                widget.iconUrl ??
+                    'https://assets.coingecko.com/coins/images/4128/large/solana.png',
                 width: 56,
                 height: 56,
                 errorBuilder: (_, __, ___) => const SizedBox(),
@@ -98,7 +105,7 @@ class _ConfirmSendSheetState extends State<ConfirmSendSheet> {
 
           // Amount
           Text(
-            '${widget.amountInSol} SOL',
+            '${widget.amountInSol} ${widget.symbol}',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 19,

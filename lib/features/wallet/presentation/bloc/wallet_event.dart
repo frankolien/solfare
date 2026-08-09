@@ -185,6 +185,40 @@ class LoadWalletCustomizationEvent extends WalletEvent {
 }
 
 /// Event to send SOL to another address
+/// Simulate a pending SPL token send. [amount] is in display units; the
+/// mint's decimals turn it into base units.
+class PreviewTokenSendEvent extends WalletEvent {
+  final String mint;
+  final String recipientAddress;
+  final double amount;
+
+  const PreviewTokenSendEvent({
+    required this.mint,
+    required this.recipientAddress,
+    required this.amount,
+  });
+
+  @override
+  List<Object?> get props => [mint, recipientAddress, amount];
+}
+
+class SendTokenEvent extends WalletEvent {
+  final String mint;
+  final String symbol;
+  final String recipientAddress;
+  final double amount;
+
+  const SendTokenEvent({
+    required this.mint,
+    required this.symbol,
+    required this.recipientAddress,
+    required this.amount,
+  });
+
+  @override
+  List<Object?> get props => [mint, symbol, recipientAddress, amount];
+}
+
 /// Simulate a pending send so the approval sheet can show what it does.
 /// Read-only — nothing is signed or broadcast.
 class PreviewSendEvent extends WalletEvent {

@@ -215,18 +215,21 @@ class SolSendFailed extends WalletState {
   List<Object?> get props => [message, signature, expired];
 }
 
-/// SOL sent successfully
+/// A transfer confirmed on chain. [symbol] is SOL for native sends and the
+/// token's ticker otherwise.
 class SolSent extends WalletState {
   final String signature;
   final double amountInSol;
   final String recipientAddress;
+  final String symbol;
 
   const SolSent({
     required this.signature,
     required this.amountInSol,
     required this.recipientAddress,
+    this.symbol = 'SOL',
   });
 
   @override
-  List<Object?> get props => [signature, amountInSol, recipientAddress];
+  List<Object?> get props => [signature, amountInSol, recipientAddress, symbol];
 }

@@ -74,7 +74,10 @@ class PortfolioContent extends StatelessWidget {
                   behavior: HitTestBehavior.opaque,
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => TokenDetailScreen(token: _splToMarketToken(t)),
+                      builder: (_) => TokenDetailScreen(
+                        token: _splToMarketToken(t),
+                        holding: t,
+                      ),
                     ),
                   ),
                   child: _buildSplTokenRow(t),
