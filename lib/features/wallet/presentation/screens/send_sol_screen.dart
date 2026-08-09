@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solfare/core/router/app_router.dart';
+import 'package:solfare/core/solana/tx_outcome.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_event.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_state.dart';
@@ -175,10 +176,15 @@ class _SendSolScreenState extends State<SendSolScreen> {
     return BlocListener<WalletBloc, WalletState>(
       listener: (context, state) {
         if (state is SendingSol) {
-          _showStatusSheet('sending');
+          // Only the first phase opens the sheet; the rest update it in place
+          // via the BlocBuilder inside SendStatusSheet.
+          if (state.phase == TxPhase.preparing) _showStatusSheet('sending');
         } else if (state is SolSent) {
           Navigator.of(context).popUntil((route) => route.isFirst == false && route.settings.name == null);
           _showStatusSheet('success', signature: state.signature);
+        } else if (state is SolSendFailed) {
+          if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+          _showStatusSheet('error', error: state.message, signature: state.signature);
         } else if (state is WalletError) {
           if (Navigator.of(context).canPop()) Navigator.of(context).pop();
           _showStatusSheet('error', error: state.message);

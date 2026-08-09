@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lottie/lottie.dart';
+import 'package:solfare/core/solana/tx_outcome.dart';
+import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
+import 'package:solfare/features/wallet/presentation/bloc/wallet_state.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Bottom sheet showing send transaction status: sending, success, or error.
@@ -20,6 +24,14 @@ class SendStatusSheet extends StatelessWidget {
     required this.onClose,
     this.onSaveAddress,
   });
+
+  /// Caption under "Sending" — tracks where the transaction actually is.
+  String _phaseLabel(TxPhase phase) => switch (phase) {
+        TxPhase.preparing => 'Preparing transaction',
+        TxPhase.simulating => 'Checking it will succeed',
+        TxPhase.broadcasting => 'Broadcasting to the network',
+        TxPhase.confirming => 'Waiting for confirmation',
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +80,17 @@ class SendStatusSheet extends StatelessWidget {
           if (status == 'sending')
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Text('You can safely close this screen', style: TextStyle(color: Colors.grey[500], fontSize: 12, fontFamily: 'FKGrotesk')),
+              child: BlocBuilder<WalletBloc, WalletState>(
+                buildWhen: (_, s) => s is SendingSol,
+                builder: (context, state) {
+                  final phase = state is SendingSol ? state.phase : TxPhase.preparing;
+                  return Text(
+                    _phaseLabel(phase),
+                    style: TextStyle(color: Colors.grey[500], fontSize: 12, fontFamily: 'FKGrotesk'),
+                    textAlign: TextAlign.center,
+                  );
+                },
+              ),
             ),
 
           if (status == 'error' && error != null)

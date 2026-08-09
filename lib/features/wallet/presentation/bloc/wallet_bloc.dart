@@ -4,9 +4,10 @@ import 'dart:convert';
 import 'package:bloc/bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:solana/solana.dart' as solana;
-import 'package:solana/src/rpc/dto/latest_blockhash.dart';
 import 'package:solfare/core/util/app_log.dart';
 import 'package:solfare/core/constant/network.dart';
+import 'package:solfare/core/solana/transaction_service.dart';
+import 'package:solfare/core/solana/tx_outcome.dart';
 import 'package:solfare/core/wallet/keyring.dart';
 import 'package:solfare/core/widgets/widget_bridge.dart';
 import 'package:solfare/features/wallet/data/datasource/balance_ws_service.dart';
@@ -31,6 +32,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
   final CryptoPriceDataSource _priceDataSource;
   late final BalanceWsService _balanceWs;
   late final BinancePriceWsService _priceWs;
+  late final TransactionService _txService;
 
   // Tracks the address the WS is currently watching so we can re-subscribe
   // after network switches / app resume without duplicate subscriptions.
@@ -65,6 +67,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
         super(const WalletInitial()) {
     _createWallet = CreateWalletUseCase(repository: _repository);
     _saveWallet = SaveWalletUseCase(repository: _repository);
+    _txService = TransactionService(_rpcDataSource);
 
     // WS push → fetch event so the normal HTTP path renders the state.
     _balanceWs = BalanceWsService(onChange: () {
@@ -709,13 +712,9 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       }
       final senderKeyPair = await Keyring.keyPairFromMnemonic(mnemonic);
 
-      final lamports = (event.amountInSol * 1000000000).toInt();
-
-      final blockhashData = await _rpcDataSource.getLatestBlockhash();
-      final latestBlockhash = LatestBlockhash(
-        blockhash: blockhashData['blockhash'] as String,
-        lastValidBlockHeight: blockhashData['lastValidBlockHeight'] as int,
-      );
+      // round(), not toInt(): 0.29 * 1e9 is 289999999.99999994 in binary
+      // floating point, and truncating under-sends a lamport.
+      final lamports = (event.amountInSol * 1000000000).round();
 
       final instruction = solana.SystemInstruction.transfer(
         fundingAccount: senderKeyPair.publicKey,
@@ -723,30 +722,41 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
         lamports: lamports,
       );
 
-      final signedTx = await solana.signTransaction(
-        latestBlockhash,
-        solana.Message(instructions: [instruction]),
-        [senderKeyPair],
+      final outcome = await _txService.sendAndConfirm(
+        instructions: [instruction],
+        signers: [senderKeyPair],
+        onPhase: (phase) {
+          if (!isClosed) emit(SendingSol(phase: phase));
+        },
       );
 
-      final signature = await _rpcDataSource.sendTransaction(signedTx.encode());
+      if (!outcome.isConfirmed) {
+        debugLog('[BLoC] SendSol not confirmed: $outcome');
+        emit(SolSendFailed(
+          message: outcome.error ?? 'The transaction did not confirm.',
+          signature: outcome.signature,
+          // Expired means it never executed, which reads differently to a
+          // user than "failed".
+          expired: outcome.status == TxStatus.expired,
+        ));
+        return;
+      }
 
       emit(SolSent(
-        signature: signature,
+        signature: outcome.signature,
         amountInSol: event.amountInSol,
         recipientAddress: event.recipientAddress,
       ));
 
-      // Polling fallback in case the WS push is delayed or offline.
-      // Devnet usually settles under 2s, mainnet sometimes 5-15s under load.
+      // Settled at `confirmed` by the time we get here, so one refresh is
+      // enough — the old 2/6/15s ladder covered for reporting success early.
       final sender = senderKeyPair.address;
-      for (final delay in [2, 6, 15]) {
-        Future.delayed(Duration(seconds: delay), () {
-          if (isClosed) return;
-          add(FetchBalanceEvent(sender));
-          if (delay == 2) add(FetchTransactionsEvent(sender));
-        });
-      }
+      add(FetchBalanceEvent(sender));
+      add(FetchTransactionsEvent(sender));
+    } on TxSimulationException catch (e) {
+      // Rejected before signing — nothing broadcast, nothing paid.
+      debugLog('[BLoC] SendSol simulation rejected: ${e.message}');
+      emit(WalletError(e.message));
     } catch (e) {
       debugLog('[BLoC] SendSol failed: $e');
       emit(WalletError(e.toString()));

@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:solfare/core/solana/tx_outcome.dart';
 import 'package:solfare/features/wallet/domain/entities/nft.dart';
 import 'package:solfare/features/wallet/domain/entities/spl_token.dart';
 import 'package:solfare/features/wallet/domain/entities/transactions.dart';
@@ -167,9 +168,33 @@ class WalletCustomizationLoaded extends WalletState {
   List<Object?> get props => [walletName, cardBackground];
 }
 
-/// SOL is being sent (in-flight)
+/// SOL is being sent. [phase] lets the status sheet tell "simulating"
+/// apart from "waiting for confirmation".
 class SendingSol extends WalletState {
-  const SendingSol();
+  final TxPhase phase;
+
+  const SendingSol({this.phase = TxPhase.preparing});
+
+  @override
+  List<Object?> get props => [phase];
+}
+
+/// Broadcast but never confirmed. [WalletError] covers the earlier failures.
+/// [expired] means it never executed and cost nothing; otherwise it ran on
+/// chain and burned the fee.
+class SolSendFailed extends WalletState {
+  final String message;
+  final String signature;
+  final bool expired;
+
+  const SolSendFailed({
+    required this.message,
+    required this.signature,
+    required this.expired,
+  });
+
+  @override
+  List<Object?> get props => [message, signature, expired];
 }
 
 /// SOL sent successfully
