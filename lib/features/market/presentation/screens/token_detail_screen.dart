@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:solfare/core/constant/network.dart';
 import 'package:solfare/core/network/coingecko_client.dart';
 import 'package:solfare/core/util/copied_toast.dart';
 import 'package:solfare/core/wallet/active_wallet.dart';
@@ -188,7 +189,27 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
 
   /// Buying routes through Jupiter, which needs the mint and its decimals.
   /// A row that arrived without them can be looked at but not bought.
-  bool get _canBuy => _isMintId && widget.token.decimals > 0;
+  bool get _canBuy => _buyUnavailable == null;
+
+  /// Why the Buy button is off, in a sentence, or null when it is on.
+  ///
+  /// A greyed-out control with no explanation is the same dead end the
+  /// Deposit, Swap and Limit buttons used to be.
+  String? get _buyUnavailable {
+    if (NetworkConstants.current != SolanaNetwork.mainnet) {
+      return 'Buying needs mainnet. Nothing routes on '
+          '${NetworkConstants.current.label}.';
+    }
+    if (!_isMintId || widget.token.decimals == 0) {
+      return 'This listing does not carry a mint to route to.';
+    }
+    // Listed and priced, but no market maker is standing behind it. Better
+    // said here than after the user has typed an amount and waited.
+    if (widget.token.liquidity == 0) {
+      return 'Nothing is quoting ${widget.token.symbol} right now.';
+    }
+    return null;
+  }
 
   Future<void> _openBuy() async {
     final address = await ActiveWallet.address();
@@ -597,6 +618,20 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                 ],
               ),
             ),
+
+            if (_buyUnavailable != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                child: Text(
+                  _buyUnavailable!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 11,
+                    fontFamily: 'FKGrotesk',
+                  ),
+                ),
+              ),
 
             // About section
             const SizedBox(height: 24),
