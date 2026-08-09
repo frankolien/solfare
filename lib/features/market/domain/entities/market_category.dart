@@ -1,0 +1,33 @@
+/// The shelves the market splits into.
+///
+/// Jupiter serves the mints but not the split. Its tag endpoint answers only
+/// for `verified` and `lst`, and the tags on the tokens themselves file gold
+/// under `stocks`, so anything past [tokens] is assembled here from a bundled
+/// registry of mints.
+enum MarketCategory {
+  tokens('Tokens'),
+  stocks('Stocks'),
+  commodities('Commodities');
+
+  const MarketCategory(this.label);
+
+  final String label;
+
+  /// True when the rows come from a live feed rather than the registry, and
+  /// so have an ordering to ask the API for.
+  bool get isFeedDriven => this == MarketCategory.tokens;
+}
+
+/// The orderings Jupiter publishes for [MarketCategory.tokens].
+enum MarketFeed {
+  trending('Trending', 'toptrending'),
+  topTraded('Top traded', 'toptraded'),
+  organic('Organic', 'toporganicscore');
+
+  const MarketFeed(this.label, this.path);
+
+  final String label;
+
+  /// Path segment under `/tokens/v2`.
+  final String path;
+}

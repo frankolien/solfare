@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:solfare/features/homepage/presentation/widgets/collectibles_section.dart';
 import 'package:solfare/features/market/domain/entities/market_token.dart';
+import 'package:solfare/features/market/domain/entities/market_window.dart';
+import 'package:solfare/features/swap/domain/entities/swap_token.dart';
 import 'package:solfare/features/market/presentation/screens/token_detail_screen.dart';
 import 'package:solfare/features/staking/domain/entities/stake_account.dart';
 import 'package:solfare/features/staking/presentation/screens/stake_account_detail_screen.dart';
@@ -171,15 +173,14 @@ class PortfolioContent extends StatelessWidget {
           MaterialPageRoute(
             builder: (_) => TokenDetailScreen(
               token: MarketToken(
-                id: 'solana',
+                id: SwapToken.sol.mint,
                 name: 'Solana',
                 symbol: 'SOL',
                 imageUrl: 'https://assets.coingecko.com/coins/images/4128/large/solana.png',
                 currentPrice: price,
-                priceChangePercentage24h: priceChange,
-                marketCap: 0,
-                volume24h: 0,
-                sparklineData: const [],
+                decimals: 9,
+                isVerified: true,
+                stats: {MarketWindow.h24: MarketStats(priceChange: priceChange)},
               ),
             ),
           ),
@@ -356,6 +357,11 @@ class PortfolioContent extends StatelessWidget {
     );
   }
 
+  /// A holding described the way the detail screen expects.
+  ///
+  /// Market cap and volume are left null rather than zero: the wallet knows
+  /// what it holds and what it is worth, not what the rest of the market did
+  /// with it, and zero would be a claim.
   MarketToken _splToMarketToken(SplToken t) {
     return MarketToken(
       id: t.mint,
@@ -363,10 +369,8 @@ class PortfolioContent extends StatelessWidget {
       symbol: t.symbol,
       imageUrl: t.imageUrl ?? '',
       currentPrice: t.priceUsd,
-      priceChangePercentage24h: t.priceChange24h,
-      marketCap: 0,
-      volume24h: 0,
-      sparklineData: const [],
+      decimals: t.decimals,
+      stats: {MarketWindow.h24: MarketStats(priceChange: t.priceChange24h)},
     );
   }
 

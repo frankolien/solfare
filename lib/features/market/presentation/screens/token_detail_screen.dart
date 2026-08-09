@@ -8,6 +8,8 @@ import 'package:solfare/core/util/copied_toast.dart';
 import 'package:solfare/core/wallet/active_wallet.dart';
 import 'package:solfare/features/wallet/domain/entities/spl_token.dart';
 import 'package:solfare/features/market/domain/entities/market_token.dart';
+import 'package:solfare/features/market/presentation/market_format.dart';
+import 'package:solfare/features/swap/domain/entities/swap_token.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_event.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_state.dart';
@@ -40,7 +42,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
 
   // Live values pushed in by WalletBloc when SolPriceFetched arrives — both
   // the 5-min CoinGecko poll and the ~1Hz Binance WS tick land here. Used
-  // ONLY for token.id == 'solana'; other tokens fall back to widget.token
+  // ONLY for native SOL; other tokens fall back to widget.token
   // values frozen at navigation time.
   double? _liveSolPrice;
   double? _liveSolChange;
@@ -71,10 +73,16 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     // SOL header should start with a real price even if WalletBloc hasn't
     // activated a wallet yet (so the Binance WS hasn't started). One CoinGecko
     // poll fills the header until the WS comes online; no-op for non-SOL.
-    if (widget.token.id == 'solana') {
+    if (_isSol) {
       context.read<WalletBloc>().add(const FetchSolPriceEvent());
     }
   }
+
+  /// Native SOL, however it was reached — the market list now hands over the
+  /// wrapped SOL mint where the portfolio card used to hand over a CoinGecko
+  /// slug, and both mean the token whose price the wallet already streams.
+  bool get _isSol =>
+      widget.token.id == 'solana' || widget.token.id == SwapToken.sol.mint;
 
   /// True when [widget.token.id] is a Solana mint (e.g. portfolio SPL tokens)
   /// rather than a CoinGecko slug like `solana`/`usd-coin`. Used to route the
@@ -180,13 +188,6 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     return '${address.substring(0, 4)}...${address.substring(address.length - 4)}';
   }
 
-  String _formatLargeNumber(double value) {
-    if (value >= 1e12) return '\$${(value / 1e12).toStringAsFixed(2)}T';
-    if (value >= 1e9) return '\$${(value / 1e9).toStringAsFixed(2)}B';
-    if (value >= 1e6) return '\$${(value / 1e6).toStringAsFixed(2)}M';
-    return '\$${value.toStringAsFixed(2)}';
-  }
-
   // Called by BlocListener when WalletBloc emits SolPriceFetched. Updates
   // the header price/change for the SOL detail screen and appends a chart
   // point only on the short timeframes (1m / 1H) where 1Hz ticks are useful.
@@ -198,7 +199,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   // so users on candle view aren't losing realtime — they keep it via the
   // chart's own pipeline.
   void _onLivePriceTick(double priceUsd, double changePct) {
-    if (widget.token.id != 'solana') return;
+    if (!_isSol) return;
     if (!mounted) return;
     if (!_isLineChart) return;
     setState(() {
@@ -240,7 +241,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
 
     return BlocListener<WalletBloc, WalletState>(
       listenWhen: (prev, curr) =>
-          curr is SolPriceFetched && widget.token.id == 'solana',
+          curr is SolPriceFetched && _isSol,
       listener: (context, state) {
         if (state is SolPriceFetched) {
           _onLivePriceTick(state.priceUsd, state.priceChange24h);
@@ -494,15 +495,17 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 
                 children: [
-                  _buildStat('Market cap', _formatLargeNumber(token.marketCap)),
+                  _buildStat('Market cap', MarketFormat.compact(token.marketCap)),
                   const SizedBox(width: 24),
                   _buildStatWithChange(
                     'Volume 24h',
-                    _formatLargeNumber(token.volume24h),
+                    MarketFormat.compact(token.volume24h),
                     token.priceChangePercentage24h,
                   ),
                   const SizedBox(width: 24),
-                  _buildStat('Liquidity', _formatLargeNumber(token.volume24h * 0.5)),
+                  // Was volume × 0.5, which is not liquidity and was never
+                  // anything. The API reports the real figure.
+                  _buildStat('Liquidity', MarketFormat.compact(token.liquidity)),
                 ],
               ),
             ),
@@ -526,7 +529,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                     'Send',
                     // Native SOL always; an SPL token only when it is actually
                     // held, since sending needs its decimals and balance.
-                    enabled: token.id == 'solana' || widget.holding != null,
+                    enabled: _isSol || widget.holding != null,
                     onTap: () async {
                       final address = await ActiveWallet.address();
                       if (address != null && mounted) {

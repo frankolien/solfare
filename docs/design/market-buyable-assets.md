@@ -257,9 +257,15 @@ compare(a, b, key, window):
     return descending ? vb-va : va-vb
 ```
 
-Direction is per-key and remembered: tapping the active column flips it, tapping a different
-column adopts that column's default (descending for everything except price change ascending,
-which is the losers view).
+Tapping the active column flips its direction; tapping a different one starts descending. Price
+change flipped is the losers view, so it comes for free rather than as its own menu entry.
+
+One key is not a measurement: `rank` means "the order the feed returned". Trending is a ranking
+Jupiter computes from data it does not publish, so it cannot be reproduced client-side — the
+only way to show it is to leave the list alone. `rank` therefore reverses rather than sorts,
+because Dart's sort is not stable and running it over values that all compare equal would
+shuffle the very ordering being preserved. Registry shelves have no ranking of their own and
+open on market cap instead.
 
 ### 3.4 Buying
 

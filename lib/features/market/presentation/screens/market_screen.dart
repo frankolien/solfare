@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:solfare/features/market/domain/entities/market_category.dart';
+import 'package:solfare/features/market/domain/entities/market_sort.dart';
 import 'package:solfare/features/market/domain/entities/market_token.dart';
+import 'package:solfare/features/market/domain/entities/market_window.dart';
 import 'package:solfare/features/market/presentation/bloc/market_bloc.dart';
 import 'package:solfare/features/market/presentation/bloc/market_event.dart';
 import 'package:solfare/features/market/presentation/bloc/market_state.dart';
 import 'package:solfare/features/market/presentation/screens/token_detail_screen.dart';
+import 'package:solfare/features/market/presentation/widgets/market_row.dart';
+import 'package:solfare/features/market/presentation/widgets/market_search_sheet.dart';
 
 class MarketScreen extends StatefulWidget {
   const MarketScreen({super.key});
@@ -14,8 +19,9 @@ class MarketScreen extends StatefulWidget {
 }
 
 class _MarketScreenState extends State<MarketScreen> {
-  int _selectedTab = 0; // 0 = Tokens, 1 = Stocks
-  String _sortBy = 'Market cap';
+  static const _background = Color(0xFF060A0E);
+  static const _chipColor = Color(0xFF15191F);
+  static const _accent = Color(0xFF7BD64B);
 
   @override
   void initState() {
@@ -23,70 +29,75 @@ class _MarketScreenState extends State<MarketScreen> {
     context.read<MarketBloc>().add(const FetchMarketTokensEvent());
   }
 
-  String _formatMarketCap(double value) {
-    if (value >= 1e12) return '\$${(value / 1e12).toStringAsFixed(2)}T';
-    if (value >= 1e9) return '\$${(value / 1e9).toStringAsFixed(2)}B';
-    if (value >= 1e6) return '\$${(value / 1e6).toStringAsFixed(2)}M';
-    if (value >= 1e3) return '\$${(value / 1e3).toStringAsFixed(2)}K';
-    return '\$${value.toStringAsFixed(2)}';
-  }
-
-  String _formatPrice(double price) {
-    if (price >= 1) return '\$${price.toStringAsFixed(2)}';
-    if (price >= 0.01) return '\$${price.toStringAsFixed(4)}';
-    return '\$${price.toStringAsFixed(6)}';
-  }
-
-  List<MarketToken> _sortTokens(List<MarketToken> tokens) {
-    final sorted = List<MarketToken>.from(tokens);
-    switch (_sortBy) {
-      case 'Volume':
-        sorted.sort((a, b) => b.volume24h.compareTo(a.volume24h));
-        break;
-      case 'Gainers':
-        sorted.sort((a, b) => b.priceChangePercentage24h.compareTo(a.priceChangePercentage24h));
-        break;
-      case 'Losers':
-        sorted.sort((a, b) => a.priceChangePercentage24h.compareTo(b.priceChangePercentage24h));
-        break;
-      default: // Market cap
-        sorted.sort((a, b) => b.marketCap.compareTo(a.marketCap));
-    }
-    return sorted;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFF060A0e),
+      backgroundColor: _background,
       body: SafeArea(
-        child: Column(
-          children: [
-            // Header: MW icon + Tokens/Stocks toggle + Search
-            _buildHeader(),
+        child: BlocBuilder<MarketBloc, MarketState>(
+          builder: (context, state) {
+            return Column(
+              children: [
+                _categoryTabs(state),
+                if (state.category.isFeedDriven) _feedChips(state),
+                _windowRow(state),
+                _columnHeaders(state),
+                if (state.dropped > 0) _droppedNotice(state.dropped),
+                Expanded(child: _body(state)),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
 
-            // Content
-            Expanded(
-              child: BlocBuilder<MarketBloc, MarketState>(
-                builder: (context, state) {
-                  if (state is MarketLoading) {
-                    return _buildShimmer();
-                  }
-                  if (state is MarketLoaded) {
-                    return _buildContent(state.tokens);
-                  }
-                  if (state is MarketError) {
-                    return Center(
-                      child: Text(
-                        state.message,
-                        style: TextStyle(color: Colors.grey[400], fontSize: 12, fontFamily: 'FKGrotesk'),
-                        textAlign: TextAlign.center,
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
+  Widget _categoryTabs(MarketState state) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+      child: Row(
+        children: [
+          for (final category in MarketCategory.values)
+            _categoryTab(category, category == state.category),
+          const Spacer(),
+          GestureDetector(
+            onTap: _openSearch,
+            behavior: HitTestBehavior.opaque,
+            child: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 10),
+              child: Icon(Icons.search, color: Colors.white, size: 22),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _categoryTab(MarketCategory category, bool selected) {
+    return GestureDetector(
+      onTap: () => context.read<MarketBloc>().add(SelectCategoryEvent(category)),
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Text(
+                category.label,
+                style: TextStyle(
+                  color: selected ? Colors.white : Colors.grey[600],
+                  fontSize: 16,
+                  fontFamily: 'FKGrotesk',
+                  fontWeight: FontWeight.w600,
+                ),
               ),
+            ),
+            Container(
+              height: 2,
+              width: 26,
+              color: selected ? _accent : Colors.transparent,
             ),
           ],
         ),
@@ -94,612 +105,327 @@ class _MarketScreenState extends State<MarketScreen> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _feedChips(MarketState state) {
+    return SizedBox(
+      height: 52,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 8),
+        children: [
+          for (final feed in MarketFeed.values)
+            _chip(
+              label: feed.label,
+              selected: feed == state.feed,
+              onTap: () => context.read<MarketBloc>().add(SelectFeedEvent(feed)),
+              large: true,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _windowRow(MarketState state) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
       child: Row(
         children: [
-          // MW avatar
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: Colors.grey[800],
-              shape: BoxShape.circle,
+          for (final window in MarketWindow.values)
+            _chip(
+              label: window.label,
+              selected: window == state.window,
+              onTap: () => context.read<MarketBloc>().add(SelectWindowEvent(window)),
             ),
-            child: const Center(
-              child: Text(
-                'MW',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontFamily: 'FKGrotesk',
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 60),
-
-          // Tokens / Stocks toggle
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[900],
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                _buildTabButton('Tokens', 0),
-                _buildTabButton('Stocks', 1),
-              ],
-            ),
-          ),
-
           const Spacer(),
-
-          // Search icon
           GestureDetector(
-            onTap: _showSearchSheet,
-            child: const Icon(Icons.search, color: Colors.white, size: 22),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabButton(String label, int index) {
-    final isSelected = _selectedTab == index;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedTab = index),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.grey[800] : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.grey[500],
-            fontSize: 12,
-            fontFamily: 'FKGrotesk',
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildContent(List<MarketToken> tokens) {
-    final trending = tokens.take(3).toList();
-    final sorted = _sortTokens(tokens);
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
-
-          // Trending header
-          const Text(
-            'Trending',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontFamily: 'FKGrotesk',
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Divider(color: Colors.white10, height: 1),
-          const SizedBox(height: 12),
-
-          // Trending cards (horizontal scroll)
-          SizedBox(
-            height: 90,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: trending.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (context, index) => _buildTrendingCard(trending[index]),
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Tokens header + sort
-          Row(
-            children: [
-              Text(
-                _selectedTab == 0 ? 'Tokens' : 'Stocks',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontFamily: 'FKGrotesk',
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: _showSortMenu,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[900],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _sortBy,
-                        style: TextStyle(
-                          color: Colors.grey[400],
-                          fontSize: 11,
-                          fontFamily: 'FKGrotesk',
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(Icons.unfold_more, color: Colors.grey[400], size: 14),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Divider(color: Colors.white10, height: 1),
-          const SizedBox(height: 19),
-
-          // Token list
-          ...sorted.map((token) => _buildTokenRow(token)),
-
-          const SizedBox(height: 80),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTrendingCard(MarketToken token) {
-    final isPositive = token.priceChangePercentage24h >= 0;
-    final changeColor = isPositive ? const Color(0xFF4CAF50) : const Color(0xFFFF5252);
-    final arrow = isPositive ? '↗' : '↘';
-
-    return Container(
-      width: 130,
-      padding: const EdgeInsets.symmetric(horizontal: 8,vertical: 14),
-      decoration: BoxDecoration(
-        color: Color(0xFF0e1115),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Logo + name
-          Row(
-            children: [
-              ClipOval(
-                child: Image.network(
-                  token.imageUrl,
-                  width: 28,
-                  height: 28,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    width: 28,
-                    height: 28,
-                    color: Colors.grey[800],
-                    child: Center(
-                      child: Text(
-                        token.symbol.substring(0, token.symbol.length >= 2 ? 2 : 1).toUpperCase(),
-                        style: const TextStyle(color: Colors.white, fontSize: 9, fontFamily: 'FKGrotesk'),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      token.symbol.toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontFamily: 'FKGrotesk',
-                        fontWeight: FontWeight.w600,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      _formatPrice(token.currentPrice),
-                      style: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: 10,
-                        fontFamily: 'FKGroteskSemiMono',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          //const Spacer(),
-          SizedBox(
-            height: 10,
-          ),
-          // Price change
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: Text(
-              '$arrow ${token.priceChangePercentage24h.abs().toStringAsFixed(2)}%',
-              style: TextStyle(
-                color: changeColor,
-                fontSize: 12,
-                fontFamily: 'FKGroteskSemiMono',
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTokenRow(MarketToken token) {
-    final isPositive = token.priceChangePercentage24h >= 0;
-    final changeColor = isPositive ? const Color(0xFF4CAF50) : const Color(0xFFFF5252);
-
-    return GestureDetector(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => TokenDetailScreen(token: token)),
-        );
-      },
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-      padding: const EdgeInsets.only(bottom: 36),
-      child: Row(
-        children: [
-          // Logo
-          ClipOval(
-            child: Image.network(
-              token.imageUrl,
-              width: 36,
-              height: 36,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: Colors.grey[800],
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    token.symbol.substring(0, token.symbol.length >= 2 ? 2 : 1).toUpperCase(),
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontFamily: 'FKGrotesk'),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-
-          // Name + price + change
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  token.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontFamily: 'FKGrotesk',
-                    fontWeight: FontWeight.w500,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Text(
-                      _formatPrice(token.currentPrice),
-                      style: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: 11,
-                        fontFamily: 'FKGroteskSemiMono',
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${isPositive ? '+' : ''}${token.priceChangePercentage24h.toStringAsFixed(2)}%',
-                      style: TextStyle(
-                        color: changeColor,
-                        fontSize: 11,
-                        fontFamily: 'FKGroteskSemiMono',
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          // Market cap
-          Text(
-            _formatMarketCap(token.marketCap),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontFamily: 'FKGroteskSemiMono',
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-      ),
-    );
-  }
-
-  Widget _buildShimmer() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 20),
-          Container(width: 60, height: 10, decoration: BoxDecoration(color: Colors.grey[800], borderRadius: BorderRadius.circular(4))),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 120,
-            child: Row(
-              children: List.generate(3, (_) => Expanded(
-                child: Container(
-                  margin: const EdgeInsets.only(right: 10),
-                  decoration: BoxDecoration(color: Colors.grey[900], borderRadius: BorderRadius.circular(12)),
-                ),
-              )),
-            ),
-          ),
-          const SizedBox(height: 30),
-          ...List.generate(8, (_) => Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Row(
-              children: [
-                Container(width: 36, height: 36, decoration: BoxDecoration(color: Colors.grey[800], shape: BoxShape.circle)),
-                const SizedBox(width: 10),
-                Expanded(child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(width: 80, height: 10, decoration: BoxDecoration(color: Colors.grey[800], borderRadius: BorderRadius.circular(4))),
-                    const SizedBox(height: 6),
-                    Container(width: 120, height: 8, decoration: BoxDecoration(color: Colors.grey[850] ?? Colors.grey[800], borderRadius: BorderRadius.circular(4))),
-                  ],
-                )),
-                Container(width: 50, height: 10, decoration: BoxDecoration(color: Colors.grey[800], borderRadius: BorderRadius.circular(4))),
-              ],
-            ),
-          )),
-        ],
-      ),
-    );
-  }
-
-  void _showSortMenu() {
-    final options = ['Market cap', 'Volume', 'Gainers', 'Losers'];
-    showMenu(
-      context: context,
-      position: const RelativeRect.fromLTRB(200, 400, 20, 0),
-      color: const Color(0xFF1C1F26),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      items: options.map((option) => PopupMenuItem(
-        onTap: () => setState(() => _sortBy = option),
-        child: Text(
-          option,
-          style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'FKGrotesk'),
-        ),
-      )).toList(),
-    );
-  }
-
-  void _showSearchSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => BlocBuilder<MarketBloc, MarketState>(
-        builder: (context, state) {
-          final tokens = state is MarketLoaded ? state.tokens : <MarketToken>[];
-          return _SearchSheet(tokens: tokens);
-        },
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────
-// Search Bottom Sheet
-// ─────────────────────────────────────────────
-class _SearchSheet extends StatefulWidget {
-  final List<MarketToken> tokens;
-  const _SearchSheet({required this.tokens});
-
-  @override
-  State<_SearchSheet> createState() => _SearchSheetState();
-}
-
-class _SearchSheetState extends State<_SearchSheet> {
-  final TextEditingController _searchController = TextEditingController();
-  List<MarketToken> _filtered = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _filtered = widget.tokens;
-  }
-
-  void _onSearch(String query) {
-    setState(() {
-      if (query.isEmpty) {
-        _filtered = widget.tokens;
-      } else {
-        _filtered = widget.tokens
-            .where((t) =>
-                t.name.toLowerCase().contains(query.toLowerCase()) ||
-                t.symbol.toLowerCase().contains(query.toLowerCase()))
-            .toList();
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
-      decoration: const BoxDecoration(
-        color: Color(0xFF0E1014),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        children: [
-          // Drag handle
-          Center(
+            onTap: () => _openSortSheet(state),
+            behavior: HitTestBehavior.opaque,
             child: Container(
-              margin: const EdgeInsets.only(top: 10, bottom: 12),
-              width: 36,
-              height: 4,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
-                color: Colors.grey[700],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.white12),
-                borderRadius: BorderRadius.circular(12),
+                color: _chipColor,
+                borderRadius: BorderRadius.circular(18),
               ),
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const SizedBox(width: 12),
-                  Icon(Icons.search, color: Colors.grey[500], size: 18),
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontFamily: 'FKGrotesk',
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Search or paste address',
-                        hintStyle: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 13,
-                          fontFamily: 'FKGrotesk',
-                        ),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                      ),
-                      onChanged: _onSearch,
-                      autofocus: true,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () async {
-                      // Paste functionality
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      margin: const EdgeInsets.only(right: 8),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.white12),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Text(
-                        'Paste',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontFamily: 'FKGrotesk',
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+                  Icon(Icons.tune, color: Colors.grey[400], size: 14),
+                  const SizedBox(width: 6),
+                  Text(
+                    state.sort.label,
+                    style: TextStyle(
+                      color: Colors.grey[300],
+                      fontSize: 12,
+                      fontFamily: 'FKGrotesk',
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
 
-          const SizedBox(height: 8),
-
-          // Token list
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _filtered.length,
-              itemBuilder: (context, index) {
-                final token = _filtered[index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: Row(
-                    children: [
-                      ClipOval(
-                        child: Image.network(
-                          token.imageUrl,
-                          width: 36,
-                          height: 36,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(color: Colors.grey[800], shape: BoxShape.circle),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            token.name,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontFamily: 'FKGrotesk',
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            token.symbol.toUpperCase(),
-                            style: TextStyle(
-                              color: Colors.grey[500],
-                              fontSize: 11,
-                              fontFamily: 'FKGrotesk',
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
+  Widget _chip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+    bool large = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          alignment: Alignment.center,
+          padding: EdgeInsets.symmetric(horizontal: large ? 16 : 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected
+                ? (large ? _accent.withValues(alpha: 0.15) : _chipColor)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: selected && large ? _accent.withValues(alpha: 0.5) : Colors.transparent,
             ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? (large ? _accent : Colors.white) : Colors.grey[600],
+              fontSize: large ? 13 : 12,
+              fontFamily: 'FKGrotesk',
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The two right-hand columns double as the sort control, so ordering the
+  /// list is a tap on the thing being ordered rather than a hidden menu.
+  Widget _columnHeaders(MarketState state) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+          child: Row(
+            children: [
+              const SizedBox(width: 50),
+              Expanded(flex: 5, child: _headerLabel('Token', null, state)),
+              Expanded(flex: 4, child: _headerLabel('Price/Δ%', MarketSort.priceChange, state)),
+              Expanded(flex: 4, child: _headerLabel('Vol/Net', MarketSort.volume, state)),
+            ],
+          ),
+        ),
+        const Divider(color: Colors.white10, height: 1),
+      ],
+    );
+  }
+
+  Widget _headerLabel(String label, MarketSort? sort, MarketState state) {
+    final active = sort != null && state.sort == sort;
+    final text = Text(
+      label,
+      textAlign: sort == null ? TextAlign.left : TextAlign.right,
+      style: TextStyle(
+        color: active ? Colors.white : Colors.grey[600],
+        fontSize: 11,
+        fontFamily: 'FKGrotesk',
+        fontWeight: FontWeight.w500,
+      ),
+    );
+
+    if (sort == null) return text;
+
+    return GestureDetector(
+      onTap: () => context.read<MarketBloc>().add(SelectSortEvent(sort)),
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Flexible(child: text),
+          Icon(
+            active
+                ? (state.descending ? Icons.arrow_drop_down : Icons.arrow_drop_up)
+                : Icons.unfold_more,
+            color: active ? Colors.white : Colors.grey[700],
+            size: active ? 16 : 12,
           ),
         ],
       ),
     );
   }
+
+  Widget _droppedNotice(int dropped) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+      child: Text(
+        '$dropped ${dropped == 1 ? 'asset is' : 'assets are'} not being listed right now.',
+        style: TextStyle(color: Colors.grey[600], fontSize: 11, fontFamily: 'FKGrotesk'),
+      ),
+    );
+  }
+
+  Widget _body(MarketState state) {
+    if (state.status == MarketStatus.failure && state.tokens.isEmpty) {
+      return _message(state.error ?? 'Could not load the market.');
+    }
+    if (state.tokens.isEmpty && state.status == MarketStatus.ready) {
+      return _message('Nothing to show on this shelf right now.');
+    }
+    if (state.tokens.isEmpty) return const _MarketSkeleton();
+
+    return RefreshIndicator(
+      color: _accent,
+      backgroundColor: _chipColor,
+      onRefresh: () async {
+        context.read<MarketBloc>().add(const FetchMarketTokensEvent(force: true));
+        await context
+            .read<MarketBloc>()
+            .stream
+            .firstWhere((s) => s.status != MarketStatus.loading);
+      },
+      child: ListView.builder(
+        padding: const EdgeInsets.only(top: 4, bottom: 90),
+        itemCount: state.tokens.length,
+        itemBuilder: (context, index) {
+          final token = state.tokens[index];
+          return MarketRow(
+            token: token,
+            window: state.window,
+            onTap: () => _openDetail(token),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _message(String text) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.grey[500], fontSize: 12, fontFamily: 'FKGrotesk'),
+        ),
+      ),
+    );
+  }
+
+  void _openDetail(MarketToken token) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => TokenDetailScreen(token: token)),
+    );
+  }
+
+  void _openSearch() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => MarketSearchSheet(onSelected: _openDetail),
+    );
+  }
+
+  void _openSortSheet(MarketState state) {
+    final bloc = context.read<MarketBloc>();
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF0E1014),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        // Rank only means something where a feed did the ranking.
+        final options = MarketSort.values
+            .where((s) => s != MarketSort.rank || state.category.isFeedDriven)
+            .toList();
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 14),
+              Text(
+                'Sort by',
+                style: TextStyle(
+                  color: Colors.grey[500],
+                  fontSize: 12,
+                  fontFamily: 'FKGrotesk',
+                ),
+              ),
+              const SizedBox(height: 6),
+              for (final option in options)
+                ListTile(
+                  dense: true,
+                  title: Text(
+                    option.label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontFamily: 'FKGrotesk',
+                    ),
+                  ),
+                  trailing: option != state.sort
+                      ? null
+                      : Icon(
+                          state.descending ? Icons.arrow_downward : Icons.arrow_upward,
+                          color: _accent,
+                          size: 16,
+                        ),
+                  onTap: () {
+                    bloc.add(SelectSortEvent(option));
+                    Navigator.of(sheetContext).pop();
+                  },
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Shown while the first page loads. Rows rather than a spinner, so the shape
+/// of what is coming is already on screen when it arrives.
+class _MarketSkeleton extends StatelessWidget {
+  const _MarketSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.only(top: 8),
+      itemCount: 10,
+      itemBuilder: (_, __) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(color: Colors.grey[900], shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 12),
+            Expanded(flex: 5, child: _bar(70)),
+            Expanded(flex: 4, child: Align(alignment: Alignment.centerRight, child: _bar(54))),
+            Expanded(flex: 4, child: Align(alignment: Alignment.centerRight, child: _bar(46))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _bar(double width) => Container(
+        width: width,
+        height: 10,
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(4),
+        ),
+      );
 }
