@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:solfare/core/solana/preview/preview_engine.dart';
 import 'package:solfare/core/util/app_log.dart';
 import 'package:solfare/core/wallet/active_wallet.dart';
 import 'package:solfare/core/wallet/keyring.dart';
@@ -14,16 +15,24 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
   late final JupiterDataSource _jupiter;
   late final SwapExecutor _executor;
   late final SolanaRpcDataSource _rpc;
+  late final PreviewEngine _preview;
+
+  /// The signed route waiting on the user. Dropped the moment they back out.
+  PreparedSwap? _prepared;
 
   // Held so a token switch can refresh the balance without the screen
   // having to re-supply the address.
   String? _walletAddress;
 
-  SwapBloc({JupiterDataSource? jupiter, SolanaRpcDataSource? rpcDataSource})
-      : super(const SwapInitial()) {
+  SwapBloc({
+    JupiterDataSource? jupiter,
+    SolanaRpcDataSource? rpcDataSource,
+    PreviewEngine? previewEngine,
+  }) : super(const SwapInitial()) {
     _jupiter = jupiter ?? JupiterDataSource();
     _rpc = rpcDataSource ?? SolanaRpcDataSourceImpl();
     _executor = SwapExecutor(jupiter: _jupiter, rpc: _rpc);
+    _preview = previewEngine ?? PreviewEngine(_rpc);
 
     on<LoadTokenListEvent>(_onLoadTokens);
     on<SelectInputTokenEvent>(_onSelectInput);
@@ -31,6 +40,8 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
     on<UpdateInputAmountEvent>(_onUpdateAmount);
     on<FetchQuoteEvent>(_onFetchQuote);
     on<ExecuteSwapEvent>(_onExecuteSwap);
+    on<ConfirmSwapEvent>(_onConfirmSwap);
+    on<CancelSwapReviewEvent>(_onCancelReview);
     on<FlipTokensEvent>(_onFlipTokens);
     on<LoadInputBalanceEvent>(_onLoadInputBalance);
   }
@@ -184,6 +195,12 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
     }
   }
 
+  /// Builds and signs the route, then hands it to the user rather than to
+  /// the network.
+  ///
+  /// The preview comes from simulating the transaction Jupiter actually
+  /// built, which is the only way to show what the swap moves rather than
+  /// what the route says it moves.
   Future<void> _onExecuteSwap(ExecuteSwapEvent event, Emitter<SwapState> emit) async {
     if (state is! SwapReady) return;
     final s = state as SwapReady;
@@ -205,14 +222,49 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
         walletAddress: event.walletAddress,
         keyPair: keyPair,
       );
+      _prepared = prepared;
 
+      final preview = await _preview.previewSigned(
+        base64Tx: prepared.signedTransaction,
+        ownerAddress: event.walletAddress,
+        symbols: {
+          s.inputToken.mint: s.inputToken.symbol,
+          s.outputToken.mint: s.outputToken.symbol,
+        },
+      );
+
+      emit(SwapReviewing(ready: s, preview: preview));
+    } on SwapUnavailableException catch (e) {
+      _prepared = null;
+      emit(SwapError(e.message));
+    } catch (e) {
+      _prepared = null;
+      emit(SwapError('Swap failed: $e'));
+    }
+  }
+
+  void _onCancelReview(CancelSwapReviewEvent event, Emitter<SwapState> emit) {
+    final current = state;
+    if (current is! SwapReviewing) return;
+    _prepared = null;
+    emit(current.ready);
+  }
+
+  Future<void> _onConfirmSwap(ConfirmSwapEvent event, Emitter<SwapState> emit) async {
+    final prepared = _prepared;
+    if (state is! SwapReviewing || prepared == null) return;
+
+    emit(const SwapExecuting());
+    try {
       final result = await _executor.send(prepared);
+      _prepared = null;
       if (result.isConfirmed) {
         emit(SwapSuccess(result.signature!));
         return;
       }
       emit(SwapError(result.error!));
     } catch (e) {
+      _prepared = null;
       emit(SwapError('Swap failed: $e'));
     }
   }

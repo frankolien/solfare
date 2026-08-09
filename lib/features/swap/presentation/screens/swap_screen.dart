@@ -3,24 +3,28 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lottie/lottie.dart';
 import 'package:solfare/core/wallet/active_wallet.dart';
 import 'package:solfare/features/swap/domain/entities/swap_token.dart';
+import 'package:solfare/features/swap/domain/swap_limits.dart';
 import 'package:solfare/features/swap/presentation/bloc/swap_bloc.dart';
 import 'package:solfare/features/swap/presentation/bloc/swap_event.dart';
 import 'package:solfare/features/swap/presentation/bloc/swap_state.dart';
+import 'package:solfare/features/swap/presentation/widgets/swap_review_sheet.dart';
 import 'package:solfare/core/constant/network.dart';
 import 'package:solfare/features/swap/presentation/widgets/token_selector_sheet.dart';
 
 class SwapScreen extends StatefulWidget {
-  const SwapScreen({super.key});
+  /// What the swap should buy when it opens.
+  ///
+  /// Set when the screen is reached from a token, so the pair is already the
+  /// one the user was looking at rather than the default SOL to USDC.
+  final SwapToken? initialOutput;
+
+  const SwapScreen({super.key, this.initialOutput});
 
   @override
   State<SwapScreen> createState() => _SwapScreenState();
 }
 
 class _SwapScreenState extends State<SwapScreen> {
-  // SOL held back from a swap to cover the signature fee, the priority bid
-  // and any associated token account rent the route has to create.
-  static const double _solFeeReserve = 0.01;
-
   final _inputController = TextEditingController();
   String? _walletAddress;
   int _selectedTab = 0; // 0 = Swap, 1 = Limit
@@ -29,7 +33,12 @@ class _SwapScreenState extends State<SwapScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<SwapBloc>().add(const LoadTokenListEvent());
+    final bloc = context.read<SwapBloc>();
+    bloc.add(const LoadTokenListEvent());
+    // After the list, not before: loading it emits a fresh SwapReady with the
+    // default pair, which would overwrite the preset.
+    final output = widget.initialOutput;
+    if (output != null) bloc.add(SelectOutputTokenEvent(output));
     _loadAddress();
   }
 
@@ -72,7 +81,9 @@ class _SwapScreenState extends State<SwapScreen> {
         bottom: false,
         child: BlocConsumer<SwapBloc, SwapState>(
           listener: (context, state) {
-            if (state is SwapSuccess) {
+            if (state is SwapReviewing) {
+              SwapReviewSheet.show(context, state);
+            } else if (state is SwapSuccess) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Swap successful!'), backgroundColor: Colors.green),
               );
@@ -93,6 +104,10 @@ class _SwapScreenState extends State<SwapScreen> {
             }
             if (state is SwapReady) {
               return _buildSwapUI(context, state);
+            }
+            // The review sheet sits over the form, so the form stays.
+            if (state is SwapReviewing) {
+              return _buildSwapUI(context, state.ready);
             }
             return const SizedBox.shrink();
           },
@@ -435,8 +450,12 @@ class _SwapScreenState extends State<SwapScreen> {
 
     // Swapping native SOL spends from the same balance that pays the fee and
     // any ATA rent, so leave headroom instead of letting the whole balance go.
-    final reserve = state.inputToken.mint == SwapToken.sol.mint ? _solFeeReserve : 0;
-    final hasSufficientBalance = balance != null && amount > 0 && amount + reserve <= balance;
+    final hasSufficientBalance = balance != null &&
+        SwapLimits.covers(
+          amount: amount,
+          balance: balance,
+          nativeSol: SwapLimits.isNativeSol(state.inputToken),
+        );
 
     final isMainnet = NetworkConstants.current == SolanaNetwork.mainnet;
     final enabled = hasQuote && hasSufficientBalance && isMainnet && _walletAddress != null;
@@ -449,10 +468,12 @@ class _SwapScreenState extends State<SwapScreen> {
                 ? 'Checking balance'
                 : !hasSufficientBalance
                     ? 'Insufficient ${state.inputToken.symbol}'
-                    : 'Swap';
+                    : 'Review swap';
 
     void onTap() {
       if (enabled) {
+        // Builds and simulates the route. Nothing is broadcast until the
+        // review sheet is confirmed.
         context.read<SwapBloc>().add(ExecuteSwapEvent(_walletAddress!));
       }
     }

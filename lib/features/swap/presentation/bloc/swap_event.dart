@@ -59,3 +59,15 @@ class LoadInputBalanceEvent extends SwapEvent {
 class FlipTokensEvent extends SwapEvent {
   const FlipTokensEvent();
 }
+
+/// Send the route the user just reviewed.
+class ConfirmSwapEvent extends SwapEvent {
+  const ConfirmSwapEvent();
+}
+
+/// Back out of the review. The signed route is dropped rather than held:
+/// broadcasting a transaction somebody changed their mind about is the one
+/// thing this stage exists to prevent.
+class CancelSwapReviewEvent extends SwapEvent {
+  const CancelSwapReviewEvent();
+}

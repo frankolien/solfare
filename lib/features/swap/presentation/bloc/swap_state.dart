@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:solfare/core/solana/preview/tx_preview.dart';
 import 'package:solfare/features/swap/domain/entities/swap_token.dart';
 
 abstract class SwapState extends Equatable {
@@ -70,6 +71,20 @@ class SwapReady extends SwapState {
 
   @override
   List<Object?> get props => [tokens, inputToken, outputToken, inputAmount, outputAmount, priceImpact, rate, isLoadingQuote, error, inputBalance];
+}
+
+/// The route is built and signed, and the network has said what it will do.
+///
+/// Nothing has been broadcast: signing is local, and this is the moment the
+/// user gets to see the balances that will really move before it is.
+class SwapReviewing extends SwapState {
+  final SwapReady ready;
+  final TxPreview preview;
+
+  const SwapReviewing({required this.ready, required this.preview});
+
+  @override
+  List<Object?> get props => [ready, preview];
 }
 
 class SwapExecuting extends SwapState {
