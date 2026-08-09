@@ -139,6 +139,17 @@ void main() {
       expect(mint.nonTransferable, isTrue);
     });
 
+    test('an extension with no state at all still counts', () {
+      // What the RPC actually returns for a non-transferable mint: the
+      // extension names itself and carries no state object.
+      final mint = MintInfo.parse('M', account(extensions: [
+        {'extension': 'nonTransferable'},
+      ]));
+
+      expect(mint.nonTransferable, isTrue);
+      expect(mint.hasNotableExtensions, isTrue);
+    });
+
     test('a plain SPL mint has no extensions at all', () {
       final mint = MintInfo.parse('USDC', account(owner: MintInfo.tokenProgramId));
       expect(mint.isToken2022, isFalse);
