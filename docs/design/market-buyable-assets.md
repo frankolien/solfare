@@ -351,3 +351,183 @@ Out, and deliberately:
 - Earn. Nothing in the wallet stakes or lends yet.
 - Energy and agriculture commodity shelves. No verified mints found for either. An empty shelf
   with "Soon" on it is a promise, and this document does not make promises the code cannot keep.
+
+---
+
+# Part two — the market as a home, not a list
+
+**Status:** proposed
+**Date:** 2026-08-09
+
+Part one made every row buyable and every column sortable. It left the market as one long list
+behind a category tab, which is the right shape for *browsing a shelf* and the wrong shape for
+*arriving*. Someone opening the tab wants to see what they follow, what is moving, and what the
+wallet actually offers — not the top of one list with the rest folded away behind a tab bar.
+
+So the market becomes two screens:
+
+- **Home** — sections. Watchlist, Trending, Major crypto, Stocks, ETFs, Commodities, Most
+  traded. Each shows a handful and a chevron.
+- **List** — the screen from part one, reached by that chevron. Windows, sortable columns, the
+  whole shelf. Nothing built in part one is thrown away; it moves one level down, which is
+  where a sortable table belongs.
+
+## 6. Research findings
+
+Verified live on 2026-08-09.
+
+### 6.1 The shelves that were missing have deep mints
+
+Part one had Stocks and Commodities. The layout needs Major crypto and ETFs too, and both
+exist:
+
+```
+WBTC   3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh   Wrapped BTC (Portal)   liq 29.3M
+cbBTC  cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij    Coinbase Wrapped BTC   liq 22.3M
+ETH    7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs   Ether (Portal)         liq 13.5M
+```
+
+The ETF shelf is mostly what part one filed under Stocks. `GLDx` is the SPDR Gold Shares ETF,
+not a company, and `SPYx` and `QQQx` are indices. They move to ETFs. Physical gold — `XAUt0`,
+`PAXG` — stays under Commodities, which is the distinction the reference layout draws too: a
+Gold card at the spot price and an SPDR Gold Shares card at the fund price are two different
+things.
+
+### 6.2 A company can have five issuers, and liquidity is the tiebreak
+
+SpaceX alone:
+
+```
+SPCX     Backpack Securities   SPCXxcqXj6e5dJDVNovHN8744zkbhM2bYudU45BimGb   liq 516,401
+SPCXx    xStock                Xs3oZwbHvqis4NYcf4YKWmEia2eC84wSiVrcYcTqpH8   liq 502,910
+SPACEX   PreStocks             PreANxuXjsy2pvisWWMNB6YaJNzr7681wJJr2rHsfTh   liq  88,809
+tSpaceX  Tessera               TSPXcLV76s6V2zDiZQ18kBfcbnjaE2ZzNT3ga2Pd99v   liq  68,932
+SPCXon   Ondo                  wzAyQTorWyoVXuJKj2x8EqKEGJpS13z6EWE9z5Aondo   liq      49
+```
+
+All five verified, all five tagged `stocks`. The registry picks one per company, by liquidity,
+because liquidity is what decides whether a purchase fills at the price on the card.
+
+Two corrections to part one's registry fall out of the same check:
+
+- `SLVx` has 12 dollars of liquidity; `SLVon` has 46,202. Silver moves to the Ondo mint.
+- `PPLTx` and `PPLTon` are both zero, and an order against `PPLTx` answers `Quote not
+  available from market maker`. Platinum comes off the shelf. Part one shipped it with a
+  message explaining why it could not be bought; not listing it is the better answer.
+
+Pre-IPO names are real and liquid enough to list:
+
+```
+ANTHROPIC  Pren1FvFX6J3E4kXhJuCiAD5aDmGEb7qJRncwA8Lkhw   liq 587,627
+OPENAI     PreweJYECqtQwBtpxHL171nL2K6umo692gTm7Q3rpgF   liq 229,965
+```
+
+### 6.3 The API name carries the issuer, and the card has no room for it
+
+`SP500 xStock`, `Tesla xStock`, `SpaceX - Backpack Securities`, `iShares Silver Trust (Ondo
+Tokenized)`. On a card the size of a thumbnail that is mostly wrapper.
+
+So a display name, derived by rule rather than hand-written per entry:
+
+```
+displayName(name, override):
+    if override exists: return override
+    strip a trailing issuer suffix:
+        " xStock" | " PreStocks" | " - Backpack Securities"
+        | " (Ondo Tokenized)" | " (Ondo Token)" | " Ondo"
+    return what is left
+```
+
+Overrides exist only where the stripped name is still not what a person calls the thing:
+`SPYx` → S&P 500, `QQQx` → Nasdaq 100, `WBTC` → Bitcoin, `ETH` → Ethereum, `XAUt0` → Gold.
+
+The full API name stays on `MarketToken.name` and is what the detail screen shows, because
+"which issuer" is exactly the question worth answering before buying a tokenised equity.
+
+## 7. Shape
+
+```
+                              MarketHomeScreen
+                                     │
+        ┌────────────┬───────────────┼───────────────┬────────────┐
+        │            │               │               │            │
+   TickerStrip   Watchlist       Trending       Major crypto   Stocks
+        │            │           Most traded     ETFs · Commodities
+        │            │               │               │
+        │      WatchlistStore    MarketFeed      TokenizedAssetRegistry
+        │      (mints on disk)   (live rank)     (mints → shelf)
+        │            │               │               │
+        └────────────┴───────┬───────┴───────────────┘
+                             │
+                     MarketHomeBloc
+              (one load per section, in parallel)
+                             │
+                    JupiterTokenDataSource
+                             │
+                             ▼
+                     MarketListScreen  ← the chevron
+                  (windows · sortable columns · the full shelf)
+```
+
+## 8. Algorithms
+
+### 8.1 Loading the home
+
+```
+loadHome():
+    sections ← [trending, majorCrypto, stocks, etfs, commodities, mostTraded]
+    run in parallel:
+        for each section: load its source, take the first N
+    emit each as it lands
+
+    watchlist is local: read the mints, then hydrate them like any shelf
+```
+
+Sections land independently. One slow feed must not hold up five that already answered, and a
+section that fails is one empty card rather than an empty screen — the home is six sources and
+treating them as one transaction makes it as reliable as the worst of them.
+
+### 8.2 The watchlist
+
+Mints on disk, in shared preferences rather than secure storage: a list of things somebody
+finds interesting is not a secret, and putting it in the keychain would mean the wallet cannot
+read it without unlocking.
+
+```
+star(mint):   set ← read; set.add(mint);    write; notify
+unstar(mint): set ← read; set.remove(mint); write; notify
+```
+
+A notifier rather than a bloc, because every star in the app has to flip at once — the row, the
+detail header, and the home section are three places showing one fact.
+
+Ordering is insertion order, not market cap. It is the user's list.
+
+### 8.3 The ticker strip
+
+A marquee of what is moving. Source: the watchlist when it has anything, otherwise Major crypto
+plus the most liquid stocks. It scrolls; it is not interactive beyond a tap through to detail.
+
+Deliberately not: a live socket. The strip re-reads whatever the home already loaded. A second
+price stream for decoration would be a second thing to keep in sync and a second thing to
+mislead people when it drifts.
+
+### 8.4 The warning badge
+
+An orange mark on the icon, on one rule:
+
+```
+warn(token) = not token.isVerified
+```
+
+Trending is where a wallet meets tokens nobody has checked, and that is the one place the
+distinction has to be visible without tapping through. Organic score is a better signal of wash
+trading, but it is a number without a threshold anyone agreed on, and inventing one to drive a
+warning icon would be dressing a guess as a finding.
+
+## 9. Scope
+
+In: the two screens, the four shelves, the watchlist, the ticker strip, display names, the
+warning badge, and a disclaimer footer saying what a tokenised equity is and is not.
+
+Out: Cards and Earn tabs, price alerts, and any section the wallet cannot fill with real mints.
