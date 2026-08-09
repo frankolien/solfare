@@ -1,8 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:solfare/core/util/app_log.dart';
+import 'package:solfare/features/wallet/presentation/widgets/photo_picker_sheet.dart';
 
 /// Data for each background card option.
 class _BackgroundOption {
@@ -74,22 +76,22 @@ class _EditBackgroundScreenState extends State<EditBackgroundScreen> {
     if (_picking) return;
     setState(() => _picking = true);
     try {
-      final picker = ImagePicker();
-      final picked = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-        maxWidth: 1600,
+      final picked = await showModalBottomSheet<File>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (_) => const PhotoPickerSheet(),
       );
       if (picked == null) return;
 
       // Copy into app documents so the file survives future picks from the
       // same transient cache location and is stable across app restarts.
       final docs = await getApplicationDocumentsDirectory();
-      final ext = picked.path.split('.').last.toLowerCase();
+      final ext = _extensionOf(picked.path);
       final filename =
           'wallet_bg_${widget.walletId}_${DateTime.now().millisecondsSinceEpoch}.$ext';
       final dest = File('${docs.path}/$filename');
-      await File(picked.path).copy(dest.path);
+      await picked.copy(dest.path);
 
       // Best-effort cleanup of any prior custom file for this wallet.
       if (_isCustomSelected) {
@@ -102,9 +104,46 @@ class _EditBackgroundScreenState extends State<EditBackgroundScreen> {
       }
 
       if (mounted) setState(() => _selectedCard = '$_customPrefix$filename');
+    } on PlatformException catch (e) {
+      _showPickError(_pickErrorMessage(e));
+    } catch (e) {
+      _showPickError('Could not use that image. Try another one.');
+      debugLog('[EditBackground] pick failed: $e');
     } finally {
       if (mounted) setState(() => _picking = false);
     }
+  }
+
+  /// Photo access can still be revoked mid-flow, and the copy into documents
+  /// can fail on a full disk, so the platform channel is not assumed to be
+  /// clean just because the picker returned a file.
+  String _pickErrorMessage(PlatformException e) {
+    debugLog('[EditBackground] picker ${e.code}: ${e.message} (${e.details})');
+    return switch (e.code) {
+      'PermissionDenied' || 'photo_access_denied' =>
+        'Photo access is off. Enable it in Settings to pick a background.',
+      _ => 'Could not load that photo. Try another one.',
+    };
+  }
+
+  /// Trust the extension only when it looks like one — a sandbox path with a
+  /// dot in a directory name would otherwise become the filename suffix.
+  String _extensionOf(String path) {
+    final ext = path.split('/').last.split('.').last.toLowerCase();
+    const known = {'jpg', 'jpeg', 'png', 'heic', 'heif', 'webp', 'gif'};
+    return known.contains(ext) ? ext : 'jpg';
+  }
+
+  void _showPickError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: const TextStyle(fontFamily: 'FKGrotesk', fontSize: 12)),
+        backgroundColor: const Color(0xFF1C1F26),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 5),
+      ),
+    );
   }
 
   void _apply() {

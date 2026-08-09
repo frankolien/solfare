@@ -38,7 +38,12 @@ dependencies:
   flutter_windowmanager: ^0.2.0
   crypto: ^3.0.3
   web_socket_channel: ^3.0.1
-  image_picker: ^1.1.2
+  # Pinned below 3.8: those versions ship a Swift Package manifest declaring
+  # .iOS("9.0"), and SPM rejects it against FlutterFramework's 13.0 floor
+  # ("requires minimum platform version 13.0, but this target supports 12.0").
+  # 3.7.1 has no Package.swift, so it installs through CocoaPods instead,
+  # which the rest of the SPM setup tolerates fine.
+  photo_manager: 3.7.1
   path_provider: ^2.1.5
 
 dev_dependencies:
