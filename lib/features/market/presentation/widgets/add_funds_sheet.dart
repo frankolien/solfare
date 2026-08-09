@@ -87,19 +87,19 @@ class AddFundsSheet extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
         child: Row(
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: const Color(0xFF23262B),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: Colors.white, size: 22),
+              child: Icon(icon, color: Colors.white, size: 18),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -108,7 +108,7 @@ class AddFundsSheet extends StatelessWidget {
                     title,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: 13,
                       fontFamily: 'FKGrotesk',
                       fontWeight: FontWeight.w600,
                     ),
@@ -118,7 +118,7 @@ class AddFundsSheet extends StatelessWidget {
                     detail,
                     style: TextStyle(
                       color: Colors.grey[500],
-                      fontSize: 13,
+                      fontSize: 11,
                       fontFamily: 'FKGrotesk',
                     ),
                   ),

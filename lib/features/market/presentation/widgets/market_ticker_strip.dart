@@ -16,7 +16,7 @@ class MarketTickerStrip extends StatefulWidget {
 
   const MarketTickerStrip({super.key, required this.tokens, this.onTap});
 
-  static const height = 52.0;
+  static const height = 40.0;
 
   @override
   State<MarketTickerStrip> createState() => _MarketTickerStripState();
@@ -93,34 +93,34 @@ class _MarketTickerStripState extends State<MarketTickerStrip>
     final positive = change >= 0;
 
     return Padding(
-      padding: const EdgeInsets.only(right: 10),
+      padding: const EdgeInsets.only(right: 8),
       child: GestureDetector(
         onTap: widget.onTap == null ? null : () => widget.onTap!(token),
         behavior: HitTestBehavior.opaque,
         child: Container(
-          padding: const EdgeInsets.fromLTRB(8, 7, 14, 7),
+          padding: const EdgeInsets.fromLTRB(6, 5, 12, 5),
           decoration: BoxDecoration(
             color: const Color(0xFF15191F),
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(18),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              MarketTokenIcon(token: token, size: 22),
-              const SizedBox(width: 8),
+              MarketTokenIcon(token: token, size: 18),
+              const SizedBox(width: 6),
               Text(
                 token.symbol.toUpperCase(),
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 13,
+                  fontSize: 11,
                   fontFamily: 'FKGrotesk',
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Icon(
                 positive ? Icons.north_east : Icons.south_east,
-                size: 11,
+                size: 9,
                 color: positive ? MarketRow.up : MarketRow.down,
               ),
               const SizedBox(width: 2),
@@ -128,7 +128,7 @@ class _MarketTickerStripState extends State<MarketTickerStrip>
                 '${change.abs().toStringAsFixed(2)}%',
                 style: TextStyle(
                   color: positive ? MarketRow.up : MarketRow.down,
-                  fontSize: 13,
+                  fontSize: 11,
                   fontFamily: 'FKGroteskSemiMono',
                   fontWeight: FontWeight.w500,
                 ),

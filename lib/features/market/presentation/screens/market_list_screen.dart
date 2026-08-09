@@ -52,7 +52,7 @@ class _MarketListView extends StatelessWidget {
           section.title,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 17,
+            fontSize: 14,
             fontFamily: 'FKGrotesk',
             fontWeight: FontWeight.w600,
           ),
@@ -93,7 +93,7 @@ class _MarketListView extends StatelessWidget {
             onTap: () => _openSortSheet(context, state),
             behavior: HitTestBehavior.opaque,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: _chipColor,
                 borderRadius: BorderRadius.circular(18),
@@ -101,13 +101,13 @@ class _MarketListView extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.tune, color: Colors.grey[400], size: 14),
+                  Icon(Icons.tune, color: Colors.grey[400], size: 12),
                   const SizedBox(width: 6),
                   Text(
                     state.sort.label,
                     style: TextStyle(
                       color: Colors.grey[300],
-                      fontSize: 12,
+                      fontSize: 11,
                       fontFamily: 'FKGrotesk',
                       fontWeight: FontWeight.w500,
                     ),
@@ -133,7 +133,7 @@ class _MarketListView extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         child: Container(
           alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
           decoration: BoxDecoration(
             color: selected ? _chipColor : Colors.transparent,
             borderRadius: BorderRadius.circular(18),
@@ -142,7 +142,7 @@ class _MarketListView extends StatelessWidget {
             label,
             style: TextStyle(
               color: selected ? Colors.white : Colors.grey[600],
-              fontSize: 12,
+              fontSize: 11,
               fontFamily: 'FKGrotesk',
               fontWeight: FontWeight.w600,
             ),
@@ -161,7 +161,7 @@ class _MarketListView extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
           child: Row(
             children: [
-              const SizedBox(width: 52),
+              const SizedBox(width: 42),
               Expanded(
                 flex: 6,
                 child: _headerLabel(context, 'Price / Δ%', MarketSort.priceChange, state,
@@ -189,7 +189,7 @@ class _MarketListView extends StatelessWidget {
       textAlign: alignLeft ? TextAlign.left : TextAlign.right,
       style: TextStyle(
         color: active ? Colors.white : Colors.grey[600],
-        fontSize: 11,
+        fontSize: 10,
         fontFamily: 'FKGrotesk',
         fontWeight: FontWeight.w500,
       ),
@@ -222,7 +222,7 @@ class _MarketListView extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
       child: Text(
         '$dropped ${dropped == 1 ? 'asset is' : 'assets are'} not being listed right now.',
-        style: TextStyle(color: Colors.grey[600], fontSize: 11, fontFamily: 'FKGrotesk'),
+        style: TextStyle(color: Colors.grey[600], fontSize: 10, fontFamily: 'FKGrotesk'),
       ),
     );
   }
@@ -269,7 +269,7 @@ class _MarketListView extends StatelessWidget {
         child: Text(
           text,
           textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey[500], fontSize: 12, fontFamily: 'FKGrotesk'),
+          style: TextStyle(color: Colors.grey[500], fontSize: 11, fontFamily: 'FKGrotesk'),
         ),
       ),
     );
@@ -301,7 +301,7 @@ class _MarketListView extends StatelessWidget {
               const SizedBox(height: 14),
               Text(
                 'Sort by',
-                style: TextStyle(color: Colors.grey[500], fontSize: 12, fontFamily: 'FKGrotesk'),
+                style: TextStyle(color: Colors.grey[500], fontSize: 11, fontFamily: 'FKGrotesk'),
               ),
               const SizedBox(height: 6),
               for (final option in options)
@@ -311,7 +311,7 @@ class _MarketListView extends StatelessWidget {
                     option.label,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 14,
+                      fontSize: 13,
                       fontFamily: 'FKGrotesk',
                     ),
                   ),

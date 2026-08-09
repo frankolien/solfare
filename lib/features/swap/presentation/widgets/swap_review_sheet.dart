@@ -63,7 +63,7 @@ class SwapReviewSheet extends StatelessWidget {
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 18,
+                fontSize: 14,
                 fontFamily: 'FKGroteskSemiMono',
                 fontWeight: FontWeight.w600,
               ),
@@ -79,7 +79,7 @@ class SwapReviewSheet extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor:
                           danger ? const Color(0xFFE03131) : const Color(0xFFF4D03F),
-                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(28),
                       ),
@@ -93,7 +93,7 @@ class SwapReviewSheet extends StatelessWidget {
                       danger ? 'Swap anyway' : 'Swap',
                       style: TextStyle(
                         color: danger ? Colors.white : Colors.black,
-                        fontSize: 15,
+                        fontSize: 13,
                         fontFamily: 'FKGrotesk',
                         fontWeight: FontWeight.w600,
                       ),
@@ -110,7 +110,7 @@ class SwapReviewSheet extends StatelessWidget {
                 blocked ? 'Back' : 'Cancel',
                 style: TextStyle(
                   color: Colors.grey[500],
-                  fontSize: 14,
+                  fontSize: 12,
                   fontFamily: 'FKGrotesk',
                 ),
               ),

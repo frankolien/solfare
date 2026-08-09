@@ -22,8 +22,8 @@ class MarketAssetCard extends StatelessWidget {
     this.onTap,
   });
 
-  static const width = 168.0;
-  static const height = 186.0;
+  static const width = 124.0;
+  static const height = 138.0;
   static const _card = Color(0xFF15191F);
 
   @override
@@ -37,16 +37,16 @@ class MarketAssetCard extends StatelessWidget {
       child: Container(
         width: width,
         height: height,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
         decoration: BoxDecoration(
           color: _card,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            MarketTokenIcon(token: token, size: 56, warn: !token.isVerified),
-            const SizedBox(height: 14),
+            MarketTokenIcon(token: token, size: 38, warn: !token.isVerified),
+            const SizedBox(height: 10),
             Text(
               token.displayName,
               textAlign: TextAlign.center,
@@ -54,29 +54,29 @@ class MarketAssetCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 15,
+                fontSize: 12,
                 fontFamily: 'FKGrotesk',
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 5),
+            const SizedBox(height: 4),
             Text(
               MarketFormat.price(token.currentPrice),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: Colors.grey[500],
-                fontSize: 13,
+                fontSize: 11,
                 fontFamily: 'FKGroteskSemiMono',
               ),
             ),
-            const SizedBox(height: 5),
+            const SizedBox(height: 3),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
                   positive ? Icons.north_east : Icons.south_east,
-                  size: 12,
+                  size: 10,
                   color: positive ? MarketRow.up : MarketRow.down,
                 ),
                 const SizedBox(width: 3),
@@ -84,7 +84,7 @@ class MarketAssetCard extends StatelessWidget {
                   '${change.abs().toStringAsFixed(2)}%',
                   style: TextStyle(
                     color: positive ? MarketRow.up : MarketRow.down,
-                    fontSize: 13,
+                    fontSize: 11,
                     fontFamily: 'FKGroteskSemiMono',
                     fontWeight: FontWeight.w500,
                   ),
@@ -109,7 +109,7 @@ class MarketAssetCardSkeleton extends StatelessWidget {
       height: MarketAssetCard.height,
       decoration: BoxDecoration(
         color: const Color(0xFF15191F),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
       ),
     );
   }

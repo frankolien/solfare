@@ -126,7 +126,7 @@ class _ShareTokenSheetState extends State<ShareTokenSheet> {
             'Share token',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 17,
+              fontSize: 14,
               fontFamily: 'FKGrotesk',
               fontWeight: FontWeight.w600,
             ),
@@ -141,21 +141,21 @@ class _ShareTokenSheetState extends State<ShareTokenSheet> {
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFF4D03F),
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                   elevation: 0,
                 ),
                 onPressed: _sharing ? null : _share,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.ios_share, color: Colors.black, size: 18),
+                    const Icon(Icons.ios_share, color: Colors.black, size: 15),
                     const SizedBox(width: 8),
                     Text(
                       _sharing ? 'Preparing…' : 'Share',
                       style: const TextStyle(
                         color: Colors.black,
-                        fontSize: 15,
+                        fontSize: 13,
                         fontFamily: 'FKGrotesk',
                         fontWeight: FontWeight.w600,
                       ),
@@ -187,7 +187,7 @@ class _ShareTokenSheetState extends State<ShareTokenSheet> {
             padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
             child: Row(
               children: [
-                MarketTokenIcon(token: token, size: 38),
+                MarketTokenIcon(token: token, size: 30),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -197,7 +197,7 @@ class _ShareTokenSheetState extends State<ShareTokenSheet> {
                         token.symbol.toUpperCase(),
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 18,
+                          fontSize: 14,
                           fontFamily: 'FKGrotesk',
                           fontWeight: FontWeight.w700,
                         ),
@@ -207,7 +207,7 @@ class _ShareTokenSheetState extends State<ShareTokenSheet> {
                         token.displayName,
                         style: TextStyle(
                           color: Colors.grey[500],
-                          fontSize: 13,
+                          fontSize: 11,
                           fontFamily: 'FKGrotesk',
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -227,7 +227,7 @@ class _ShareTokenSheetState extends State<ShareTokenSheet> {
                   MarketFormat.price(token.currentPrice),
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 34,
+                    fontSize: 26,
                     fontFamily: 'FKGroteskSemiMono',
                     fontWeight: FontWeight.w700,
                   ),
@@ -237,7 +237,7 @@ class _ShareTokenSheetState extends State<ShareTokenSheet> {
                   children: [
                     Icon(
                       positive ? Icons.north_east : Icons.south_east,
-                      size: 14,
+                      size: 12,
                       color: positive ? MarketRow.up : MarketRow.down,
                     ),
                     const SizedBox(width: 3),
@@ -245,7 +245,7 @@ class _ShareTokenSheetState extends State<ShareTokenSheet> {
                       '${change.abs().toStringAsFixed(2)}%',
                       style: TextStyle(
                         color: positive ? MarketRow.up : MarketRow.down,
-                        fontSize: 17,
+                        fontSize: 13,
                         fontFamily: 'FKGroteskSemiMono',
                         fontWeight: FontWeight.w600,
                       ),
@@ -256,11 +256,11 @@ class _ShareTokenSheetState extends State<ShareTokenSheet> {
             ),
           ),
           SizedBox(
-            height: 70,
+            height: 56,
             child: widget.sparkline.length < 2
                 ? const SizedBox.shrink()
                 : CustomPaint(
-                    size: const Size(double.infinity, 70),
+                    size: const Size(double.infinity, 56),
                     painter: _SparklinePainter(
                       points: widget.sparkline,
                       color: positive ? MarketRow.up : MarketRow.down,
@@ -290,7 +290,7 @@ class _ShareTokenSheetState extends State<ShareTokenSheet> {
                   'Solfare',
                   style: TextStyle(
                     color: Colors.black,
-                    fontSize: 22,
+                    fontSize: 16,
                     fontFamily: 'FKGrotesk',
                     fontWeight: FontWeight.w700,
                   ),
@@ -303,7 +303,7 @@ class _ShareTokenSheetState extends State<ShareTokenSheet> {
                       _stamp(widget.capturedAt),
                       style: TextStyle(
                         color: Colors.grey[700],
-                        fontSize: 11,
+                        fontSize: 10,
                         fontFamily: 'FKGrotesk',
                       ),
                     ),
@@ -312,7 +312,7 @@ class _ShareTokenSheetState extends State<ShareTokenSheet> {
                       MarketFormat.shortMint(token.id),
                       style: TextStyle(
                         color: Colors.grey[700],
-                        fontSize: 11,
+                        fontSize: 10,
                         fontFamily: 'FKGroteskSemiMono',
                       ),
                     ),
@@ -333,14 +333,14 @@ class _ShareTokenSheetState extends State<ShareTokenSheet> {
         children: [
           Text(
             label,
-            style: TextStyle(color: Colors.grey[600], fontSize: 11, fontFamily: 'FKGrotesk'),
+            style: TextStyle(color: Colors.grey[600], fontSize: 10, fontFamily: 'FKGrotesk'),
           ),
           const SizedBox(height: 3),
           Text(
             value,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 15,
+              fontSize: 13,
               fontFamily: 'FKGroteskSemiMono',
               fontWeight: FontWeight.w600,
             ),

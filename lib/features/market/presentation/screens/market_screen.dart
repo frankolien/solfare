@@ -59,15 +59,15 @@ class _MarketScreenState extends State<MarketScreen> {
       child: Row(
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 30,
+            height: 30,
             decoration: BoxDecoration(color: Colors.grey[850], shape: BoxShape.circle),
             alignment: Alignment.center,
             child: Text(
               'MW',
               style: TextStyle(
                 color: Colors.grey[400],
-                fontSize: 11,
+                fontSize: 10,
                 fontFamily: 'FKGrotesk',
                 fontWeight: FontWeight.w700,
               ),
@@ -79,7 +79,7 @@ class _MarketScreenState extends State<MarketScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 17,
+                fontSize: 14,
                 fontFamily: 'FKGrotesk',
                 fontWeight: FontWeight.w600,
               ),
@@ -90,7 +90,7 @@ class _MarketScreenState extends State<MarketScreen> {
             behavior: HitTestBehavior.opaque,
             child: const Padding(
               padding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-              child: Icon(Icons.search, color: Colors.white, size: 24),
+              child: Icon(Icons.search, color: Colors.white, size: 20),
             ),
           ),
         ],
@@ -155,7 +155,7 @@ class _MarketScreenState extends State<MarketScreen> {
           _cards(section, tokens)
         else
           _rows(section, tokens),
-        const SizedBox(height: 26),
+        const SizedBox(height: 18),
       ],
     );
   }
@@ -167,21 +167,21 @@ class _MarketScreenState extends State<MarketScreen> {
           : null,
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+        padding: const EdgeInsets.fromLTRB(20, 2, 20, 8),
         child: Row(
           children: [
             Text(
               section.title,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 22,
+                fontSize: 13,
                 fontFamily: 'FKGrotesk',
                 fontWeight: FontWeight.w600,
               ),
             ),
             if (tappable) ...[
               const SizedBox(width: 6),
-              const Icon(Icons.chevron_right, color: Colors.white, size: 22),
+              const Icon(Icons.chevron_right, color: Colors.white, size: 16),
             ],
           ],
         ),
@@ -195,13 +195,13 @@ class _MarketScreenState extends State<MarketScreen> {
       child: Row(
         children: [
           Container(
-            width: 46,
-            height: 46,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(color: Colors.grey[900], shape: BoxShape.circle),
             alignment: Alignment.center,
-            child: Icon(Icons.star_outline_rounded, color: Colors.grey[400], size: 22),
+            child: Icon(Icons.star_outline_rounded, color: Colors.grey[400], size: 18),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -210,7 +210,7 @@ class _MarketScreenState extends State<MarketScreen> {
                   'No assets yet',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 15,
+                    fontSize: 13,
                     fontFamily: 'FKGrotesk',
                     fontWeight: FontWeight.w500,
                   ),
@@ -220,7 +220,7 @@ class _MarketScreenState extends State<MarketScreen> {
                   'Star any asset to add it to your watchlist',
                   style: TextStyle(
                     color: Colors.grey[600],
-                    fontSize: 13,
+                    fontSize: 11,
                     fontFamily: 'FKGrotesk',
                   ),
                 ),
@@ -240,7 +240,7 @@ class _MarketScreenState extends State<MarketScreen> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         itemCount: shown.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, index) => MarketAssetCard(
           token: shown[index],
           onTap: () => _openDetail(shown[index]),
@@ -273,7 +273,7 @@ class _MarketScreenState extends State<MarketScreen> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         itemCount: 3,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (_, __) => const MarketAssetCardSkeleton(),
       ),
     );
@@ -290,7 +290,7 @@ class _MarketScreenState extends State<MarketScreen> {
         'and past performance says nothing about what happens next.',
         style: TextStyle(
           color: Colors.grey[700],
-          fontSize: 11,
+          fontSize: 10,
           fontFamily: 'FKGrotesk',
           height: 1.6,
         ),

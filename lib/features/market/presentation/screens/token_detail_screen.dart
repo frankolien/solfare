@@ -328,16 +328,16 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   PopupMenuItem<String> _menuItem(String value, IconData icon, String label) {
     return PopupMenuItem<String>(
       value: value,
-      height: 46,
+      height: 40,
       child: Row(
         children: [
-          Icon(icon, color: Colors.white, size: 18),
-          const SizedBox(width: 12),
+          Icon(icon, color: Colors.white, size: 15),
+          const SizedBox(width: 10),
           Text(
             label,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 15,
+              fontSize: 13,
               fontFamily: 'FKGrotesk',
               fontWeight: FontWeight.w500,
             ),
@@ -441,21 +441,21 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
       elevation: 0,
       titleSpacing: 0,
       leading: IconButton(
-        icon: const Icon(Icons.close, color: Colors.white, size: 24),
+        icon: const Icon(Icons.close, color: Colors.white, size: 20),
         onPressed: () => Navigator.of(context).pop(),
       ),
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          MarketTokenIcon(token: token, size: 28),
-          const SizedBox(width: 10),
+          MarketTokenIcon(token: token, size: 22),
+          const SizedBox(width: 8),
           Flexible(
             child: Text(
               token.displayName,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 17,
+                fontSize: 14,
                 fontFamily: 'FKGrotesk',
                 fontWeight: FontWeight.w600,
               ),
@@ -467,14 +467,14 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
       actions: [
         // Only for a real mint. There is nothing to star about a listing
         // that arrived without one.
-        if (_isMintId) WatchlistStar(mint: widget.token.id, size: 24),
+        if (_isMintId) WatchlistStar(mint: widget.token.id, size: 18),
         IconButton(
-          icon: const Icon(Icons.ios_share, color: Colors.white, size: 22),
+          icon: const Icon(Icons.ios_share, color: Colors.white, size: 18),
           onPressed: _openShare,
         ),
         IconButton(
           key: _moreKey,
-          icon: const Icon(Icons.more_vert, color: Colors.white, size: 22),
+          icon: const Icon(Icons.more_vert, color: Colors.white, size: 18),
           onPressed: _openMoreMenu,
         ),
         const SizedBox(width: 4),
@@ -497,12 +497,12 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
             _formatPrice(_touchedPrice ?? displayedPrice),
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 34,
+              fontSize: 28,
               fontFamily: 'FKGroteskSemiMono',
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 5),
           if (_touchedPrice != null)
             _touchedChange(displayedPrice)
           else
@@ -511,14 +511,14 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                 Icon(
                   headerIsPositive ? Icons.north_east : Icons.south_east,
                   color: changeColor,
-                  size: 15,
+                  size: 13,
                 ),
                 const SizedBox(width: 4),
                 Text(
                   '${displayedChange.abs().toStringAsFixed(2)}%',
                   style: TextStyle(
                     color: changeColor,
-                    fontSize: 15,
+                    fontSize: 13,
                     fontFamily: 'FKGroteskSemiMono',
                     fontWeight: FontWeight.w500,
                   ),
@@ -551,23 +551,23 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
 
     return Row(
       children: [
-        Icon(pctChange >= 0 ? Icons.north_east : Icons.south_east, color: touchColor, size: 15),
+        Icon(pctChange >= 0 ? Icons.north_east : Icons.south_east, color: touchColor, size: 13),
         const SizedBox(width: 4),
         Text(
           '${pctChange.abs().toStringAsFixed(2)}%',
           style: TextStyle(
             color: touchColor,
-            fontSize: 15,
+            fontSize: 13,
             fontFamily: 'FKGroteskSemiMono',
             fontWeight: FontWeight.w500,
           ),
         ),
         const SizedBox(width: 8),
-        Text('•', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+        Text('•', style: TextStyle(color: Colors.grey[600], fontSize: 11)),
         const SizedBox(width: 8),
         Text(
           stamp,
-          style: TextStyle(color: Colors.grey[500], fontSize: 13, fontFamily: 'FKGrotesk'),
+          style: TextStyle(color: Colors.grey[500], fontSize: 11, fontFamily: 'FKGrotesk'),
         ),
       ],
     );
@@ -614,7 +614,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
               },
               behavior: HitTestBehavior.opaque,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 margin: const EdgeInsets.only(right: 4),
                 decoration: BoxDecoration(
                   color: _selectedTimeframe == i ? const Color(0xFF23262B) : Colors.transparent,
@@ -624,7 +624,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                   _timeframes[i],
                   style: TextStyle(
                     color: _selectedTimeframe == i ? Colors.white : Colors.grey[600],
-                    fontSize: 13,
+                    fontSize: 11,
                     fontFamily: 'FKGrotesk',
                     fontWeight: FontWeight.w500,
                   ),
@@ -656,12 +656,12 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
       onTap: () => setState(() => _isLineChart = isLine),
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: selected ? const Color(0xFF2A2D35) : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(icon, color: selected ? Colors.white : Colors.grey[600], size: 18),
+        child: Icon(icon, color: selected ? Colors.white : Colors.grey[600], size: 15),
       ),
     );
   }
@@ -695,24 +695,24 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
             'About',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 22,
+              fontSize: 13,
               fontFamily: 'FKGrotesk',
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           Text(
             _description ?? 'No description has been published for ${token.displayName}.',
             style: TextStyle(
               color: Colors.grey[400],
-              fontSize: 14,
+              fontSize: 12,
               fontFamily: 'FKGrotesk',
               height: 1.5,
             ),
             maxLines: 6,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 18),
           IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -736,14 +736,14 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
       children: [
         Text(
           label,
-          style: TextStyle(color: Colors.grey[600], fontSize: 12, fontFamily: 'FKGrotesk'),
+          style: TextStyle(color: Colors.grey[600], fontSize: 10, fontFamily: 'FKGrotesk'),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 5),
         Text(
           value,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 14,
+            fontSize: 12,
             fontFamily: 'FKGroteskSemiMono',
             fontWeight: FontWeight.w500,
           ),
@@ -758,9 +758,9 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
       children: [
         Text(
           'Mint address',
-          style: TextStyle(color: Colors.grey[600], fontSize: 12, fontFamily: 'FKGrotesk'),
+          style: TextStyle(color: Colors.grey[600], fontSize: 10, fontFamily: 'FKGrotesk'),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 5),
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: _mintAddress == null ? null : _copyMintAddress,
@@ -772,7 +772,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 14,
+                    fontSize: 12,
                     fontFamily: 'FKGroteskSemiMono',
                     fontWeight: FontWeight.w500,
                   ),
@@ -784,7 +784,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                 // Greyed out until the address has loaded, so the icon never
                 // invites a tap that would copy nothing.
                 color: _mintAddress == null ? Colors.grey[800] : Colors.grey[500],
-                size: 15,
+                size: 13,
               ),
             ],
           ),
@@ -815,21 +815,21 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
       onTap: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: const Color(0xFF15191F),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: Colors.white, size: 16),
-            const SizedBox(width: 8),
+            Icon(icon, color: Colors.white, size: 13),
+            const SizedBox(width: 7),
             Text(
               label,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 14,
+                fontSize: 12,
                 fontFamily: 'FKGrotesk',
                 fontWeight: FontWeight.w500,
               ),
@@ -860,7 +860,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.grey[600],
-                  fontSize: 12,
+                  fontSize: 11,
                   fontFamily: 'FKGrotesk',
                 ),
               ),
@@ -872,8 +872,8 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
                       reason == null ? const Color(0xFFF4D03F) : const Color(0xFF23262B),
-                  padding: const EdgeInsets.symmetric(vertical: 17),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                   elevation: 0,
                 ),
                 onPressed: reason == null ? _openBuy : null,
@@ -881,7 +881,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                   'Buy',
                   style: TextStyle(
                     color: reason == null ? Colors.black : Colors.grey[600],
-                    fontSize: 16,
+                    fontSize: 14,
                     fontFamily: 'FKGrotesk',
                     fontWeight: FontWeight.w600,
                   ),
@@ -1086,14 +1086,14 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
         children: [
           Text(
             label,
-            style: TextStyle(color: Colors.grey[600], fontSize: 13, fontFamily: 'FKGrotesk'),
+            style: TextStyle(color: Colors.grey[600], fontSize: 11, fontFamily: 'FKGrotesk'),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 5),
           Text(
             value,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 17,
+              fontSize: 13,
               fontFamily: 'FKGroteskSemiMono',
               fontWeight: FontWeight.w600,
             ),

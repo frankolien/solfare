@@ -34,11 +34,11 @@ class MarketRow extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 12, showStar ? 8 : 20, 12),
+        padding: EdgeInsets.fromLTRB(20, 9, showStar ? 6 : 20, 9),
         child: Row(
           children: [
-            MarketTokenIcon(token: token, size: 40, warn: !token.isVerified),
-            const SizedBox(width: 12),
+            MarketTokenIcon(token: token, size: 32, warn: !token.isVerified),
+            const SizedBox(width: 10),
             Expanded(
               flex: 6,
               child: Column(
@@ -49,13 +49,13 @@ class MarketRow extends StatelessWidget {
                     token.displayName,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 15,
+                      fontSize: 13,
                       fontFamily: 'FKGrotesk',
                       fontWeight: FontWeight.w500,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Row(
                     children: [
                       Flexible(
@@ -63,7 +63,7 @@ class MarketRow extends StatelessWidget {
                           MarketFormat.price(token.currentPrice),
                           style: TextStyle(
                             color: Colors.grey[500],
-                            fontSize: 12,
+                            fontSize: 11,
                             fontFamily: 'FKGroteskSemiMono',
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -74,7 +74,7 @@ class MarketRow extends StatelessWidget {
                         MarketFormat.percent(stats.priceChange),
                         style: TextStyle(
                           color: stats.priceChange >= 0 ? up : down,
-                          fontSize: 12,
+                          fontSize: 11,
                           fontFamily: 'FKGroteskSemiMono',
                           fontWeight: FontWeight.w500,
                         ),
@@ -92,17 +92,17 @@ class MarketRow extends StatelessWidget {
                   MarketFormat.compact(token.marketCap),
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 13,
+                    fontSize: 12,
                     fontFamily: 'FKGroteskSemiMono',
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 2),
                 Text(
                   stats.volume == 0 ? '—' : MarketFormat.compact(stats.volume),
                   style: TextStyle(
                     color: Colors.grey[600],
-                    fontSize: 12,
+                    fontSize: 11,
                     fontFamily: 'FKGroteskSemiMono',
                   ),
                 ),
@@ -134,12 +134,12 @@ class MarketRowSkeleton extends StatelessWidget {
       shrinkWrap: shrinkWrap,
       physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
       itemBuilder: (_, __) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
         child: Row(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(color: Colors.grey[900], shape: BoxShape.circle),
             ),
             const SizedBox(width: 12),
