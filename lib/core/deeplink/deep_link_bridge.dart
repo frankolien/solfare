@@ -62,6 +62,10 @@ class DeepLinkBridge {
     _router?.go(AppRoutes.homepage);
   }
 
+  /// A URL that reached the app by a path other than the method channel —
+  /// the router's exception handler, for instance. Same handling either way.
+  static void handleExternal(String raw) => _handle(raw);
+
   // Test-only seam.
   @visibleForTesting
   static void handleForTest(String raw) => _handle(raw);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:solfare/core/deeplink/deep_link_bridge.dart';
 import 'package:solfare/features/homepage/presentation/screens/homepage_screen.dart';
 import 'package:solfare/features/wallet/presentation/screens/biometric_setup_screen.dart';
 import 'package:solfare/features/wallet/presentation/screens/create_wallet_intro_screen.dart';
@@ -37,6 +38,13 @@ abstract class AppRoutes {
 
 final GoRouter appRouter = GoRouter(
   initialLocation: AppRoutes.splash,
+  // A URL that is not a page — a dapp request, or anything malformed —
+  // reaches the router on some launch paths. Hand it to the deeplink bridge
+  // and go home, rather than showing the user a GoException.
+  onException: (context, state, router) {
+    DeepLinkBridge.handleExternal(state.uri.toString());
+    router.go(AppRoutes.homepage);
+  },
   routes: [
     GoRoute(
       path: AppRoutes.splash,

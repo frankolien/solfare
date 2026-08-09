@@ -67,6 +67,11 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- The engine's automatic deep linking pushes incoming URLs at the
+	     router as page locations, which makes solfare://v1/* a 404. This app
+	     routes them through its own solfare/deeplink channel instead. -->
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
