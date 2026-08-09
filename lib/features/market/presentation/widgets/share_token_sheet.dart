@@ -27,11 +27,16 @@ class ShareTokenSheet extends StatefulWidget {
   /// card and the caller agree on when it was made.
   final DateTime capturedAt;
 
+  /// The token's brand colour, when its logo had one. Null falls back to
+  /// green or red for the direction.
+  final Color? accent;
+
   const ShareTokenSheet({
     super.key,
     required this.token,
     required this.capturedAt,
     this.sparkline = const [],
+    this.accent,
   });
 
   static Future<void> show(
@@ -39,6 +44,7 @@ class ShareTokenSheet extends StatefulWidget {
     required MarketToken token,
     List<double> sparkline = const [],
     DateTime? capturedAt,
+    Color? accent,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -48,6 +54,7 @@ class ShareTokenSheet extends StatefulWidget {
         token: token,
         sparkline: sparkline,
         capturedAt: capturedAt ?? DateTime.now().toUtc(),
+        accent: accent,
       ),
     );
   }
@@ -173,6 +180,9 @@ class _ShareTokenSheetState extends State<ShareTokenSheet> {
   Widget _card() {
     final change = token.priceChange(MarketWindow.h24);
     final positive = change >= 0;
+    // The line takes the brand colour; the percentage keeps green and red,
+    // because that one has to mean up and down.
+    final lineColor = widget.accent ?? (positive ? MarketRow.up : MarketRow.down);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -263,7 +273,7 @@ class _ShareTokenSheetState extends State<ShareTokenSheet> {
                     size: const Size(double.infinity, 56),
                     painter: _SparklinePainter(
                       points: widget.sparkline,
-                      color: positive ? MarketRow.up : MarketRow.down,
+                      color: lineColor,
                     ),
                   ),
           ),

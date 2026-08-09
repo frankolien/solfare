@@ -10,6 +10,7 @@ import 'package:solfare/core/util/copied_toast.dart';
 import 'package:solfare/core/wallet/active_wallet.dart';
 import 'package:solfare/features/wallet/domain/entities/spl_token.dart';
 import 'package:solfare/features/market/domain/entities/market_token.dart';
+import 'package:solfare/features/market/presentation/brand_colors.dart';
 import 'package:solfare/features/market/presentation/market_format.dart';
 import 'package:solfare/features/market/presentation/widgets/add_funds_sheet.dart';
 import 'package:solfare/features/market/presentation/widgets/market_token_icon.dart';
@@ -53,6 +54,10 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
 
   String? _homepage;
   String? _twitterHandle;
+
+  /// Taken from the token's own logo, so the chart says which asset this is
+  /// before the name has been read. Null when the logo has no hue to give.
+  Color? _brandColor;
   String? _mintAddress;
   String? _description;
   List<double> _chartData = [];
@@ -88,6 +93,10 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   void initState() {
     super.initState();
     _chartData = widget.token.sparklineData;
+    // Already measured for this logo on a previous visit, so the chart opens
+    // in the right colour instead of flashing the fallback.
+    _brandColor = BrandColors.cached(widget.token.imageUrl);
+    _loadBrandColor();
     _fetchMintAddress();
     _fetchChartData();
     // SOL header should start with a real price even if WalletBloc hasn't
@@ -96,6 +105,13 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     if (_isSol) {
       context.read<WalletBloc>().add(const FetchSolPriceEvent());
     }
+  }
+
+  Future<void> _loadBrandColor() async {
+    if (_brandColor != null) return;
+    final color = await BrandColors.of(widget.token.imageUrl);
+    if (!mounted || color == null) return;
+    setState(() => _brandColor = color);
   }
 
   /// Native SOL, however it was reached — the market list now hands over the
@@ -274,6 +290,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
       context,
       token: widget.token,
       sparkline: _chartData,
+      accent: _brandColor,
     );
   }
 
@@ -400,8 +417,11 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     final displayedChange = _liveSolChange ?? token.priceChangePercentage24h;
     final headerIsPositive = displayedChange >= 0;
     final changeColor = headerIsPositive ? _up : _down;
+    // The brand colour wins over direction: the arrow and the percentage
+    // already say up or down, and saying it a third time in the line costs
+    // the one thing the line could say instead.
     final isPositive = token.priceChangePercentage24h >= 0;
-    final chartColor = isPositive ? const Color(0xFF7B61FF) : _down;
+    final chartColor = _brandColor ?? (isPositive ? const Color(0xFF7B61FF) : _down);
 
     return BlocListener<WalletBloc, WalletState>(
       listenWhen: (prev, curr) => curr is SolPriceFetched && _isSol,
