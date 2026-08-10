@@ -161,9 +161,10 @@ class _SwapScreenState extends State<SwapScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Warning banner
-                if (state.outputAmount != null)
-                  _buildWarningBanner(state),
+                // Bound to the balance check, not to having a quote. Every
+                // successful quote on a funded wallet used to render a red
+                // "Insufficient" banner directly above an enabled button.
+                if (_isShort(state)) _buildWarningBanner(state),
                 const SizedBox(height: 10),
                 _buildSwapButton(context, state),
                 
@@ -313,7 +314,7 @@ class _SwapScreenState extends State<SwapScreen> {
           children: [
             Text('SELL', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500, letterSpacing: 1)),
             const Spacer(),
-            Text('Max: 0', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGrotesk')),
+            Text(_maxLabel(state), style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGrotesk')),
           ],
         ),
         const SizedBox(height: 12),
@@ -385,7 +386,7 @@ class _SwapScreenState extends State<SwapScreen> {
             const SizedBox(width: 4),
             Icon(Icons.info_outline, color: Colors.grey[600], size: 12),
             const Spacer(),
-            Text('Balance: 0', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGrotesk')),
+            Text(_balanceLabel(state), style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGrotesk')),
           ],
         ),
         const SizedBox(height: 12),
@@ -439,7 +440,13 @@ class _SwapScreenState extends State<SwapScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Make sure you have more than 0.005 SOL in your wallet to cover network fees.',
+                  // Interpolated, not written out: the copy said 0.005 while
+                  // SwapLimits.solFeeReserve was 0.01, so the wallet told the
+                  // user a number it did not itself use.
+                  SwapLimits.isNativeSol(state.inputToken)
+                      ? 'Swapping SOL also pays the network fee and any token '
+                          'account rent, so ${SwapLimits.solFeeReserve} SOL is held back.'
+                      : 'You do not have enough ${state.inputToken.symbol} for this swap.',
                   style: TextStyle(color: Colors.grey[400], fontSize: 10, fontFamily: 'FKGrotesk', height: 1.3),
                 ),
               ],
@@ -448,6 +455,44 @@ class _SwapScreenState extends State<SwapScreen> {
         ],
       ),
     );
+  }
+
+  /// Whether the balance is known and does not cover the amount typed. An
+  /// unknown balance is not "short" — the simulation is what actually knows.
+  bool _isShort(SwapReady state) {
+    final balance = state.inputBalance;
+    final amount = double.tryParse(state.inputAmount) ?? 0;
+    if (balance == null || amount <= 0) return false;
+    return !SwapLimits.covers(
+      amount: amount,
+      balance: balance,
+      nativeSol: SwapLimits.isNativeSol(state.inputToken),
+    );
+  }
+
+  // These read the balance the bloc already fetched and carried in state.
+  // Both were the string literals 'Max: 0' and 'Balance: 0', so a wallet
+  // holding 12 SOL was told its max was zero.
+  String _maxLabel(SwapReady state) {
+    final balance = state.inputBalance;
+    if (balance == null) return 'Max: —';
+    final max = SwapLimits.maxSpendable(
+      balance: balance,
+      nativeSol: SwapLimits.isNativeSol(state.inputToken),
+    );
+    return 'Max: ${_trim(max)}';
+  }
+
+  String _balanceLabel(SwapReady state) {
+    final balance = state.inputBalance;
+    return balance == null ? 'Balance: —' : 'Balance: ${_trim(balance)}';
+  }
+
+  static String _trim(double value) {
+    final text = value.toStringAsFixed(6);
+    return text.contains('.')
+        ? text.replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '')
+        : text;
   }
 
   Widget _buildSwapButton(BuildContext context, SwapReady state) {

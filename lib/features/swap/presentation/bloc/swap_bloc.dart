@@ -18,6 +18,22 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
   late final SolanaRpcDataSource _rpc;
   late final PreviewEngine _preview;
 
+  /// Base units for [amount] of [token].
+  ///
+  /// Shared because the two call sites had drifted: the quote truncated and
+  /// the execute rounded, so 8.7 USDC quoted 8699999 and swapped 8700000 —
+  /// the user was shown a price for an amount the swap did not make.
+  static int baseUnits(double amount, SwapToken token) =>
+      (amount * pow(10, token.decimals)).round();
+
+  /// Bumped per quote request; a response whose id no longer matches is a
+  /// stale one and is dropped. Bloc 8's default transformer is concurrent
+  /// and a quote fires on every keystroke, so the last response to *return*
+  /// used to win rather than the last keystroke: type "12", backspace to
+  /// "1", and the field read 1 while the state said 12 — which is the amount
+  /// the execute then prepared.
+  int _quoteId = 0;
+
   /// The signed route waiting on the user. Dropped the moment they back out.
   PreparedSwap? _prepared;
 
@@ -60,10 +76,12 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
   void _onSelectInput(SelectInputTokenEvent event, Emitter<SwapState> emit) {
     if (state is SwapReady) {
       final s = state as SwapReady;
+      _quoteId++;
       emit(s.copyWith(
         inputToken: event.token,
         outputAmount: null,
         rate: null,
+        priceImpact: null,
         inputBalance: null,
       ));
       _refreshBalance();
@@ -73,7 +91,17 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
   void _onSelectOutput(SelectOutputTokenEvent event, Emitter<SwapState> emit) {
     if (state is SwapReady) {
       final s = state as SwapReady;
-      emit(s.copyWith(outputToken: event.token, outputAmount: null, rate: null));
+      // Self-swaps have no route. Buying SOL from the market screen set the
+      // output to wrapped SOL, which is also the default input, so the form
+      // sat on SOL→SOL and every amount produced "Failed to get quote".
+      if (event.token.mint == s.inputToken.mint) return;
+      _quoteId++;
+      emit(s.copyWith(
+        outputToken: event.token,
+        outputAmount: null,
+        rate: null,
+        priceImpact: null,
+      ));
     }
   }
 
@@ -87,30 +115,43 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
         return;
       }
 
+      final quoteId = ++_quoteId;
       emit(s.copyWith(inputAmount: event.amount, isLoadingQuote: true, error: null));
 
       try {
-        final lamports = (amount * pow(10, s.inputToken.decimals)).toInt();
         final quoteData = await _jupiter.getQuote(
           inputMint: s.inputToken.mint,
           outputMint: s.outputToken.mint,
-          amount: lamports,
+          amount: baseUnits(amount, s.inputToken),
         );
+        if (quoteId != _quoteId) return;
 
-        final outAmount = int.parse(quoteData['outAmount'].toString());
-        final outputDecimal = outAmount / pow(10, s.outputToken.decimals);
+        // Re-read: `s` was captured before the await, and emitting a
+        // copyWith of it would put back whatever pair or amount was current
+        // when the request left.
+        final now = state;
+        if (now is! SwapReady) return;
+
+        final outAmount = int.tryParse(quoteData['outAmount']?.toString() ?? '');
+        if (outAmount == null) {
+          emit(now.copyWith(isLoadingQuote: false, error: 'Failed to get quote'));
+          return;
+        }
+        final outputDecimal = outAmount / pow(10, now.outputToken.decimals);
         final impact = double.tryParse(quoteData['priceImpactPct']?.toString() ?? '0') ?? 0;
-        final rate = outputDecimal / amount;
 
-        emit(s.copyWith(
-          inputAmount: event.amount,
-          outputAmount: outputDecimal.toStringAsFixed(s.outputToken.decimals > 4 ? 4 : s.outputToken.decimals),
+        emit(now.copyWith(
+          outputAmount: outputDecimal
+              .toStringAsFixed(now.outputToken.decimals > 4 ? 4 : now.outputToken.decimals),
           priceImpact: impact,
-          rate: rate,
+          rate: outputDecimal / amount,
           isLoadingQuote: false,
         ));
       } catch (e) {
-        emit(s.copyWith(inputAmount: event.amount, isLoadingQuote: false, error: 'Failed to get quote'));
+        if (quoteId != _quoteId) return;
+        final now = state;
+        if (now is! SwapReady) return;
+        emit(now.copyWith(isLoadingQuote: false, error: 'Failed to get quote'));
       }
     }
   }
@@ -118,12 +159,14 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
   void _onFlipTokens(FlipTokensEvent event, Emitter<SwapState> emit) {
     if (state is SwapReady) {
       final s = state as SwapReady;
+      _quoteId++;
       emit(s.copyWith(
         inputToken: s.outputToken,
         outputToken: s.inputToken,
         inputAmount: '',
         outputAmount: null,
         rate: null,
+        priceImpact: null,
         inputBalance: null,
       ));
       _refreshBalance();
@@ -150,7 +193,12 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
 
   /// Native SOL lives in the account itself; everything else is an SPL
   /// balance spread over the owner's token accounts.
-  Future<double> _balanceOf(SwapToken token, String owner) async {
+  /// Null on failure, which SwapLimits.covers reads as "unknown, do not
+  /// block". Returning 0 made a transient RPC error indistinguishable from
+  /// an empty wallet, so one failed lookup showed "Insufficient SOL" on a
+  /// funded wallet — permanently, since nothing retries until the user
+  /// switches tokens.
+  Future<double?> _balanceOf(SwapToken token, String owner) async {
     try {
       if (token.mint == SwapToken.sol.mint) {
         return Lamports.toSol(await _rpc.getBalance(owner));
@@ -158,7 +206,7 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
       return await _rpc.getTokenBalance(owner, token.mint);
     } catch (e) {
       debugLog('[Swap] balance lookup failed: $e');
-      return 0;
+      return null;
     }
   }
 
@@ -219,7 +267,7 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
       final prepared = await _executor.prepare(
         inputMint: s.inputToken.mint,
         outputMint: s.outputToken.mint,
-        amountRaw: (amount * pow(10, s.inputToken.decimals)).round(),
+        amountRaw: baseUnits(amount, s.inputToken),
         walletAddress: event.walletAddress,
         keyPair: keyPair,
       );

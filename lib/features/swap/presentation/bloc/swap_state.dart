@@ -43,29 +43,40 @@ class SwapReady extends SwapState {
     this.inputBalance,
   });
 
+  /// Distinguishes "leave this alone" from "set this to null".
+  ///
+  /// `x ?? this.x` cannot tell those apart, so every attempt to clear the
+  /// quote was a no-op: change the output token after quoting 1 SOL and the
+  /// old outputAmount survived, hasQuote stayed true, and the review sheet
+  /// headlined "1 SOL → 150.0000 BONK" for a route paying ~5,400,000 BONK.
+  static const _keep = Object();
+
   SwapReady copyWith({
     List<SwapToken>? tokens,
     SwapToken? inputToken,
     SwapToken? outputToken,
     String? inputAmount,
-    String? outputAmount,
-    double? priceImpact,
-    double? rate,
+    Object? outputAmount = _keep,
+    Object? priceImpact = _keep,
+    Object? rate = _keep,
     bool? isLoadingQuote,
     String? error,
-    double? inputBalance,
+    Object? inputBalance = _keep,
   }) {
     return SwapReady(
       tokens: tokens ?? this.tokens,
       inputToken: inputToken ?? this.inputToken,
       outputToken: outputToken ?? this.outputToken,
       inputAmount: inputAmount ?? this.inputAmount,
-      outputAmount: outputAmount ?? this.outputAmount,
-      priceImpact: priceImpact ?? this.priceImpact,
-      rate: rate ?? this.rate,
+      outputAmount:
+          identical(outputAmount, _keep) ? this.outputAmount : outputAmount as String?,
+      priceImpact:
+          identical(priceImpact, _keep) ? this.priceImpact : priceImpact as double?,
+      rate: identical(rate, _keep) ? this.rate : rate as double?,
       isLoadingQuote: isLoadingQuote ?? this.isLoadingQuote,
       error: error,
-      inputBalance: inputBalance ?? this.inputBalance,
+      inputBalance:
+          identical(inputBalance, _keep) ? this.inputBalance : inputBalance as double?,
     );
   }
 
