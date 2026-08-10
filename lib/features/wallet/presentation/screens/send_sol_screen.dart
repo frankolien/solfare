@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solfare/core/router/app_router.dart';
-import 'package:solfare/core/solana/pay/pay_request.dart';
 import 'package:solfare/core/solana/pay/pay_resolver.dart';
 import 'package:solfare/core/solana/tx_outcome.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
@@ -13,6 +12,7 @@ import 'package:solfare/features/wallet/data/datasource/contacts_local_datasourc
 import 'package:solfare/features/wallet/domain/entities/spl_token.dart';
 import 'package:solfare/features/wallet/presentation/screens/qr_scanner_screen.dart';
 import 'package:solfare/features/wallet/presentation/widgets/confirm_send_sheet.dart';
+import 'package:solfare/features/wallet/presentation/widgets/solana_pay_sheet.dart';
 import 'package:solfare/features/wallet/presentation/widgets/send_status_sheet.dart';
 
 enum _SendStage { recipient, amount }
@@ -60,6 +60,11 @@ class _SendSolScreenState extends State<SendSolScreen> {
   double get _priceUsd => _token?.priceUsd ?? widget.solPriceUsd;
 
   final TextEditingController _addressController = TextEditingController();
+
+  // WalletBloc is app-wide, so this screen sees states belonging to balance
+  // refreshes, price ticks and history fetches. Only a send this screen
+  // started may drive its status sheet.
+  bool _sendInFlight = false;
   String _amount = '0';
   String _recipientName = '';
   final ContactsLocalDataSource _contactsDS = ContactsLocalDataSource();
@@ -112,12 +117,22 @@ class _SendSolScreenState extends State<SendSolScreen> {
     return name.substring(0, name.length >= 2 ? 2 : 1).toUpperCase();
   }
 
-  void _onPaste() async {
+  Future<void> _onPaste() async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
-    if (data?.text != null) {
-      _addressController.text = data!.text!.trim();
-      setState(() {});
+    final text = data?.text?.trim();
+    if (text == null || text.isEmpty || !mounted) return;
+
+    // A solana: URL is a normal thing to be sent over chat, and pasting one
+    // used to drop it into the address field verbatim — where it passed the
+    // length check and then died inside fromBase58 with a raw exception.
+    // Same handling as the scanner: it is the same payload either way.
+    if (PayResolver.parse(text) != null) {
+      _handleScanned(text);
+      return;
     }
+
+    _addressController.text = text;
+    setState(() {});
   }
 
   void _selectRecipient({String? name, String? address}) {
@@ -207,8 +222,33 @@ class _SendSolScreenState extends State<SendSolScreen> {
     );
   }
 
+  /// A scanned code is either a Solana Pay request or a plain address.
+  ///
+  /// A pay request goes to the pay sheet rather than being unpacked into this
+  /// screen's fields. This screen sends one asset — whichever it was opened
+  /// for — and it used to read only `recipient` and `amount` off the request,
+  /// dropping `spl-token` entirely: a 25 USDC merchant code scanned here
+  /// prefilled "25" and sent 25 SOL. It also dropped the reference keys the
+  /// merchant needs to reconcile the payment, so even the native-SOL case was
+  /// only accidentally right.
+  void _handleScanned(String scanned) {
+    if (PayResolver.parse(scanned) == null) {
+      _selectRecipient(address: scanned);
+      return;
+    }
+
+    context.read<WalletBloc>().add(ResolvePayEvent(scanned));
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => const SolanaPaySheet(),
+    );
+  }
+
   void _executeSend() {
     final token = _token;
+    _sendInFlight = true;
     context.read<WalletBloc>().add(token == null
         ? SendSolEvent(
             recipientAddress: _recipientAddress,
@@ -226,18 +266,28 @@ class _SendSolScreenState extends State<SendSolScreen> {
   Widget build(BuildContext context) {
     return BlocListener<WalletBloc, WalletState>(
       listener: (context, state) {
+        // WalletBloc is app-wide and this screen shares it with the balance
+        // and history fetches — which _onSendSol itself kicks off the moment
+        // a send confirms. Without this gate a 429 on that follow-up fetch
+        // replaced the success sheet with "Failed", telling the user their
+        // money did not move when it had.
+        if (!_sendInFlight) return;
+
         if (state is SendingSol) {
           // Only the first phase opens the sheet; the rest update it in place
           // via the BlocBuilder inside SendStatusSheet.
           if (state.phase == TxPhase.preparing) _showStatusSheet('sending');
         } else if (state is SolSent) {
-          Navigator.of(context).popUntil((route) => route.isFirst == false && route.settings.name == null);
+          _sendInFlight = false;
+          _dismissStatusSheet();
           _showStatusSheet('success', signature: state.signature);
         } else if (state is SolSendFailed) {
-          if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+          _sendInFlight = false;
+          _dismissStatusSheet();
           _showStatusSheet('error', error: state.message, signature: state.signature);
         } else if (state is WalletError) {
-          if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+          _sendInFlight = false;
+          _dismissStatusSheet();
           _showStatusSheet('error', error: state.message);
         }
       },
@@ -320,18 +370,7 @@ class _SendSolScreenState extends State<SendSolScreen> {
                     MaterialPageRoute(builder: (_) => const QrScannerScreen()),
                   );
                   if (address != null && mounted) {
-                    // The scanner returns solana: URLs whole now, so a pay
-                    // code has to be unpacked rather than used as an address.
-                    final request = PayResolver.parse(address);
-                    if (request is PayTransferRequest) {
-                      _selectRecipient(address: request.recipient);
-                      final amount = request.amount;
-                      if (amount != null) {
-                        setState(() => _amount = amount.toString());
-                      }
-                    } else {
-                      _selectRecipient(address: address);
-                    }
+                    _handleScanned(address);
                   }
                 },
               ),
@@ -820,6 +859,21 @@ class _SendSolScreenState extends State<SendSolScreen> {
     );
   }
 
+  // The route the status sheet is sitting on, so it can be dismissed by
+  // identity. The old code popped by predicate — one of them
+  // (`route.isFirst == false && route.settings.name == null`) matched the
+  // sheet itself and so popped nothing, leaving the spinner alive underneath
+  // the success sheet; the others popped whatever happened to be on top.
+  ModalRoute<void>? _statusRoute;
+
+  void _dismissStatusSheet() {
+    final route = _statusRoute;
+    _statusRoute = null;
+    if (route != null && route.isActive) {
+      Navigator.of(context).removeRoute(route);
+    }
+  }
+
   void _showStatusSheet(String status, {String? signature, String? error}) {
     showModalBottomSheet(
       context: context,
@@ -827,7 +881,21 @@ class _SendSolScreenState extends State<SendSolScreen> {
       isDismissible: status != 'sending',
       enableDrag: status != 'sending',
       isScrollControlled: true,
-      builder: (sheetContext) => SendStatusSheet(
+      routeSettings: RouteSettings(name: 'send-status/$status'),
+      builder: (sheetContext) {
+        _statusRoute = ModalRoute.of(sheetContext) as ModalRoute<void>?;
+        return _statusSheet(sheetContext, status, signature, error);
+      },
+    ).whenComplete(() => _statusRoute = null);
+  }
+
+  Widget _statusSheet(
+    BuildContext sheetContext,
+    String status,
+    String? signature,
+    String? error,
+  ) {
+    return SendStatusSheet(
         status: status,
         signature: signature,
         error: error,
@@ -839,7 +907,6 @@ class _SendSolScreenState extends State<SendSolScreen> {
           Navigator.of(sheetContext).pop();
           _showSaveContactSheet();
         },
-      ),
     );
   }
 
