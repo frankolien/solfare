@@ -1,5 +1,35 @@
 # Codebase audit
 
+> **Status.** Tiers 0–4 are fixed, plus most of 5, 6.1 and 6.5, and the parts
+> of 7 that were actively misleading. The analyzer is clean (from 154 issues
+> under the new rules) and the suite is at 318 tests, up from 242.
+>
+> **Still open, and why:**
+>
+> - **1.5 — the passcode gates a boolean, not the key.** The mnemonic is
+>   stored unwrapped, so anyone who can read the keychain has it without the
+>   passcode. Fixing it properly means an AES-GCM envelope keyed by the
+>   existing PBKDF2 output, plus a migration for every existing install. It is
+>   the largest remaining item and wants its own design pass.
+> - **3.5 — Token-2022 permanent delegate and transfer hook** are parsed and
+>   discarded. `_tokenSendNotes` surfaces only the transfer fee.
+> - **3.6 — the previewed fee excludes the priority bid**, so a congested
+>   send can be understated by orders of magnitude.
+> - **3.7 — attacker-controlled strings** (program logs, mint symbols) are
+>   still rendered unbounded and unfiltered.
+> - **5 — the crosshair timestamp** and **SPL transfers in Activity**, which
+>   render as "0 SOL" to the wrong counterparty. The latter needs the
+>   transaction entity to carry a mint.
+> - **6.2 — no theme.** 148 distinct hex literals, 459 hand-written
+>   `fontFamily`s. Mechanical but wide.
+> - **6.3 — address shortening ×18**, still drifting on separator and length.
+> - **6.4 — 17 dead buttons and 91 unused ARB keys**; l10n is bypassed by all
+>   but six files.
+> - **7 — no tests for `DappConnectService`, `PreviewEngine`, `PayResolver.
+>   _assertSafeToSign`, or `SwapExecutor`**, all of which are on a signing
+>   path.
+
+
 Ten reviewers over 178 files / 33,906 lines of `lib`, plus the 23 test files.
 Every finding below was verified against the source before it was written down;
 claims that did not survive verification are recorded at the bottom so they are
