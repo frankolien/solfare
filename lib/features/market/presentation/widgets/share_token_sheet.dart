@@ -374,7 +374,7 @@ class _ShareTokenSheetState extends State<ShareTokenSheet> {
     );
   }
 
-  /// A price on a card is only true at a moment, so the card says which.
+  // A price on a card is only true at a moment, so the card says which.
   static String _stamp(DateTime time) {
     const months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',

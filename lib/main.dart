@@ -32,12 +32,12 @@ void main() async {
   runApp(const MainApp());
 }
 
-/// iOS keeps Keychain entries across app uninstalls, so a fresh reinstall
-/// inherits whatever mnemonic/passcode/etc the previous install left behind
-/// — which causes "ghost wallets", orphaned passcodes, and stuck unlock
-/// screens. SharedPreferences *is* wiped on uninstall, so we use its
-/// absence as the signal for "truly fresh install" and nuke everything in
-/// secure storage once, at the very top of the boot.
+// iOS keeps Keychain entries across app uninstalls, so a fresh reinstall
+// inherits whatever mnemonic/passcode/etc the previous install left behind
+// — which causes "ghost wallets", orphaned passcodes, and stuck unlock
+// screens. SharedPreferences *is* wiped on uninstall, so we use its
+// absence as the signal for "truly fresh install" and nuke everything in
+// secure storage once, at the very top of the boot.
 Future<void> _wipeSecureStorageOnFreshInstall() async {
   const flag = 'app_installed_v1';
   final prefs = await SharedPreferences.getInstance();
@@ -119,7 +119,7 @@ class _MainAppState extends State<MainApp> {
   }
 }
 
-/// InheritedWidget so any screen can access the LocaleProvider
+// InheritedWidget so any screen can access the LocaleProvider
 class _LocaleScope extends InheritedWidget {
   final LocaleProvider provider;
 

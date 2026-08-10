@@ -318,10 +318,10 @@ class InstructionDecoder {
     return ByteData.sublistView(data, offset, offset + 8).getUint64(0, Endian.little);
   }
 
-  /// Dart ints are signed, so a u64 at or above 2^63 comes back negative —
-  /// u64 max reads as -1. Token amounts reach exactly that range, and an
-  /// unlimited approval is the case that matters most, so amounts are carried
-  /// as their unsigned decimal string.
+  // Dart ints are signed, so a u64 at or above 2^63 comes back negative —
+  // u64 max reads as -1. Token amounts reach exactly that range, and an
+  // unlimited approval is the case that matters most, so amounts are carried
+  // as their unsigned decimal string.
   String _u64Str(Uint8List data, int offset) =>
       BigInt.from(_u64(data, offset)).toUnsigned(64).toString();
 

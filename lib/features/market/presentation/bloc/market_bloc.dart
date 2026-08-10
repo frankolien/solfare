@@ -22,8 +22,8 @@ class MarketBloc extends Bloc<MarketEvent, MarketState> {
 
   final Map<String, _CachedFeed> _cache = {};
 
-  /// Bumped before every load. A response whose id no longer matches lost the
-  /// race to a newer selection and is dropped.
+  // Bumped before every load. A response whose id no longer matches lost the
+  // race to a newer selection and is dropped.
   int _loadId = 0;
 
   MarketBloc({
@@ -116,8 +116,8 @@ class MarketBloc extends Bloc<MarketEvent, MarketState> {
     )));
   }
 
-  /// Always sorts from the feed's own order, never from the last sort's
-  /// output — which is what made Rank a one-way door.
+  // Always sorts from the feed's own order, never from the last sort's
+  // output — which is what made Rank a one-way door.
   MarketState _ordered(MarketState next) => next.copyWith(
         tokens: sortMarketTokens(
           next.unsorted.isEmpty ? next.tokens : next.unsorted,
@@ -127,9 +127,9 @@ class MarketBloc extends Bloc<MarketEvent, MarketState> {
         ),
       );
 
-  /// A feed and a watchlist both arrive in an order that means something —
-  /// Jupiter's ranking and the user's own. A shelf does not, so it opens on
-  /// the measure that means most for an asset rather than on registry order.
+  // A feed and a watchlist both arrive in an order that means something —
+  // Jupiter's ranking and the user's own. A shelf does not, so it opens on
+  // the measure that means most for an asset rather than on registry order.
   static MarketSort _defaultSort(MarketSection section) =>
       section.shelf == null ? MarketSort.rank : MarketSort.marketCap;
 

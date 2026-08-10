@@ -72,7 +72,7 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     http.Client? client,
   })  : client = client ?? http.Client();
 
-  /// Validate a Solana address and return the cleaned version
+  // Validate a Solana address and return the cleaned version
   String _validateAddress(String address) {
     final trimmed = address.trim();
     if (trimmed.isEmpty) {
@@ -553,8 +553,8 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     }
   }
 
-  /// Map a DAS asset payload to a SplToken. Returns null for non-fungible
-  /// assets and for tokens with a zero balance (to keep the list tidy).
+  // Map a DAS asset payload to a SplToken. Returns null for non-fungible
+  // assets and for tokens with a zero balance (to keep the list tidy).
   SplToken? _tokenFromDasAsset(Map<String, dynamic> asset) {
     final interface = asset['interface'] as String? ?? '';
     if (!interface.contains('Fungible')) return null;
@@ -616,9 +616,9 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     );
   }
 
-  /// First value that is present and not blank. DAS returns both null and
-  /// empty strings for missing metadata, and only one of those is caught by
-  /// a `??` chain.
+  // First value that is present and not blank. DAS returns both null and
+  // empty strings for missing metadata, and only one of those is caught by
+  // a `??` chain.
   String? _firstNonEmpty(List<String?> candidates) {
     for (final value in candidates) {
       if (value != null && value.trim().isNotEmpty) return value;
@@ -634,8 +634,8 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     return v;
   }
 
-  /// Map a DAS asset payload to our Nft entity. Filters out non-NFT assets
-  /// (fungible tokens) by interface type.
+  // Map a DAS asset payload to our Nft entity. Filters out non-NFT assets
+  // (fungible tokens) by interface type.
   Nft? _nftFromDasAsset(Map<String, dynamic> asset) {
     final interface = asset['interface'] as String? ?? '';
     // Interfaces for NFTs: V1_NFT, V2_NFT, ProgrammableNFT, LEGACY_NFT, MplCoreAsset.
@@ -707,9 +707,9 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     );
   }
 
-  /// Inspect a parsed transaction's token balance deltas to find an NFT
-  /// transfer involving [owner]. Returns null if none found. An NFT is
-  /// identified by decimals=0 and a balance change of exactly 1 unit.
+  // Inspect a parsed transaction's token balance deltas to find an NFT
+  // transfer involving [owner]. Returns null if none found. An NFT is
+  // identified by decimals=0 and a balance change of exactly 1 unit.
   _NftTransferInfo? _detectNftTransfer(Map<String, dynamic> meta, String owner) {
     final preBalances = meta.listAt('preTokenBalances') ?? const [];
     final postBalances = meta.listAt('postTokenBalances') ?? const [];
@@ -803,15 +803,15 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     }
   }
 
-  /// True if [uri]'s extension suggests an animated image that Flutter's
-  /// Image.network can render (gif, animated webp). Videos (mp4/webm) are
-  /// excluded since they need video_player.
+  // True if [uri]'s extension suggests an animated image that Flutter's
+  // Image.network can render (gif, animated webp). Videos (mp4/webm) are
+  // excluded since they need video_player.
   bool _looksAnimated(String uri) {
     final lower = uri.toLowerCase().split('?').first;
     return lower.endsWith('.gif') || lower.endsWith('.webp');
   }
 
-  /// Rewrite ipfs:// and ar:// URIs to public HTTPS gateways so Image.network can load them.
+  // Rewrite ipfs:// and ar:// URIs to public HTTPS gateways so Image.network can load them.
   String? _normalizeImageUri(String? uri) {
     if (uri == null || uri.isEmpty) return null;
     final trimmed = uri.trim();
@@ -915,17 +915,17 @@ class _NftTransferInfo {
   const _NftTransferInfo({required this.mint, required this.from, required this.to});
 }
 
-/// A stake delegation epoch.
-///
-/// The runtime writes u64 max for "never deactivates", which is past 2^63 and
-/// so returns null from int.tryParse. The old `?? 0` turned that into
-/// "deactivated at epoch 0", which is how an actively-staked account read as
-/// deactivating forever.
+// A stake delegation epoch.
+//
+// The runtime writes u64 max for "never deactivates", which is past 2^63 and
+// so returns null from int.tryParse. The old `?? 0` turned that into
+// "deactivated at epoch 0", which is how an actively-staked account read as
+// deactivating forever.
 int _epoch(Object? raw) {
   final parsed = BigInt.tryParse(raw?.toString() ?? '');
   if (parsed == null) return 0;
   return parsed.isValidInt ? parsed.toInt() : _neverEpoch;
 }
 
-/// Stands in for u64 max without overflowing a Dart int.
+// Stands in for u64 max without overflowing a Dart int.
 const int _neverEpoch = 9223372036854775807;

@@ -84,7 +84,7 @@ class MarketTokenModel extends MarketToken {
         numTraders: (json['numTraders'] as num?)?.toInt() ?? 0,
       );
 
-  /// Null stays null. A market cap the API declined to report is not zero.
+  // Null stays null. A market cap the API declined to report is not zero.
   static double? _num(dynamic value) => (value as num?)?.toDouble();
 
   static DateTime? _time(dynamic value) =>

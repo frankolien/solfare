@@ -108,11 +108,11 @@ class PayResolver {
     return instructions;
   }
 
-  /// Attach the merchant's reference keys to the transfer.
-  ///
-  /// Read-only and non-signer, always. They exist so the merchant can find
-  /// the transaction by watching those addresses; any other role would let a
-  /// reference key authorise something.
+  // Attach the merchant's reference keys to the transfer.
+  //
+  // Read-only and non-signer, always. They exist so the merchant can find
+  // the transaction by watching those addresses; any other role would let a
+  // reference key authorise something.
   encoder.Instruction _withReferences(encoder.Instruction instruction, List<String> references) {
     return encoder.Instruction(
       programId: instruction.programId,

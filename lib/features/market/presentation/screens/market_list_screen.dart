@@ -152,8 +152,8 @@ class _MarketListView extends StatelessWidget {
     );
   }
 
-  /// The two right-hand columns double as the sort control, so ordering the
-  /// list is a tap on the thing being ordered rather than a hidden menu.
+  // The two right-hand columns double as the sort control, so ordering the
+  // list is a tap on the thing being ordered rather than a hidden menu.
   Widget _columnHeaders(BuildContext context, MarketState state) {
     return Column(
       children: [

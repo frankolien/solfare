@@ -5,8 +5,8 @@ class MarketFormat {
 
   static const _subscripts = '₀₁₂₃₄₅₆₇₈₉';
 
-  /// Where the subscript notation stops being useful. Below this a price is
-  /// reported as "smaller than" rather than given a figure.
+  // Where the subscript notation stops being useful. Below this a price is
+  // reported as "smaller than" rather than given a figure.
   static const int _maxSubscriptZeros = 18;
 
   /// A price with as much precision as it needs and no more.
@@ -99,8 +99,8 @@ class MarketFormat {
   static String shortMint(String mint) =>
       mint.length <= 12 ? mint : '${mint.substring(0, 4)}…${mint.substring(mint.length - 4)}';
 
-  /// Fixed to [decimals], then stripped back to what the number says, but
-  /// never past two places — `$0.5` reads like a typo where `$0.50` does not.
+  // Fixed to [decimals], then stripped back to what the number says, but
+  // never past two places — `$0.5` reads like a typo where `$0.50` does not.
   static String _trimmed(double value, int decimals) {
     var text = value.toStringAsFixed(decimals);
     while (text.contains('.') && text.endsWith('0') && text.split('.')[1].length > 2) {

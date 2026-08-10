@@ -49,7 +49,7 @@ class _ConfirmRecoveryPhraseScreenState
     super.dispose();
   }
 
-  /// Pick [count] unique random indices from 0..[total-1].
+  // Pick [count] unique random indices from 0..[total-1].
   List<int> _pickRandomIndices(int total, int count) {
     final rng = Random.secure();
     final indices = <int>{};
@@ -59,7 +59,7 @@ class _ConfirmRecoveryPhraseScreenState
     return indices.toList()..sort();
   }
 
-  /// Build 6 shuffled options for the word at [correctIndex].
+  // Build 6 shuffled options for the word at [correctIndex].
   List<String> _buildOptions(int correctIndex) {
     final rng = Random.secure();
     final correct = _words[correctIndex];

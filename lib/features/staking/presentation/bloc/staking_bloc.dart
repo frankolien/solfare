@@ -66,8 +66,8 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
     }
   }
 
-  /// Null when the epoch cannot be read, which leaves the states as
-  /// conservative as they were rather than inventing one.
+  // Null when the epoch cannot be read, which leaves the states as
+  // conservative as they were rather than inventing one.
   Future<int?> _currentEpoch() async {
     try {
       return await _rpcDataSource.getEpoch();
@@ -77,11 +77,11 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
     }
   }
 
-  /// The four states a stake account can be in, decided against the epoch.
-  ///
-  /// `_neverEpoch` (u64 max, clamped to max i64 on the way in) means the
-  /// field is unset — a delegation that never deactivates, or one that has
-  /// not activated.
+  // The four states a stake account can be in, decided against the epoch.
+  //
+  // `_neverEpoch` (u64 max, clamped to max i64 on the way in) means the
+  // field is unset — a delegation that never deactivates, or one that has
+  // not activated.
   String _determineState(int activationEpoch, int deactivationEpoch, int? currentEpoch) {
     const neverEpoch = 9223372036854775807;
     final deactivating = deactivationEpoch != neverEpoch && deactivationEpoch != 0;
@@ -189,12 +189,12 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
     }
   }
 
-  /// Three different things, and only one of them is safe to retry.
-  ///
-  /// "Nothing was staked, try again" used to be said for anything that was
-  /// not an on-chain failure — including a transaction that was merely still
-  /// in flight when the poll ran out of time. A user told that, who then
-  /// retries, stakes twice.
+  // Three different things, and only one of them is safe to retry.
+  //
+  // "Nothing was staked, try again" used to be said for anything that was
+  // not an on-chain failure — including a transaction that was merely still
+  // in flight when the poll ran out of time. A user told that, who then
+  // retries, stakes twice.
   String _failureMessage(TxOutcome outcome) {
     debugLog('[StakingBloc] $outcome');
     return switch (outcome.status) {

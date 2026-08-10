@@ -131,10 +131,10 @@ class MintInfo {
     );
   }
 
-  /// The schedule in force, or null when there is no fee to speak of.
-  ///
-  /// A config with a zero rate is not a fee. Reporting one would tell the
-  /// user the recipient gets less than they send, which is false.
+  // The schedule in force, or null when there is no fee to speak of.
+  //
+  // A config with a zero rate is not a fee. Reporting one would tell the
+  // user the recipient gets less than they send, which is false.
   static TransferFee? _feeFrom(Map<String, dynamic>? config, int? currentEpoch) {
     if (config == null) return null;
 

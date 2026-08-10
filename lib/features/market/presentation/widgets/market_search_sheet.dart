@@ -35,8 +35,8 @@ class _MarketSearchSheetState extends State<MarketSearchSheet> {
   bool _searching = false;
   String? _error;
 
-  /// Bumped per query so a slow response for an earlier keystroke cannot land
-  /// on top of a later one.
+  // Bumped per query so a slow response for an earlier keystroke cannot land
+  // on top of a later one.
   int _queryId = 0;
 
   @override

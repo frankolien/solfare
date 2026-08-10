@@ -157,12 +157,12 @@ class PreviewEngine {
     );
   }
 
-  /// Resolves a compiled message's account indices against [keys].
-  ///
-  /// Returns null — not an empty list — when an index points past the end of
-  /// the key list, which means the simulation did not report every address the
-  /// message refers to. An empty list would read as "this transaction does
-  /// nothing", which is the most dangerous thing a preview can say.
+  // Resolves a compiled message's account indices against [keys].
+  //
+  // Returns null — not an empty list — when an index points past the end of
+  // the key list, which means the simulation did not report every address the
+  // message refers to. An empty list would read as "this transaction does
+  // nothing", which is the most dangerous thing a preview can say.
   List<RawInstruction>? _resolve(
     List<encoder.CompiledInstruction> compiled,
     List<String> keys,
@@ -190,9 +190,9 @@ class PreviewEngine {
     return out;
   }
 
-  /// Balance arrays are indexed by the message's account list: the static
-  /// keys first, then any addresses pulled in from lookup tables, writable
-  /// before readonly.
+  // Balance arrays are indexed by the message's account list: the static
+  // keys first, then any addresses pulled in from lookup tables, writable
+  // before readonly.
   List<String> _accountKeys(List<String> staticKeys, Map<String, dynamic> sim) {
     final keys = [...staticKeys];
     final loaded = sim['loadedAddresses'] as Map<String, dynamic>?;
@@ -303,8 +303,8 @@ class PreviewEngine {
     return out;
   }
 
-  /// Token amounts arrive as decimal strings because a u64 does not fit a
-  /// signed int; parsing through BigInt keeps the top of the range intact.
+  // Token amounts arrive as decimal strings because a u64 does not fit a
+  // signed int; parsing through BigInt keeps the top of the range intact.
   BigInt _amount(Map<String, dynamic>? entry) {
     final raw = entry?.mapAt('uiTokenAmount')?['amount']?.toString();
     return raw == null ? BigInt.zero : (BigInt.tryParse(raw) ?? BigInt.zero);

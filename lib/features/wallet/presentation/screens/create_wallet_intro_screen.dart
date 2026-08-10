@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:solfare/core/router/app_router.dart';
 import 'package:video_player/video_player.dart';
 
-/// Data for each intro step shown before the recovery phrase.
+// Data for each intro step shown before the recovery phrase.
 class _IntroStep {
   final String videoAsset;
   final String title;
@@ -50,7 +50,7 @@ class _CreateWalletIntroScreenState extends State<CreateWalletIntroScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
-  /// One video controller per step, initialized lazily.
+  // One video controller per step, initialized lazily.
   final List<VideoPlayerController?> _videoControllers =
       List.filled(_steps.length, null);
 

@@ -24,7 +24,7 @@ class MarketTickerStrip extends StatefulWidget {
 
 class _MarketTickerStripState extends State<MarketTickerStrip>
     with SingleTickerProviderStateMixin {
-  /// Pixels per second. Slow enough to read, fast enough to look alive.
+  // Pixels per second. Slow enough to read, fast enough to look alive.
   static const double _speed = 22;
 
   final ScrollController _scroll = ScrollController();

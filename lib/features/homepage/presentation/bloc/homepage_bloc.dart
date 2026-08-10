@@ -10,7 +10,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     on<TabSelectedEvent>(_onTabSelected);
   }
 
-  /// Handle tab selection
+  // Handle tab selection
   void _onTabSelected(
     TabSelectedEvent event,
     Emitter<HomepageState> emit,

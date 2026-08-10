@@ -25,8 +25,8 @@ class MarketHomeBloc extends Bloc<MarketHomeEvent, MarketHomeState> {
 
   final Map<MarketSection, _Cached> _cache = {};
 
-  /// Bumped per load so a slow section from an abandoned refresh cannot land
-  /// on top of a newer one.
+  // Bumped per load so a slow section from an abandoned refresh cannot land
+  // on top of a newer one.
   int _loadId = 0;
 
   StreamSubscription<void>? _watchlistSubscription;

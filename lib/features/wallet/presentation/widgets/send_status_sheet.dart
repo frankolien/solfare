@@ -27,7 +27,7 @@ class SendStatusSheet extends StatelessWidget {
     this.onSaveAddress,
   });
 
-  /// Caption under "Sending" — tracks where the transaction actually is.
+  // Caption under "Sending" — tracks where the transaction actually is.
   String _phaseLabel(TxPhase phase) => switch (phase) {
         TxPhase.preparing => 'Preparing transaction',
         TxPhase.simulating => 'Checking it will succeed',

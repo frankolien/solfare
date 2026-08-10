@@ -64,14 +64,14 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   final _timeframes = ['1H', '4H', '1D', '1W', '1M'];
   final _timeframeDays = ['0.04', '0.17', '1', '7', '30'];
 
-  /// Anchors the overflow menu under the icon that opened it.
+  // Anchors the overflow menu under the icon that opened it.
   final GlobalKey _moreKey = GlobalKey();
 
   String? _homepage;
   String? _twitterHandle;
 
-  /// Taken from the token's own logo, so the chart says which asset this is
-  /// before the name has been read. Null when the logo has no hue to give.
+  // Taken from the token's own logo, so the chart says which asset this is
+  // before the name has been read. Null when the logo has no hue to give.
   Color? _brandColor;
   String? _mintAddress;
   String? _description;
@@ -129,15 +129,15 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     setState(() => _brandColor = color);
   }
 
-  /// Native SOL, however it was reached — the market list now hands over the
-  /// wrapped SOL mint where the portfolio card used to hand over a CoinGecko
-  /// slug, and both mean the token whose price the wallet already streams.
+  // Native SOL, however it was reached — the market list now hands over the
+  // wrapped SOL mint where the portfolio card used to hand over a CoinGecko
+  // slug, and both mean the token whose price the wallet already streams.
   bool get _isSol =>
       widget.token.id == 'solana' || widget.token.id == SwapToken.sol.mint;
 
-  /// True when [widget.token.id] is a Solana mint (e.g. portfolio SPL tokens)
-  /// rather than a CoinGecko slug like `solana`/`usd-coin`. Used to route the
-  /// chart/description requests to CoinGecko's contract endpoints.
+  // True when [widget.token.id] is a Solana mint (e.g. portfolio SPL tokens)
+  // rather than a CoinGecko slug like `solana`/`usd-coin`. Used to route the
+  // chart/description requests to CoinGecko's contract endpoints.
   bool get _isMintId {
     final id = widget.token.id;
     if (id.length < 32 || id.length > 44) return false;
@@ -239,8 +239,8 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     } catch (_) {}
   }
 
-  /// Copies the full mint, not the truncated form on screen — the shortened
-  /// version is for reading, and pasting it anywhere would fail.
+  // Copies the full mint, not the truncated form on screen — the shortened
+  // version is for reading, and pasting it anywhere would fail.
   void _copyMintAddress() {
     final mint = _mintAddress;
     if (mint == null) return;
@@ -248,10 +248,10 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     showCopiedToast(context);
   }
 
-  /// Why the Buy button is off, in a sentence, or null when it is on.
-  ///
-  /// A greyed-out control with no explanation is the same dead end the
-  /// Deposit, Swap and Limit buttons used to be.
+  // Why the Buy button is off, in a sentence, or null when it is on.
+  //
+  // A greyed-out control with no explanation is the same dead end the
+  // Deposit, Swap and Limit buttons used to be.
   String? get _buyUnavailable {
     if (NetworkConstants.current != SolanaNetwork.mainnet) {
       return 'Buying needs mainnet. Nothing routes on '
@@ -273,11 +273,11 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     return null;
   }
 
-  /// Opens the swap, already pointed at this token.
-  ///
-  /// Not a second buying surface: the swap screen is the one with the balance
-  /// handling, the SOL reserve and the Jupiter execute path already tested on
-  /// device. Presetting its output is the whole change.
+  // Opens the swap, already pointed at this token.
+  //
+  // Not a second buying surface: the swap screen is the one with the balance
+  // handling, the SOL reserve and the Jupiter execute path already tested on
+  // device. Presetting its output is the whole change.
   Future<void> _openBuy() async {
     final token = widget.token;
     await showModalBottomSheet<void>(
@@ -318,8 +318,8 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     );
   }
 
-  /// Add funds, and sending — the two things that were behind action circles
-  /// and still need somewhere to live.
+  // Add funds, and sending — the two things that were behind action circles
+  // and still need somewhere to live.
   Future<void> _openMoreMenu() async {
     final box = _moreKey.currentContext?.findRenderObject() as RenderBox?;
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
@@ -575,7 +575,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     );
   }
 
-  /// What the crosshair is sitting on: how far it is from now, and when.
+  // What the crosshair is sitting on: how far it is from now, and when.
   Widget _touchedChange(double displayedPrice) {
     // An unpriced holding has currentPrice 0, and dividing by it rendered
     // Infinity% or NaN% in the header the moment the chart was touched.
@@ -845,8 +845,8 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     );
   }
 
-  /// Only links we actually hold. A chip that opens nothing is worse than a
-  /// row of two.
+  // Only links we actually hold. A chip that opens nothing is worse than a
+  // row of two.
   Widget _linkChips(MarketToken token) {
     final mint = _mintAddress;
     return Wrap(
@@ -892,10 +892,10 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     );
   }
 
-  /// One decision, at the bottom, where a thumb is.
-  ///
-  /// The four action circles this replaces were three ways of reaching
-  /// screens that exist elsewhere and one thing the screen is actually for.
+  // One decision, at the bottom, where a thumb is.
+  //
+  // The four action circles this replaces were three ways of reaching
+  // screens that exist elsewhere and one thing the screen is actually for.
   Widget _buyBar() {
     final reason = _buyUnavailable;
     return Container(
@@ -1049,13 +1049,13 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     );
   }
 
-  /// Binance pairs, keyed by mint rather than by ticker.
-  ///
-  /// The old code built the symbol from `token.symbol.toUpperCase()`, which
-  /// is API-supplied metadata anybody can mint. A token calling itself BTC
-  /// rendered Bitcoin's real candles under its own name and logo, with no
-  /// error — and a ticker with no Binance pair, which is most of this list,
-  /// silently drew nothing.
+  // Binance pairs, keyed by mint rather than by ticker.
+  //
+  // The old code built the symbol from `token.symbol.toUpperCase()`, which
+  // is API-supplied metadata anybody can mint. A token calling itself BTC
+  // rendered Bitcoin's real candles under its own name and logo, with no
+  // error — and a ticker with no Binance pair, which is most of this list,
+  // silently drew nothing.
   static const _binancePairs = {
     'So11111111111111111111111111111111111111112': 'SOLUSDT',
     'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'USDCUSDT',
@@ -1070,7 +1070,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': 'RAYUSDT',
   };
 
-  /// Whether candles can be drawn for this asset at all.
+  // Whether candles can be drawn for this asset at all.
   bool get _hasCandles => _binancePairs.containsKey(widget.token.id);
 
   WebViewController? _candleController;

@@ -122,9 +122,9 @@ class _MarketScreenState extends State<MarketScreen> {
     );
   }
 
-  /// What scrolls across the top: the user's own list when they have one,
-  /// otherwise the majors. Never a separate fetch — this is what the sections
-  /// already hold.
+  // What scrolls across the top: the user's own list when they have one,
+  // otherwise the majors. Never a separate fetch — this is what the sections
+  // already hold.
   List<MarketToken> _tickerTokens(MarketHomeState state) {
     final watched = state.tokensFor(MarketSection.watchlist);
     if (watched.isNotEmpty) return watched;

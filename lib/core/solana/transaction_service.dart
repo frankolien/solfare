@@ -212,13 +212,13 @@ class TransactionService {
     return base64Encode(signed);
   }
 
-  /// Which signature slot belongs to [signer].
-  ///
-  /// Slots are positional: the nth slot is the nth required signer in the
-  /// message's account list. Assuming slot zero holds for anything the wallet
-  /// pays for itself, and breaks the moment a payload is sponsored, relayed,
-  /// or multi-signed — the signature lands in somebody else's slot and the
-  /// transaction fails on chain with nothing to explain it.
+  // Which signature slot belongs to [signer].
+  //
+  // Slots are positional: the nth slot is the nth required signer in the
+  // message's account list. Assuming slot zero holds for anything the wallet
+  // pays for itself, and breaks the moment a payload is sponsored, relayed,
+  // or multi-signed — the signature lands in somebody else's slot and the
+  // transaction fails on chain with nothing to explain it.
   int _signatureSlotFor(
     String base64Tx,
     solana.Ed25519HDKeyPair signer,
@@ -348,8 +348,8 @@ class TransactionService {
     );
   }
 
-  /// Poll for confirmation while rebroadcasting, until the cluster decides
-  /// or the blockhash expires.
+  // Poll for confirmation while rebroadcasting, until the cluster decides
+  // or the blockhash expires.
   Future<TxOutcome> _confirm({
     required String signature,
     required String? encoded,
@@ -459,7 +459,7 @@ class TransactionService {
     );
   }
 
-  /// Dry-run the instruction set and read back what it actually costs.
+  // Dry-run the instruction set and read back what it actually costs.
   Future<int> _measureComputeUnits(
     List<encoder.Instruction> instructions,
     List<solana.Ed25519HDKeyPair> signers,
@@ -504,8 +504,8 @@ class TransactionService {
     return units;
   }
 
-  /// Compute budget instructions go first — the runtime reads the budget
-  /// before executing anything that spends it.
+  // Compute budget instructions go first — the runtime reads the budget
+  // before executing anything that spends it.
   List<encoder.Instruction> _withBudget(
     List<encoder.Instruction> instructions, {
     required int limit,
@@ -544,8 +544,8 @@ class TransactionService {
     return LatestBlockhash(blockhash: blockhash, lastValidBlockHeight: height);
   }
 
-  /// Every account the tx writes to, plus the fee payer — the set the fee
-  /// market prices against.
+  // Every account the tx writes to, plus the fee payer — the set the fee
+  // market prices against.
   List<String> _writableAccounts(
     List<encoder.Instruction> instructions,
     solana.Ed25519HDPublicKey feePayer,
@@ -565,8 +565,8 @@ class TransactionService {
         FeeLevel.turbo => FeeLevel.turbo,
       };
 
-  /// Program logs for a landed transaction, or nothing if they cannot be
-  /// read. A missing explanation must not turn a known failure into an error.
+  // Program logs for a landed transaction, or nothing if they cannot be
+  // read. A missing explanation must not turn a known failure into an error.
   Future<List<String>> _safeLogs(String signature) async {
     try {
       return await _rpc.getTransactionLogs(signature);
@@ -576,8 +576,8 @@ class TransactionService {
     }
   }
 
-  /// A broadcast rejection arrives wrapped by the RPC client, so the useful
-  /// part is inside the message rather than in a typed error.
+  // A broadcast rejection arrives wrapped by the RPC client, so the useful
+  // part is inside the message rather than in a typed error.
   String _humanizeSendFailure(Object error) {
     final text = error.toString();
     if (text.contains('BlockhashNotFound')) {
@@ -592,12 +592,12 @@ class TransactionService {
     return 'The network would not accept this transaction. Nothing was sent.';
   }
 
-  /// Reads the signature's status, keeping "the RPC could not tell us" apart
-  /// from "the cluster has no record of it".
-  ///
-  /// Both used to come back as null, and the expiry check read null as "never
-  /// landed" — so a 429 on the final poll declared a live transaction dead and
-  /// the retry loop sent a second one.
+  // Reads the signature's status, keeping "the RPC could not tell us" apart
+  // from "the cluster has no record of it".
+  //
+  // Both used to come back as null, and the expiry check read null as "never
+  // landed" — so a 429 on the final poll declared a live transaction dead and
+  // the retry loop sent a second one.
   Future<_StatusRead> _safeStatus(String signature) async {
     try {
       return _StatusRead.ok(await _rpc.getSignatureStatus(signature));
@@ -607,9 +607,9 @@ class TransactionService {
     }
   }
 
-  /// True once the transaction can no longer be included. Uses the block
-  /// height when we built the tx, and blockhash validity when we didn't.
-  /// A failed read returns false — a flaky RPC is not proof of expiry.
+  // True once the transaction can no longer be included. Uses the block
+  // height when we built the tx, and blockhash validity when we didn't.
+  // A failed read returns false — a flaky RPC is not proof of expiry.
   Future<bool> _hasExpired(int? lastValidBlockHeight, String? blockhash) async {
     try {
       if (lastValidBlockHeight != null) {
@@ -622,8 +622,8 @@ class TransactionService {
     return false;
   }
 
-  /// Turn a runtime error into something a user can act on. Raw shapes are
-  /// `{"InstructionError":[1,{"Custom":6001}]}` or a bare "BlockhashNotFound".
+  // Turn a runtime error into something a user can act on. Raw shapes are
+  // `{"InstructionError":[1,{"Custom":6001}]}` or a bare "BlockhashNotFound".
   String _humanizeError(dynamic err, List<String> logs) {
     final joined = logs.join('\n');
 
@@ -674,9 +674,9 @@ class TransactionService {
   }
 }
 
-/// The outcome of one status poll. Exists so "the RPC could not tell us" and
-/// "the cluster has no record of it" cannot collapse into the same null —
-/// only the second of those proves a transaction is dead.
+// The outcome of one status poll. Exists so "the RPC could not tell us" and
+// "the cluster has no record of it" cannot collapse into the same null —
+// only the second of those proves a transaction is dead.
 class _StatusRead {
   final bool readable;
   final Map<String, dynamic>? status;

@@ -170,9 +170,9 @@ class DappRequestParser {
     }
   }
 
-  /// A redirect has to be somewhere a reply can go and nowhere dangerous.
-  /// javascript: and file: are the obvious ones; anything without a scheme
-  /// cannot be launched at all.
+  // A redirect has to be somewhere a reply can go and nowhere dangerous.
+  // javascript: and file: are the obvious ones; anything without a scheme
+  // cannot be launched at all.
   static Uri? _validRedirect(String? raw) {
     if (raw == null || raw.isEmpty) return null;
     final uri = Uri.tryParse(raw);

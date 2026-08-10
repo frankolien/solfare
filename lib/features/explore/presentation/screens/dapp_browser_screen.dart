@@ -70,12 +70,12 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
       ..loadRequest(Uri.parse(widget.initialUrl));
   }
 
-  /// The host, and only the host.
-  ///
-  /// `replaceFirst('www.', '')` rewrote the string anywhere that sequence
-  /// appeared, so `paypal.com.www.evil.com` rendered as `paypal.com.evil.com`
-  /// — a different domain from the one being visited. Only a genuine leading
-  /// `www.` is dropped now.
+  // The host, and only the host.
+  //
+  // `replaceFirst('www.', '')` rewrote the string anywhere that sequence
+  // appeared, so `paypal.com.www.evil.com` rendered as `paypal.com.evil.com`
+  // — a different domain from the one being visited. Only a genuine leading
+  // `www.` is dropped now.
   String _displayUrl(String url) {
     final uri = Uri.tryParse(url);
     final host = uri?.host ?? '';

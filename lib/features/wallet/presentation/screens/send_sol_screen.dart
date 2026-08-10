@@ -222,15 +222,15 @@ class _SendSolScreenState extends State<SendSolScreen> {
     );
   }
 
-  /// A scanned code is either a Solana Pay request or a plain address.
-  ///
-  /// A pay request goes to the pay sheet rather than being unpacked into this
-  /// screen's fields. This screen sends one asset — whichever it was opened
-  /// for — and it used to read only `recipient` and `amount` off the request,
-  /// dropping `spl-token` entirely: a 25 USDC merchant code scanned here
-  /// prefilled "25" and sent 25 SOL. It also dropped the reference keys the
-  /// merchant needs to reconcile the payment, so even the native-SOL case was
-  /// only accidentally right.
+  // A scanned code is either a Solana Pay request or a plain address.
+  //
+  // A pay request goes to the pay sheet rather than being unpacked into this
+  // screen's fields. This screen sends one asset — whichever it was opened
+  // for — and it used to read only `recipient` and `amount` off the request,
+  // dropping `spl-token` entirely: a 25 USDC merchant code scanned here
+  // prefilled "25" and sent 25 SOL. It also dropped the reference keys the
+  // merchant needs to reconcile the payment, so even the native-SOL case was
+  // only accidentally right.
   void _handleScanned(String scanned) {
     if (PayResolver.parse(scanned) == null) {
       _selectRecipient(address: scanned);

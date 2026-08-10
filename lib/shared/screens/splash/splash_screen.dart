@@ -130,8 +130,8 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  /// Offers a retry and nothing else. Every other affordance here — create a
-  /// wallet, import a wallet — writes to the store we just failed to read.
+  // Offers a retry and nothing else. Every other affordance here — create a
+  // wallet, import a wallet — writes to the store we just failed to read.
   Widget _storeUnreadable() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 40),

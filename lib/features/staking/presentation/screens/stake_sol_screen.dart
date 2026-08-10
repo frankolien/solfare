@@ -391,8 +391,8 @@ class _StakeSolScreenState extends State<StakeSolScreen> {
 
   String _formatStake(double sol) => StakeLimits.formatStake(sol);
 
-  /// The commission is real and fetched; the APY is not populated anywhere,
-  /// so advertising "~0.00% APY" beside a validator was worse than silence.
+  // The commission is real and fetched; the APY is not populated anywhere,
+  // so advertising "~0.00% APY" beside a validator was worse than silence.
   String get _validatorSubtitle {
     final validator = _selectedValidator;
     if (validator == null) return 'Loading validators';

@@ -16,7 +16,7 @@ import 'package:solfare/features/market/domain/entities/market_window.dart';
 class JupiterTokenDataSource {
   static const _base = 'https://lite-api.jup.ag/tokens/v2';
 
-  /// The search endpoint's documented ceiling on comma-separated mints.
+  // The search endpoint's documented ceiling on comma-separated mints.
   static const _searchChunk = 100;
 
   final http.Client client;

@@ -43,12 +43,12 @@ class SwapReady extends SwapState {
     this.inputBalance,
   });
 
-  /// Distinguishes "leave this alone" from "set this to null".
-  ///
-  /// `x ?? this.x` cannot tell those apart, so every attempt to clear the
-  /// quote was a no-op: change the output token after quoting 1 SOL and the
-  /// old outputAmount survived, hasQuote stayed true, and the review sheet
-  /// headlined "1 SOL → 150.0000 BONK" for a route paying ~5,400,000 BONK.
+  // Distinguishes "leave this alone" from "set this to null".
+  //
+  // `x ?? this.x` cannot tell those apart, so every attempt to clear the
+  // quote was a no-op: change the output token after quoting 1 SOL and the
+  // old outputAmount survived, hasQuote stayed true, and the review sheet
+  // headlined "1 SOL → 150.0000 BONK" for a route paying ~5,400,000 BONK.
   static const _keep = Object();
 
   SwapReady copyWith({

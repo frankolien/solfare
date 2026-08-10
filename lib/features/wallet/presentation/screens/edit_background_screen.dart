@@ -6,7 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:solfare/core/util/app_log.dart';
 import 'package:solfare/features/wallet/presentation/widgets/photo_picker_sheet.dart';
 
-/// Data for each background card option.
+// Data for each background card option.
 class _BackgroundOption {
   final String assetPath;
   final String name;
@@ -114,9 +114,9 @@ class _EditBackgroundScreenState extends State<EditBackgroundScreen> {
     }
   }
 
-  /// Photo access can still be revoked mid-flow, and the copy into documents
-  /// can fail on a full disk, so the platform channel is not assumed to be
-  /// clean just because the picker returned a file.
+  // Photo access can still be revoked mid-flow, and the copy into documents
+  // can fail on a full disk, so the platform channel is not assumed to be
+  // clean just because the picker returned a file.
   String _pickErrorMessage(PlatformException e) {
     debugLog('[EditBackground] picker ${e.code}: ${e.message} (${e.details})');
     return switch (e.code) {
@@ -126,8 +126,8 @@ class _EditBackgroundScreenState extends State<EditBackgroundScreen> {
     };
   }
 
-  /// Trust the extension only when it looks like one — a sandbox path with a
-  /// dot in a directory name would otherwise become the filename suffix.
+  // Trust the extension only when it looks like one — a sandbox path with a
+  // dot in a directory name would otherwise become the filename suffix.
   String _extensionOf(String path) {
     final ext = path.split('/').last.split('.').last.toLowerCase();
     const known = {'jpg', 'jpeg', 'png', 'heic', 'heif', 'webp', 'gif'};

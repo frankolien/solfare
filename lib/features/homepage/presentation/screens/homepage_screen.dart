@@ -107,8 +107,8 @@ class _HomepageScreenState extends State<HomepageScreen> {
     }
   }
 
-  /// A scanned code is either a payment request or an address. The scan
-  /// action used to discard its result entirely.
+  // A scanned code is either a payment request or an address. The scan
+  // action used to discard its result entirely.
   void _handleScan(String? scanned) {
     if (scanned == null || !mounted) return;
 
@@ -333,7 +333,7 @@ class _HomepageScreenState extends State<HomepageScreen> {
     }
   }
 
-  /// Extracts current display values from BLoC state, falling back to cached values.
+  // Extracts current display values from BLoC state, falling back to cached values.
   _HomeData _resolveData(WalletState walletState) {
     double balanceInSol = _cachedBalanceInSol;
     bool isLoadingBalance = false;
@@ -415,10 +415,10 @@ class _HomepageScreenState extends State<HomepageScreen> {
     }
   }
 
-  /// The wallet card region — swipeable between wallets with a trailing
-  /// "add wallet" slot. When only one wallet is installed the list is still
-  /// two pages long (the wallet + the add slot) so the swipe affordance
-  /// stays discoverable.
+  // The wallet card region — swipeable between wallets with a trailing
+  // "add wallet" slot. When only one wallet is installed the list is still
+  // two pages long (the wallet + the add slot) so the swipe affordance
+  // stays discoverable.
   Widget _buildWalletArea(BuildContext context, _HomeData data) {
     // No wallets yet — fall back to a single static BalanceCard so the
     // initial render before WalletsLoaded arrives doesn't flicker.
@@ -613,7 +613,7 @@ class _HomepageScreenState extends State<HomepageScreen> {
   }
 }
 
-/// Simple data class to pass resolved state values around.
+// Simple data class to pass resolved state values around.
 class _HomeData {
   final double balanceInSol;
   final bool isLoadingBalance;

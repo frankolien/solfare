@@ -44,9 +44,9 @@ class TokenizedAssetRegistry {
     'jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL', // JTO    Jito
   ];
 
-  /// Companies. One issuer per name, picked by liquidity — SpaceX alone is
-  /// served by five, and liquidity is what decides whether a purchase fills
-  /// at the price on the card.
+  // Companies. One issuer per name, picked by liquidity — SpaceX alone is
+  // served by five, and liquidity is what decides whether a purchase fills
+  // at the price on the card.
   static const List<String> _stocks = [
     'Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh', // NVDAx      NVIDIA
     'XsueG8BtpquVJX9LVLLEGuViXUungE6WmK5YZ3p3bd1', // CRCLx      Circle
@@ -70,8 +70,8 @@ class TokenizedAssetRegistry {
     'XsXcJ6GZ9kVnjqGsjBnktRcuwMBmvKWh8S93RefZ1rF', // AMDx       AMD
   ];
 
-  /// Funds. A gold ETF tracks a fund's price, not the metal's, which is why
-  /// it sits here rather than under commodities.
+  // Funds. A gold ETF tracks a fund's price, not the metal's, which is why
+  // it sits here rather than under commodities.
   static const List<String> _etfs = [
     'XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W', // SPYx   S&P 500
     'Xs8S1uUs1zvS2p7iwtsG3b6fkhpvmwz4GYU3gWAmWHZ', // QQQx   Nasdaq 100
@@ -81,17 +81,17 @@ class TokenizedAssetRegistry {
     'XsjQP3iMAaQ3kQScQKthQpx9ALRbjKAjQtHg6TFomoc', // TQQQx  Nasdaq 100 3x
   ];
 
-  /// The metal itself. Platinum is not here: both issuers show no liquidity
-  /// and an order against one answers "Quote not available from market
-  /// maker", so listing it would only be a card that cannot be bought.
+  // The metal itself. Platinum is not here: both issuers show no liquidity
+  // and an order against one answers "Quote not available from market
+  // maker", so listing it would only be a card that cannot be bought.
   static const List<String> _commodities = [
     'AymATz4TCL9sWNEEV9Kvyz45CHVhDZ6kUgjTJPzLpU9P', // XAUt0  Tether Gold
     '5GgRAEmv8ZxF2PR5hY72Qs5x1bnQ6UK2RbTPoqJ3wSwW', // PAXG   PAX Gold
   ];
 
-  /// Names for the handful of mints where stripping the issuer still leaves
-  /// something nobody says out loud. Everything else derives its display name
-  /// from what the API returns.
+  // Names for the handful of mints where stripping the issuer still leaves
+  // something nobody says out loud. Everything else derives its display name
+  // from what the API returns.
   static const Map<String, String> _displayNames = {
     'So11111111111111111111111111111111111111112': 'Solana',
     'cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij': 'Bitcoin',
@@ -108,9 +108,9 @@ class TokenizedAssetRegistry {
     '5GgRAEmv8ZxF2PR5hY72Qs5x1bnQ6UK2RbTPoqJ3wSwW': 'Gold (Paxos)',
   };
 
-  /// Suffixes that say who issued the token rather than what it is. A card
-  /// the size of a thumbnail has no room for the issuer, and the detail
-  /// screen still shows the full name.
+  // Suffixes that say who issued the token rather than what it is. A card
+  // the size of a thumbnail has no room for the issuer, and the detail
+  // screen still shows the full name.
   static const List<String> _issuerSuffixes = [
     ' xStock',
     ' PreStocks',

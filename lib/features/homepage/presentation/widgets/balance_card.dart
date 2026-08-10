@@ -5,16 +5,16 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:solfare/core/util/copied_toast.dart';
 
-/// Cards with light backgrounds where text should be black.
+// Cards with light backgrounds where text should be black.
 const _lightCards = {
   'card_3.png', 'card_4.png', 'card_5.png', 'card_6.png',
   'card_8.png', 'card_9.png', 'card_10.png',
 };
 
-/// Custom uploads are stored as `custom:<filename>` — we store only the
-/// filename (not an absolute path) because the iOS sandbox may rewrite
-/// the documents-directory path between launches, which would break any
-/// cached absolute path.
+// Custom uploads are stored as `custom:<filename>` — we store only the
+// filename (not an absolute path) because the iOS sandbox may rewrite
+// the documents-directory path between launches, which would break any
+// cached absolute path.
 const _customPrefix = 'custom:';
 bool _isCustomImage(String path) => path.startsWith(_customPrefix);
 String _customFilename(String path) => path.substring(_customPrefix.length);
@@ -247,12 +247,12 @@ class BalanceCard extends StatelessWidget {
   }
 }
 
-/// Renders a USD amount like `$30.40` and animates smoothly between values.
-///
-/// Uses a [TweenAnimationBuilder] to interpolate the numeric value over
-/// ~450ms. Each character is then rendered through [_RollingDigit], which
-/// slides vertically as its digit changes — like an odometer / iOS date
-/// picker / Jupiter's balance card.
+// Renders a USD amount like `$30.40` and animates smoothly between values.
+//
+// Uses a [TweenAnimationBuilder] to interpolate the numeric value over
+// ~450ms. Each character is then rendered through [_RollingDigit], which
+// slides vertically as its digit changes — like an odometer / iOS date
+// picker / Jupiter's balance card.
 class _AnimatedMoney extends StatefulWidget {
   const _AnimatedMoney({
     required this.value,
@@ -307,8 +307,8 @@ class _AnimatedMoneyState extends State<_AnimatedMoney> {
   }
 }
 
-/// A single glyph that slides vertically when its value changes. When the
-/// incoming [char] isn't a digit (e.g. `.` or `$`) it renders statically.
+// A single glyph that slides vertically when its value changes. When the
+// incoming [char] isn't a digit (e.g. `.` or `$`) it renders statically.
 class _RollingDigit extends StatelessWidget {
   const _RollingDigit({required this.char, required this.color});
 

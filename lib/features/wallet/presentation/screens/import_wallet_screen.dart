@@ -66,11 +66,11 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
     context.read<WalletBloc>().add(ImportWalletEvent(mnemonic));
   }
 
-  /// After a successful import, send the user through passcode creation
-  /// (and then biometric setup) if they don't already have a passcode set.
-  /// Going straight to homepage would leave the wallet accessible with no
-  /// lock screen — and on next launch the splash would bounce them back
-  /// to onboarding because no passcode exists.
+  // After a successful import, send the user through passcode creation
+  // (and then biometric setup) if they don't already have a passcode set.
+  // Going straight to homepage would leave the wallet accessible with no
+  // lock screen — and on next launch the splash would bounce them back
+  // to onboarding because no passcode exists.
   void _continueAfterImport() {
     if (AppLock.instance.hasPasscode) {
       context.go(AppRoutes.homepage);

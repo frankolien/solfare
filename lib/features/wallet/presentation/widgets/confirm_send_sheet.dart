@@ -47,9 +47,9 @@ class _ConfirmSendSheetState extends State<ConfirmSendSheet> {
     return name.substring(0, name.length >= 2 ? 2 : 1).toUpperCase();
   }
 
-  /// A token with no metadata has no icon. Falling back to the Solana logo
-  /// would put SOL's badge on something that is not SOL, so unknown assets
-  /// get a neutral initial instead.
+  // A token with no metadata has no icon. Falling back to the Solana logo
+  // would put SOL's badge on something that is not SOL, so unknown assets
+  // get a neutral initial instead.
   Widget _assetIcon() {
     final url = widget.iconUrl ?? (widget.symbol == 'SOL'
         ? 'https://assets.coingecko.com/coins/images/4128/large/solana.png'

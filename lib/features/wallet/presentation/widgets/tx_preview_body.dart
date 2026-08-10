@@ -211,7 +211,7 @@ class TxPreviewBody extends StatelessWidget {
     );
   }
 
-  /// Trailing zeros make small amounts unreadable, and rounding hides dust.
+  // Trailing zeros make small amounts unreadable, and rounding hides dust.
   String _amount(BalanceDelta d) {
     final value = d.uiDelta;
     final magnitude = value.abs();
@@ -251,8 +251,8 @@ class TxPreviewBody extends StatelessWidget {
   }
 }
 
-/// Shown while the simulation runs. The sheet opens straight away so a slow
-/// RPC never leaves the user staring at a spinner with nothing to read.
+// Shown while the simulation runs. The sheet opens straight away so a slow
+// RPC never leaves the user staring at a spinner with nothing to read.
 class _PreviewSkeleton extends StatefulWidget {
   const _PreviewSkeleton();
 

@@ -130,8 +130,8 @@ class DappApprovalSheet extends StatelessWidget {
         ),
       );
 
-  /// A message is arbitrary text from a stranger. It is shown as a quotation
-  /// with its own framing so it cannot be mistaken for the wallet speaking.
+  // A message is arbitrary text from a stranger. It is shown as a quotation
+  // with its own framing so it cannot be mistaken for the wallet speaking.
   Widget _message() => Padding(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
         child: Container(

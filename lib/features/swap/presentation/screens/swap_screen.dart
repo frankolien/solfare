@@ -457,8 +457,8 @@ class _SwapScreenState extends State<SwapScreen> {
     );
   }
 
-  /// Whether the balance is known and does not cover the amount typed. An
-  /// unknown balance is not "short" — the simulation is what actually knows.
+  // Whether the balance is known and does not cover the amount typed. An
+  // unknown balance is not "short" — the simulation is what actually knows.
   bool _isShort(SwapReady state) {
     final balance = state.inputBalance;
     final amount = double.tryParse(state.inputAmount) ?? 0;

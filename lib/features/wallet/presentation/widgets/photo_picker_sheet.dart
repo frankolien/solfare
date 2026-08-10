@@ -312,8 +312,8 @@ class _PhotoPickerSheetState extends State<PhotoPickerSheet> {
   }
 }
 
-/// One grid cell. Thumbnails are decoded per tile and held by the element so
-/// a rebuild during scrolling doesn't re-request bytes from the platform.
+// One grid cell. Thumbnails are decoded per tile and held by the element so
+// a rebuild during scrolling doesn't re-request bytes from the platform.
 class _Thumbnail extends StatefulWidget {
   final AssetEntity asset;
   final VoidCallback onTap;

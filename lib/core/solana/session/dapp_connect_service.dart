@@ -77,14 +77,14 @@ class DappConnectService {
         _tx = transactions,
         _preview = preview;
 
-  /// One refusal for every reason a request might be refused.
-  ///
-  /// "No session for this key", "the token did not match", "that nonce has
-  /// been used" and "the payload did not decrypt" are all answered the same
-  /// way on purpose. Distinguishing them hands a caller an oracle: the codes
-  /// used to differ, so any local app could enumerate exactly which dapps
-  /// this wallet had connected by sending garbage for each candidate key and
-  /// reading which error came back.
+  // One refusal for every reason a request might be refused.
+  //
+  // "No session for this key", "the token did not match", "that nonce has
+  // been used" and "the payload did not decrypt" are all answered the same
+  // way on purpose. Distinguishing them hands a caller an oracle: the codes
+  // used to differ, so any local app could enumerate exactly which dapps
+  // this wallet had connected by sending garbage for each candidate key and
+  // reading which error came back.
   static const _unreadable = DappRequestRejected(
     'Could not read that request.',
     code: DappRequestParser.errorInvalidRequest,
@@ -243,11 +243,11 @@ class DappConnectService {
     });
   }
 
-  /// The callback recorded when the session was created.
-  ///
-  /// Falls back to the request's own for sessions written before the field
-  /// existed — those keep the old behaviour rather than becoming unusable,
-  /// and age out within the 30-day idle window.
+  // The callback recorded when the session was created.
+  //
+  // Falls back to the request's own for sessions written before the field
+  // existed — those keep the old behaviour rather than becoming unusable,
+  // and age out within the 30-day idle window.
   static Uri _replyTo(DappSession session, DappRequest request) {
     if (session.redirectLink.isEmpty) return request.redirectLink;
     return Uri.tryParse(session.redirectLink) ?? request.redirectLink;
@@ -289,7 +289,7 @@ class DappConnectService {
     return DappRequestParser.reply(redirect, {'nonce': sealed.nonce, 'data': sealed.payload});
   }
 
-  /// Dapps send the transaction base58-encoded inside the sealed payload.
+  // Dapps send the transaction base58-encoded inside the sealed payload.
   String _transactionFrom(Map<String, dynamic> payload) {
     final raw = payload['transaction'];
     if (raw is! String || raw.isEmpty) {
@@ -312,8 +312,8 @@ class DappConnectService {
     }
   }
 
-  /// Refuse anything that would have us sign for an account that is not ours,
-  /// or that needs a signature we cannot give.
+  // Refuse anything that would have us sign for an account that is not ours,
+  // or that needs a signature we cannot give.
   void _assertSafeToSign(String base64Tx, String walletAddress) {
     final encoder.SignedTx tx;
     try {

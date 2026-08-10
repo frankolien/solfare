@@ -63,7 +63,7 @@ class PriorityFeeOracle {
     return capped;
   }
 
-  /// Linear-interpolation percentile over a pre-sorted list.
+  // Linear-interpolation percentile over a pre-sorted list.
   int _percentile(List<int> sorted, double p) {
     if (sorted.length == 1) return sorted.first;
     final position = p * (sorted.length - 1);
@@ -74,7 +74,7 @@ class PriorityFeeOracle {
     return (sorted[lower] * (1 - weight) + sorted[upper] * weight).round();
   }
 
-  /// Clamp the bid so the total stays under [maxPriorityLamports].
+  // Clamp the bid so the total stays under [maxPriorityLamports].
   int _capToMaxLamports(int microLamports, int computeUnitLimit) {
     if (computeUnitLimit <= 0) return microLamports;
     if (lamportsFor(microLamports, computeUnitLimit) <= maxPriorityLamports) {

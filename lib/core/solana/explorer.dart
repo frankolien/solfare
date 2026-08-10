@@ -11,9 +11,9 @@ class Explorer {
 
   static const _base = 'https://explorer.solana.com';
 
-  /// Mainnet is Explorer's default and takes no parameter. Naming it anyway
-  /// would work, but the query is what made the old links wrong, so the
-  /// shortest correct URL is the one worth producing.
+  // Mainnet is Explorer's default and takes no parameter. Naming it anyway
+  // would work, but the query is what made the old links wrong, so the
+  // shortest correct URL is the one worth producing.
   static String get _cluster => switch (NetworkConstants.current) {
         SolanaNetwork.mainnet => '',
         SolanaNetwork.devnet => '?cluster=devnet',

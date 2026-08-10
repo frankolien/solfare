@@ -362,8 +362,8 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  /// Shared path for "the active wallet is now X" — emits the address +
-  /// customization states, starts WS/polling, and refreshes the wallet list.
+  // Shared path for "the active wallet is now X" — emits the address +
+  // customization states, starts WS/polling, and refreshes the wallet list.
   Future<void> _activateWallet(
     WalletAccount wallet,
     Emitter<WalletState> emit,
@@ -455,19 +455,19 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  /// Called when [NetworkConstants.setNetwork] runs. Reconnects the WS to
-  /// the new cluster AND refetches cluster-scoped data (balance, tokens,
-  /// NFTs, transactions) for the active wallet — otherwise the UI keeps
-  /// showing stale holdings from the previous network until the user
-  /// manually refreshes.
+  // Called when [NetworkConstants.setNetwork] runs. Reconnects the WS to
+  // the new cluster AND refetches cluster-scoped data (balance, tokens,
+  // NFTs, transactions) for the active wallet — otherwise the UI keeps
+  // showing stale holdings from the previous network until the user
+  // manually refreshes.
   void _onNetworkChanged(SolanaNetwork _) {
     _balanceWs.reconnect();
     add(const NetworkChangedEvent());
   }
 
-  /// Clears cluster-scoped data (tokens, NFTs) and refetches everything
-  /// for the active wallet so the UI doesn't show holdings from the
-  /// previous cluster after a network switch.
+  // Clears cluster-scoped data (tokens, NFTs) and refetches everything
+  // for the active wallet so the UI doesn't show holdings from the
+  // previous cluster after a network switch.
   Future<void> _onNetworkChangedEvent(
     NetworkChangedEvent event,
     Emitter<WalletState> emit,
@@ -483,8 +483,8 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  /// Begin periodic SOL price refresh. Idempotent — calling twice won't
-  /// spawn duplicate timers.
+  // Begin periodic SOL price refresh. Idempotent — calling twice won't
+  // spawn duplicate timers.
   void _startPricePolling() {
     if (_priceTimer?.isActive ?? false) return;
     // Fire once immediately, then on the interval.
@@ -513,7 +513,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     return super.close();
   }
 
-  /// Handle wallet creation event
+  // Handle wallet creation event
   Future<void> _onCreateWallet(
     CreateWalletEvent event,
     Emitter<WalletState> emit,
@@ -528,7 +528,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  /// Handle wallet save event
+  // Handle wallet save event
   Future<void> _onSaveWallet(
     SaveWalletEvent event,
     Emitter<WalletState> emit,
@@ -550,7 +550,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  /// Handle wallet existence check
+  // Handle wallet existence check
   Future<void> _onCheckWalletExists(
     CheckWalletExistsEvent event,
     Emitter<WalletState> emit,
@@ -570,7 +570,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  /// Handle airdrop request
+  // Handle airdrop request
   Future<void> _onRequestAirdrop(
     RequestAirdropEvent event,
     Emitter<WalletState> emit,
@@ -602,7 +602,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  /// Handle balance fetch
+  // Handle balance fetch
   Future<void> _onFetchBalance(
     FetchBalanceEvent event,
     Emitter<WalletState> emit,
@@ -626,7 +626,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  /// Reset wallet state to initial
+  // Reset wallet state to initial
   void _onResetWallet(
     ResetWalletEvent event,
     Emitter<WalletState> emit,
@@ -634,7 +634,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     emit(const WalletInitial());
   }
 
-  /// Clear all wallet data from storage
+  // Clear all wallet data from storage
   Future<void> _onClearWallet(
     ClearWalletEvent event,
     Emitter<WalletState> emit,
@@ -656,7 +656,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  /// Fetch SOL price from API
+  // Fetch SOL price from API
   Future<void> _onFetchSolPrice(
     FetchSolPriceEvent event,
     Emitter<WalletState> emit,
@@ -743,7 +743,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  /// Fetch transaction history
+  // Fetch transaction history
   Future<void> _onFetchTransactions(
     FetchTransactionsEvent event,
     Emitter<WalletState> emit,
@@ -760,8 +760,8 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  /// Simulate the pending send. Never signs, never broadcasts — the result
-  /// only decides what the approval sheet shows.
+  // Simulate the pending send. Never signs, never broadcasts — the result
+  // only decides what the approval sheet shows.
   Future<void> _onPreviewSend(
     PreviewSendEvent event,
     Emitter<WalletState> emit,
@@ -801,7 +801,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  /// Resolve a scanned Solana Pay URL into something approvable.
+  // Resolve a scanned Solana Pay URL into something approvable.
   Future<void> _onResolvePay(ResolvePayEvent event, Emitter<WalletState> emit) async {
     emit(const PayResolving());
     _pendingPayInstructions = null;
@@ -902,9 +902,9 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  /// Simulate an SPL token send. Reads the mint first, because Token-2022
-  /// extensions decide both what the instructions are and whether the send
-  /// is possible at all.
+  // Simulate an SPL token send. Reads the mint first, because Token-2022
+  // extensions decide both what the instructions are and whether the send
+  // is possible at all.
   Future<void> _onPreviewTokenSend(
     PreviewTokenSendEvent event,
     Emitter<WalletState> emit,
@@ -996,11 +996,11 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  /// Things the balance deltas cannot say for themselves.
-  ///
-  /// A transfer fee is withheld in flight, so the sender's delta is the full
-  /// amount and the recipient quietly gets less. Account rent shows up only
-  /// as SOL leaving, with nothing to say where it went.
+  // Things the balance deltas cannot say for themselves.
+  //
+  // A transfer fee is withheld in flight, so the sender's delta is the full
+  // amount and the recipient quietly gets less. Account rent shows up only
+  // as SOL leaving, with nothing to say where it went.
   List<RiskFlag> _tokenSendNotes(
     MintInfo mint,
     List<encoder.Instruction> instructions,
@@ -1049,8 +1049,8 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     return Keyring.keyPairFromMnemonic(mnemonic);
   }
 
-  /// Display units to base units. Done in integer space after rounding, since
-  /// a double multiply on a 9-decimal token loses the last digit.
+  // Display units to base units. Done in integer space after rounding, since
+  // a double multiply on a 9-decimal token loses the last digit.
   int _baseUnits(double amount, int decimals) {
     var factor = 1.0;
     for (var i = 0; i < decimals; i++) {

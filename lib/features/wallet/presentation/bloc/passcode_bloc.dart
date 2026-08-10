@@ -32,7 +32,7 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
     on<PasscodeWrongEvent>(_onPasscodeWrong);
   }
 
-  /// Handle digit entry
+  // Handle digit entry
   void _onDigitEntered(
     PasscodeDigitEntered event,
     Emitter<PasscodeState> emit,
@@ -61,7 +61,7 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
     }
   }
 
-  /// Handle digit deletion
+  // Handle digit deletion
   void _onDigitDeleted(
     PasscodeDigitDeleted event,
     Emitter<PasscodeState> emit,
@@ -81,9 +81,9 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
     }
   }
 
-  /// Verify the passcode. The rate limit lives in [PasscodeGate] so the
-  /// export dialogs, which used to check the hash themselves and so had no
-  /// limit at all, share exactly this one.
+  // Verify the passcode. The rate limit lives in [PasscodeGate] so the
+  // export dialogs, which used to check the hash themselves and so had no
+  // limit at all, share exactly this one.
   Future<void> _onVerifyPasscode(
     VerifyPasscodeEvent event,
     Emitter<PasscodeState> emit,
@@ -118,7 +118,7 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
     }
   }
 
-  /// Hash and save passcode to secure storage.
+  // Hash and save passcode to secure storage.
   Future<void> _onSavePasscode(
     SavePasscodeEvent event,
     Emitter<PasscodeState> emit,
@@ -137,7 +137,7 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
     }
   }
 
-  /// Reset passcode state
+  // Reset passcode state
   void _onResetPasscode(
     ResetPasscodeEvent event,
     Emitter<PasscodeState> emit,
@@ -145,7 +145,7 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
     emit(const PasscodeInitial());
   }
 
-  /// Handle wrong passcode (for confirm mode)
+  // Handle wrong passcode (for confirm mode)
   Future<void> _onPasscodeWrong(
     PasscodeWrongEvent event,
     Emitter<PasscodeState> emit,

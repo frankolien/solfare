@@ -243,9 +243,9 @@ class PortfolioContent extends StatelessWidget {
     );
   }
 
-  /// Merge fetched SPL tokens with a default USDC entry (zero balance) so
-  /// users always see the stablecoin in their list. Tokens are sorted by USD
-  /// value desc so the most valuable holdings show first.
+  // Merge fetched SPL tokens with a default USDC entry (zero balance) so
+  // users always see the stablecoin in their list. Tokens are sorted by USD
+  // value desc so the most valuable holdings show first.
   List<SplToken> _buildDisplayTokens() {
     final merged = <String, SplToken>{};
     for (final t in tokens) {
@@ -360,11 +360,11 @@ class PortfolioContent extends StatelessWidget {
     );
   }
 
-  /// A holding described the way the detail screen expects.
-  ///
-  /// Market cap and volume are left null rather than zero: the wallet knows
-  /// what it holds and what it is worth, not what the rest of the market did
-  /// with it, and zero would be a claim.
+  // A holding described the way the detail screen expects.
+  //
+  // Market cap and volume are left null rather than zero: the wallet knows
+  // what it holds and what it is worth, not what the rest of the market did
+  // with it, and zero would be a claim.
   MarketToken _splToMarketToken(SplToken t) {
     return MarketToken(
       id: t.mint,

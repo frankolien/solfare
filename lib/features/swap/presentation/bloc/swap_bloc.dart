@@ -26,15 +26,15 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
   static int baseUnits(double amount, SwapToken token) =>
       (amount * pow(10, token.decimals)).round();
 
-  /// Bumped per quote request; a response whose id no longer matches is a
-  /// stale one and is dropped. Bloc 8's default transformer is concurrent
-  /// and a quote fires on every keystroke, so the last response to *return*
-  /// used to win rather than the last keystroke: type "12", backspace to
-  /// "1", and the field read 1 while the state said 12 — which is the amount
-  /// the execute then prepared.
+  // Bumped per quote request; a response whose id no longer matches is a
+  // stale one and is dropped. Bloc 8's default transformer is concurrent
+  // and a quote fires on every keystroke, so the last response to *return*
+  // used to win rather than the last keystroke: type "12", backspace to
+  // "1", and the field read 1 while the state said 12 — which is the amount
+  // the execute then prepared.
   int _quoteId = 0;
 
-  /// The signed route waiting on the user. Dropped the moment they back out.
+  // The signed route waiting on the user. Dropped the moment they back out.
   PreparedSwap? _prepared;
 
   // Held so a token switch can refresh the balance without the screen
@@ -191,13 +191,13 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
     if (address != null) add(LoadInputBalanceEvent(address));
   }
 
-  /// Native SOL lives in the account itself; everything else is an SPL
-  /// balance spread over the owner's token accounts.
-  /// Null on failure, which SwapLimits.covers reads as "unknown, do not
-  /// block". Returning 0 made a transient RPC error indistinguishable from
-  /// an empty wallet, so one failed lookup showed "Insufficient SOL" on a
-  /// funded wallet — permanently, since nothing retries until the user
-  /// switches tokens.
+  // Native SOL lives in the account itself; everything else is an SPL
+  // balance spread over the owner's token accounts.
+  // Null on failure, which SwapLimits.covers reads as "unknown, do not
+  // block". Returning 0 made a transient RPC error indistinguishable from
+  // an empty wallet, so one failed lookup showed "Insufficient SOL" on a
+  // funded wallet — permanently, since nothing retries until the user
+  // switches tokens.
   Future<double?> _balanceOf(SwapToken token, String owner) async {
     try {
       if (token.mint == SwapToken.sol.mint) {
@@ -244,12 +244,12 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
     }
   }
 
-  /// Builds and signs the route, then hands it to the user rather than to
-  /// the network.
-  ///
-  /// The preview comes from simulating the transaction Jupiter actually
-  /// built, which is the only way to show what the swap moves rather than
-  /// what the route says it moves.
+  // Builds and signs the route, then hands it to the user rather than to
+  // the network.
+  //
+  // The preview comes from simulating the transaction Jupiter actually
+  // built, which is the only way to show what the swap moves rather than
+  // what the route says it moves.
   Future<void> _onExecuteSwap(ExecuteSwapEvent event, Emitter<SwapState> emit) async {
     if (state is! SwapReady) return;
     final s = state as SwapReady;

@@ -338,8 +338,8 @@ class _ConnectedAppsScreenState extends State<ConnectedAppsScreen> {
     return 'Used ${elapsed.inDays}d ago';
   }
 
-  /// Sessions expire on their own. Saying when means revoking is not the only
-  /// way a connection ever ends.
+  // Sessions expire on their own. Saying when means revoking is not the only
+  // way a connection ever ends.
   static String _lapses(DateTime lastUsedAt, DateTime now) {
     final left = DappSession.maxIdle - now.difference(lastUsedAt);
     if (left.inDays >= 1) return 'lapses in ${left.inDays}d';

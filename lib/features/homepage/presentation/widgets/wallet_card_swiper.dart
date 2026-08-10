@@ -227,8 +227,8 @@ class _AddWalletPage extends StatelessWidget {
   }
 }
 
-/// Hand-rolled dashed rounded rectangle — saves pulling in a new dependency
-/// for a one-off border style.
+// Hand-rolled dashed rounded rectangle — saves pulling in a new dependency
+// for a one-off border style.
 class _DashedBorderPainter extends CustomPainter {
   final Color color;
   final double radius;
