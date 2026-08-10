@@ -1,4 +1,5 @@
 import 'package:solfare/core/solana/preview/tx_preview.dart';
+import 'package:solfare/core/util/json.dart';
 import 'package:solfare/core/util/app_log.dart';
 import 'package:solfare/features/wallet/data/datasource/solana_rpc_datasource.dart';
 
@@ -35,7 +36,7 @@ class RecipientCheck {
     // like, so it is the normal case rather than a suspicious one.
     if (account == null) return null;
 
-    if (account['executable'] == true) {
+    if (account.boolAt('executable') == true) {
       return const RiskFlag(
         severity: RiskSeverity.danger,
         title: 'This address is a program',
@@ -43,11 +44,17 @@ class RecipientCheck {
       );
     }
 
-    final owner = account['owner'] as String?;
+    final owner = account.stringAt('owner');
     if (owner == null || owner == _systemProgram) return null;
 
     if (owner == _tokenProgram || owner == _token2022Program) {
-      final type = account['data']?['parsed']?['type'] as String?;
+      // pathAt, not a ?[] chain: getAccountInfo is asked for jsonParsed and
+      // falls back to base64 for anything it cannot parse, which makes `data`
+      // a two-element List. Indexing that with a String threw a TypeError from
+      // *outside* the try above, so an attacker handing over a Token-owned
+      // account of a non-standard size collapsed the whole preview into
+      // "could not check this transaction" — with the slider still enabled.
+      final type = account.pathAt(['data', 'parsed'])?.stringAt('type');
       return switch (type) {
         'mint' => const RiskFlag(
             severity: RiskSeverity.danger,

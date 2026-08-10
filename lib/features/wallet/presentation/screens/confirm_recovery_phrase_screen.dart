@@ -362,7 +362,7 @@ class _ConfirmRecoveryPhraseScreenState
                           Text(
                             _isCorrectToast
                                 ? remainingSteps > 0
-                                    ? 'Just ${remainingSteps} more word${remainingSteps > 1 ? 's' : ''} and you are all set.'
+                                    ? 'Just $remainingSteps more word${remainingSteps > 1 ? 's' : ''} and you are all set.'
                                     : 'All done! Your wallet is ready.'
                                 : 'You might want to go back and make sure you have written down the recovery phrase correctly.',
                             style: TextStyle(

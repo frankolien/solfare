@@ -1,7 +1,8 @@
-import 'package:solfare/core/solana/lamports.dart';
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:solfare/core/util/json.dart';
+import 'package:solfare/core/solana/lamports.dart';
 import 'package:bloc/bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:solana/encoder.dart' as encoder;
@@ -249,16 +250,22 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
 
   List<Nft> _decodeNfts(String raw) {
     try {
-      final list = jsonDecode(raw) as List;
-      return list
-          .map((e) => Nft(
-                mint: e['mint'] as String,
-                name: e['name'] as String,
-                imageUrl: e['imageUrl'] as String?,
-                collection: e['collection'] as String?,
-                description: e['description'] as String?,
-              ))
-          .toList();
+      // Typed reads: a cache written by an older build, or a half-flushed
+      // one, is a shape mismatch rather than a crash — and this whole method
+      // sits inside a catch that would otherwise turn it into an empty
+      // portfolio with no explanation.
+      return [
+        for (final entry in asJsonList(jsonDecode(raw)))
+          if (asJsonMap(entry) case final e?)
+            if (e.stringAt('mint') case final mint?)
+              Nft(
+                mint: mint,
+                name: e.stringAt('name') ?? '',
+                imageUrl: e.stringAt('imageUrl'),
+                collection: e.stringAt('collection'),
+                description: e.stringAt('description'),
+              ),
+      ];
     } catch (_) {
       return const [];
     }
@@ -303,19 +310,21 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
 
   List<SplToken> _decodeTokens(String raw) {
     try {
-      final list = jsonDecode(raw) as List;
-      return list
-          .map((e) => SplToken(
-                mint: e['mint'] as String,
-                name: e['name'] as String,
-                symbol: e['symbol'] as String? ?? '',
-                imageUrl: e['imageUrl'] as String?,
-                balance: (e['balance'] as num).toDouble(),
-                decimals: e['decimals'] as int? ?? 0,
-                priceUsd: (e['priceUsd'] as num?)?.toDouble() ?? 0,
-                priceChange24h: (e['priceChange24h'] as num?)?.toDouble() ?? 0,
-              ))
-          .toList();
+      return [
+        for (final entry in asJsonList(jsonDecode(raw)))
+          if (asJsonMap(entry) case final e?)
+            if (e.stringAt('mint') case final mint?)
+              SplToken(
+                mint: mint,
+                name: e.stringAt('name') ?? '',
+                symbol: e.stringAt('symbol') ?? '',
+                imageUrl: e.stringAt('imageUrl'),
+                balance: e.doubleAt('balance') ?? 0,
+                decimals: e.intAt('decimals') ?? 0,
+                priceUsd: e.doubleAt('priceUsd') ?? 0,
+                priceChange24h: e.doubleAt('priceChange24h') ?? 0,
+              ),
+      ];
     } catch (_) {
       return const [];
     }

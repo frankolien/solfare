@@ -20,7 +20,6 @@ class CreateWalletScreen extends StatefulWidget {
 
 class _CreateWalletScreenState extends State<CreateWalletScreen> {
   bool _isRevealed = false;
-  Wallet? _currentWallet;
 
   @override
   void initState() {
@@ -66,9 +65,7 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
       body: SafeArea(
         child: BlocConsumer<WalletBloc, WalletState>(
           listener: (context, state) {
-            if (state is WalletCreated) {
-              _currentWallet = state.wallet;
-            } else if (state is WalletSaved) {
+            if (state is WalletSaved) {
               context.push(AppRoutes.enterPasscode);
             } else if (state is WalletError) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -112,7 +109,7 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
             decoration: BoxDecoration(
-              color: Colors.grey[900]?.withOpacity(0.5),
+              color: Colors.grey[900]?.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.white10),
             ),
@@ -242,7 +239,7 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
             decoration: BoxDecoration(
-              color: Colors.grey[900]?.withOpacity(0.3),
+              color: Colors.grey[900]?.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.white12),
             ),

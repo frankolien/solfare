@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:solfare/core/constant/network.dart';
 import 'package:solfare/core/network/http_retry.dart';
 import 'package:solfare/core/util/app_log.dart';
+import 'package:solfare/core/util/json.dart';
 import 'package:solfare/features/wallet/data/model/transaction_model.dart';
 import 'package:solfare/features/wallet/domain/entities/nft.dart';
 import 'package:solfare/features/wallet/domain/entities/spl_token.dart';
@@ -114,9 +115,17 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     );
 
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      if (data['error'] != null) {
-        throw Exception('$method failed: ${data['error']['message']}');
+      // Typed all the way down. A JSON-RPC envelope that is not an object,
+      // or an error member that is not one, used to reach `['message']` as a
+      // dynamic call and throw a NoSuchMethodError in place of the error it
+      // was trying to report.
+      final data = asJsonMap(jsonDecode(response.body));
+      if (data == null) {
+        throw Exception('$method returned something that is not a JSON object');
+      }
+      final error = data.mapAt('error');
+      if (error != null) {
+        throw Exception('$method failed: ${error.stringAt('message') ?? error}');
       }
       return data['result'];
     } else {
@@ -146,7 +155,7 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
         cleanAddress,
         {'commitment': 'confirmed'},
       ]);
-      return result['value'] as int;
+      return asJsonMap(result)?.intAt('value') ?? 0;
     } catch (e) {
       throw Exception('Failed to get balance: $e');
     }
@@ -168,40 +177,43 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
 
       for (final sig in signatures) {
         try {
-          final signature = sig['signature'] as String;
+          final signature = asJsonMap(sig)?.stringAt('signature');
+          if (signature == null) continue;
           final txResult = await _rpcCall('getTransaction', [
             signature,
             {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0},
           ]);
 
-          if (txResult == null) continue;
+          final tx = asJsonMap(txResult);
+          if (tx == null) continue;
 
-          final meta = txResult['meta'];
-          final transaction = txResult['transaction'];
-          final message = transaction['message'];
-          final accountKeys = message['accountKeys'] as List;
+          final meta = tx.mapAt('meta');
+          final message = tx.mapAt('transaction')?.mapAt('message');
+          if (meta == null || message == null) continue;
+          final accountKeys = message.listAt('accountKeys') ?? const [];
 
           // accountKeys entries can be either strings or {pubkey: ...} objects
           // depending on the encoding the RPC chose for that tx.
-          String sender = '';
-          String receiver = '';
-          if (accountKeys.isNotEmpty) {
-            sender = accountKeys[0] is String
-                ? accountKeys[0]
-                : accountKeys[0]['pubkey'] ?? '';
-          }
-          if (accountKeys.length > 1) {
-            receiver = accountKeys[1] is String
-                ? accountKeys[1]
-                : accountKeys[1]['pubkey'] ?? '';
+          String keyAt(int index) {
+            if (index >= accountKeys.length) return '';
+            final entry = accountKeys[index];
+            if (entry is String) return entry;
+            return asJsonMap(entry)?.stringAt('pubkey') ?? '';
           }
 
-          final preBalances = meta['preBalances'] as List;
-          final postBalances = meta['postBalances'] as List;
-          final fee = meta['fee'] as int;
-          final amount = (preBalances[0] as int) - (postBalances[0] as int) - fee;
+          final sender = keyAt(0);
+          final receiver = keyAt(1);
 
-          final blockTime = txResult['blockTime'] as int?;
+          final preBalances = meta.listAt('preBalances') ?? const [];
+          final postBalances = meta.listAt('postBalances') ?? const [];
+          final fee = meta.intAt('fee') ?? 0;
+          if (preBalances.isEmpty || postBalances.isEmpty) continue;
+          final pre = preBalances[0];
+          final post = postBalances[0];
+          if (pre is! int || post is! int) continue;
+          final amount = pre - post - fee;
+
+          final blockTime = tx.intAt('blockTime');
           final timestamp = blockTime != null
               ? DateTime.fromMillisecondsSinceEpoch(blockTime * 1000)
               : DateTime.now();
@@ -261,10 +273,13 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
       final result = await _rpcCall('getLatestBlockhash', [
         {'commitment': commitment},
       ]);
-      return {
-        'blockhash': result['value']['blockhash'] as String,
-        'lastValidBlockHeight': result['value']['lastValidBlockHeight'] as int,
-      };
+      final value = asJsonMap(result)?.mapAt('value');
+      final blockhash = value?.stringAt('blockhash');
+      final lastValid = value?.intAt('lastValidBlockHeight');
+      if (blockhash == null || lastValid == null) {
+        throw Exception('getLatestBlockhash returned an unusable value');
+      }
+      return {'blockhash': blockhash, 'lastValidBlockHeight': lastValid};
     } catch (e) {
       throw Exception('Failed to get latest blockhash: $e');
     }
@@ -328,7 +343,11 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
         'replaceRecentBlockhash': true,
       },
     ]);
-    return Map<String, dynamic>.from(result['value'] as Map);
+    final value = asJsonMap(result)?.mapAt('value');
+    if (value == null) {
+      throw Exception('simulateTransaction returned no value');
+    }
+    return value;
   }
 
   @override
@@ -337,9 +356,9 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
       [signature],
       {'searchTransactionHistory': false},
     ]);
-    final values = (result['value'] as List?) ?? const [];
-    if (values.isEmpty || values.first == null) return null;
-    return Map<String, dynamic>.from(values.first as Map);
+    final values = asJsonMap(result)?.listAt('value') ?? const [];
+    if (values.isEmpty) return null;
+    return asJsonMap(values.first);
   }
 
   @override
@@ -353,8 +372,8 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
           'maxSupportedTransactionVersion': 0,
         },
       ]);
-      final logs = (result?['meta'] as Map?)?['logMessages'];
-      return (logs as List?)?.cast<String>() ?? const [];
+      final logs = asJsonMap(result)?.mapAt('meta')?.listAt('logMessages');
+      return logs?.whereType<String>().toList() ?? const [];
     } catch (e) {
       // A missing explanation is not worth failing over — the caller falls
       // back to the generic message it would have shown anyway.
@@ -376,7 +395,9 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     final result = await _rpcCall('getEpochInfo', [
       {'commitment': 'confirmed'},
     ]);
-    return result['epoch'] as int;
+    final epoch = asJsonMap(result)?.intAt('epoch');
+    if (epoch == null) throw Exception('getEpochInfo returned no epoch');
+    return epoch;
   }
 
   @override
@@ -391,13 +412,24 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
 
       // A wallet can hold the same mint in more than one account — the ATA
       // plus anything an airdrop or a program created for it.
-      var total = 0.0;
-      for (final account in (result['value'] as List?) ?? const []) {
-        final amount = account['account']?['data']?['parsed']?['info']?['tokenAmount'];
-        final ui = amount?['uiAmount'];
-        if (ui is num) total += ui.toDouble();
+      // Summed in base units through BigInt, not as doubles. uiAmount is a
+      // JSON double and is exact only to 2^53, so a nine-decimal balance
+      // above ~9,007,199 tokens loses base units — and swap_bloc converts
+      // this straight back to an integer amount, where rounding up past the
+      // real balance makes the route fail for no visible reason.
+      var raw = BigInt.zero;
+      var decimals = 0;
+      for (final account in asJsonMap(result)?.listAt('value') ?? const []) {
+        final amount = asJsonMap(account)
+            ?.pathAt(['account', 'data', 'parsed', 'info'])
+            ?.mapAt('tokenAmount');
+        if (amount == null) continue;
+        decimals = amount.intAt('decimals') ?? decimals;
+        final units = BigInt.tryParse(amount.stringAt('amount') ?? '');
+        if (units != null) raw += units;
       }
-      return total;
+      if (raw == BigInt.zero) return 0;
+      return raw / BigInt.from(10).pow(decimals);
     } catch (e) {
       debugLog('[RPC] Token balance lookup failed: $e');
       return 0;
@@ -410,7 +442,7 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
       blockhash,
       {'commitment': 'confirmed'},
     ]);
-    return result['value'] as bool? ?? false;
+    return asJsonMap(result)?.boolAt('value') ?? false;
   }
 
   @override
@@ -420,9 +452,7 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
       cleanAddress,
       {'encoding': 'jsonParsed', 'commitment': 'confirmed'},
     ]);
-    final value = result?['value'];
-    if (value == null) return null;
-    return Map<String, dynamic>.from(value as Map);
+    return asJsonMap(result)?.mapAt('value');
   }
 
   @override
@@ -454,15 +484,17 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
         return [];
       }
 
-      final body = jsonDecode(response.body);
-      if (body['error'] != null) {
-        debugLog('[RPC] Helius DAS error: ${body['error']}');
+      final body = asJsonMap(jsonDecode(response.body));
+      if (body == null || body['error'] != null) {
+        debugLog('[RPC] Helius DAS error: ${body?['error'] ?? 'unreadable body'}');
         return [];
       }
 
-      final items = (body['result']?['items'] as List?) ?? [];
+      final items = body.mapAt('result')?.listAt('items') ?? const [];
       return items
-          .map((item) => _nftFromDasAsset(item as Map<String, dynamic>))
+          .map(asJsonMap)
+          .whereType<Map<String, dynamic>>()
+          .map(_nftFromDasAsset)
           .whereType<Nft>()
           .toList();
     } catch (e) {
@@ -502,15 +534,17 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
         return [];
       }
 
-      final body = jsonDecode(response.body);
-      if (body['error'] != null) {
-        debugLog('[RPC] Helius tokens error: ${body['error']}');
+      final body = asJsonMap(jsonDecode(response.body));
+      if (body == null || body['error'] != null) {
+        debugLog('[RPC] Helius tokens error: ${body?['error'] ?? 'unreadable body'}');
         return [];
       }
 
-      final items = (body['result']?['items'] as List?) ?? [];
+      final items = body.mapAt('result')?.listAt('items') ?? const [];
       return items
-          .map((item) => _tokenFromDasAsset(item as Map<String, dynamic>))
+          .map(asJsonMap)
+          .whereType<Map<String, dynamic>>()
+          .map(_tokenFromDasAsset)
           .whereType<SplToken>()
           .toList();
     } catch (e) {
@@ -676,9 +710,9 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
   /// Inspect a parsed transaction's token balance deltas to find an NFT
   /// transfer involving [owner]. Returns null if none found. An NFT is
   /// identified by decimals=0 and a balance change of exactly 1 unit.
-  _NftTransferInfo? _detectNftTransfer(dynamic meta, String owner) {
-    final preBalances = (meta['preTokenBalances'] as List?) ?? const [];
-    final postBalances = (meta['postTokenBalances'] as List?) ?? const [];
+  _NftTransferInfo? _detectNftTransfer(Map<String, dynamic> meta, String owner) {
+    final preBalances = meta.listAt('preTokenBalances') ?? const [];
+    final postBalances = meta.listAt('postTokenBalances') ?? const [];
     if (preBalances.isEmpty && postBalances.isEmpty) return null;
 
     // Index balances by (accountIndex, mint) so we can diff pre vs post.
@@ -705,17 +739,22 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     for (final key in keys) {
       final p = pre[key];
       final q = post[key];
-      final decimals = (q?['uiTokenAmount']?['decimals'] ?? p?['uiTokenAmount']?['decimals']) as int? ?? 0;
+      final decimals =
+          q?.mapAt('uiTokenAmount')?.intAt('decimals') ??
+              p?.mapAt('uiTokenAmount')?.intAt('decimals') ??
+              0;
       if (decimals != 0) continue;
 
-      final preAmount = int.tryParse(p?['uiTokenAmount']?['amount']?.toString() ?? '0') ?? 0;
-      final postAmount = int.tryParse(q?['uiTokenAmount']?['amount']?.toString() ?? '0') ?? 0;
+      final preAmount =
+          int.tryParse(p?.mapAt('uiTokenAmount')?.stringAt('amount') ?? '0') ?? 0;
+      final postAmount =
+          int.tryParse(q?.mapAt('uiTokenAmount')?.stringAt('amount') ?? '0') ?? 0;
       final delta = postAmount - preAmount;
       if (delta == 0) continue;
       if (delta.abs() != 1) continue; // NFTs move in units of 1
 
-      final thisOwner = (q?['owner'] ?? p?['owner']) as String?;
-      final thisMint = (q?['mint'] ?? p?['mint']) as String?;
+      final thisOwner = q?.stringAt('owner') ?? p?.stringAt('owner');
+      final thisMint = q?.stringAt('mint') ?? p?.stringAt('mint');
       if (thisOwner == null || thisMint == null) continue;
 
       mint ??= thisMint;
@@ -756,8 +795,7 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
         ),
       );
       if (response.statusCode != 200) return null;
-      final body = jsonDecode(response.body);
-      final asset = body['result'] as Map<String, dynamic>?;
+      final asset = asJsonMap(jsonDecode(response.body))?.mapAt('result');
       if (asset == null) return null;
       return _nftFromDasAsset(asset);
     } catch (_) {
@@ -809,20 +847,26 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
       final accounts = (result as List?) ?? [];
       final List<Map<String, dynamic>> stakeAccounts = [];
 
-      for (final account in accounts) {
-        final pubkey = account['pubkey'] as String;
-        final lamports = account['account']['lamports'] as int;
-        final parsed = account['account']['data']['parsed'];
-        final info = parsed['info'] as Map<String, dynamic>;
-        final stake = info['stake'] as Map<String, dynamic>?;
-        final delegation = stake?['delegation'] as Map<String, dynamic>?;
+      for (final entry in accounts) {
+        final account = asJsonMap(entry);
+        final pubkey = account?.stringAt('pubkey');
+        final inner = account?.mapAt('account');
+        if (pubkey == null || inner == null) continue;
+
+        final delegation = inner
+            .pathAt(['data', 'parsed', 'info'])
+            ?.mapAt('stake')
+            ?.mapAt('delegation');
 
         stakeAccounts.add({
           'pubkey': pubkey,
-          'lamports': lamports,
-          'voterPubkey': delegation?['voter'] as String?,
-          'activationEpoch': int.tryParse(delegation?['activationEpoch']?.toString() ?? '0') ?? 0,
-          'deactivationEpoch': int.tryParse(delegation?['deactivationEpoch']?.toString() ?? '0') ?? 0,
+          'lamports': inner.intAt('lamports') ?? 0,
+          'voterPubkey': delegation?.stringAt('voter'),
+          // Epochs arrive as decimal strings and u64 max means "never".
+          // int.tryParse returns null for a value past 2^63, so the ?? 0
+          // below turned "never deactivates" into "deactivated at epoch 0".
+          'activationEpoch': _epoch(delegation?['activationEpoch']),
+          'deactivationEpoch': _epoch(delegation?['deactivationEpoch']),
         });
       }
 
@@ -836,13 +880,18 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
   Future<List<Map<String, dynamic>>> getVoteAccounts() async {
     try {
       final result = await _rpcCall('getVoteAccounts', []);
-      final current = (result['current'] as List?) ?? [];
+      final current = asJsonMap(result)?.listAt('current') ?? const [];
 
-      return current.map<Map<String, dynamic>>((v) => {
-        'votePubkey': v['votePubkey'] as String,
-        'activatedStake': v['activatedStake'] as int,
-        'commission': v['commission'] as int,
-      }).toList();
+      return [
+        for (final entry in current)
+          if (asJsonMap(entry) case final v?)
+            if (v.stringAt('votePubkey') case final key?)
+              {
+                'votePubkey': key,
+                'activatedStake': v.intAt('activatedStake') ?? 0,
+                'commission': v.intAt('commission') ?? 0,
+              },
+      ];
     } catch (e) {
       throw Exception('Failed to get vote accounts: $e');
     }
@@ -865,3 +914,18 @@ class _NftTransferInfo {
   final String to;
   const _NftTransferInfo({required this.mint, required this.from, required this.to});
 }
+
+/// A stake delegation epoch.
+///
+/// The runtime writes u64 max for "never deactivates", which is past 2^63 and
+/// so returns null from int.tryParse. The old `?? 0` turned that into
+/// "deactivated at epoch 0", which is how an actively-staked account read as
+/// deactivating forever.
+int _epoch(Object? raw) {
+  final parsed = BigInt.tryParse(raw?.toString() ?? '');
+  if (parsed == null) return 0;
+  return parsed.isValidInt ? parsed.toInt() : _neverEpoch;
+}
+
+/// Stands in for u64 max without overflowing a Dart int.
+const int _neverEpoch = 9223372036854775807;

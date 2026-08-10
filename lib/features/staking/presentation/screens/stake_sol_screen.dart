@@ -389,11 +389,7 @@ class _StakeSolScreenState extends State<StakeSolScreen> {
     );
   }
 
-  String _formatStake(double sol) {
-    if (sol >= 1000000) return '${(sol / 1000000).toStringAsFixed(1)}M';
-    if (sol >= 1000) return '${sol.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
-    return sol.toStringAsFixed(0);
-  }
+  String _formatStake(double sol) => StakeLimits.formatStake(sol);
 
   /// The commission is real and fetched; the APY is not populated anywhere,
   /// so advertising "~0.00% APY" beside a validator was worse than silence.

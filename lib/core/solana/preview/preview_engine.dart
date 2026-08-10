@@ -8,6 +8,7 @@ import 'package:solfare/core/solana/preview/instruction_decoder.dart';
 import 'package:solfare/core/solana/preview/risk_engine.dart';
 import 'package:solfare/core/solana/preview/tx_preview.dart';
 import 'package:solfare/core/util/app_log.dart';
+import 'package:solfare/core/util/json.dart';
 import 'package:solfare/features/wallet/data/datasource/solana_rpc_datasource.dart';
 
 /// Works out what a transaction will do, before it is signed.
@@ -280,16 +281,23 @@ class PreviewEngine {
       final delta = amountAfter - amountBefore;
       if (delta == BigInt.zero) continue;
 
-      final mint = entry['mint'] as String?;
+      final mint = entry.stringAt('mint');
       if (mint == null) continue;
+      final entryOwner = entry.stringAt('owner') ?? '';
 
       out.add(BalanceDelta(
         mint: mint,
-        owner: (entry['owner'] as String?) ?? '',
-        rawDelta: delta.toInt(),
-        decimals: (entry['uiTokenAmount']?['decimals'] as int?) ?? 0,
+        owner: entryOwner,
+        // clamp, not toInt(): a u64 at or above 2^63 wraps to negative here,
+        // which flips isIncoming and suppressed the "nothing comes back"
+        // rule for every token in the transaction. A scam mint can legally
+        // hold a supply that large.
+        rawDelta: delta.isValidInt
+            ? delta.toInt()
+            : (delta.isNegative ? _minInt : _maxInt),
+        decimals: entry.mapAt('uiTokenAmount')?.intAt('decimals') ?? 0,
         symbol: symbols[mint],
-        isOwnAccount: entry['owner'] == owner,
+        isOwnAccount: entryOwner == owner,
       ));
     }
     return out;
@@ -298,9 +306,13 @@ class PreviewEngine {
   /// Token amounts arrive as decimal strings because a u64 does not fit a
   /// signed int; parsing through BigInt keeps the top of the range intact.
   BigInt _amount(Map<String, dynamic>? entry) {
-    final raw = entry?['uiTokenAmount']?['amount']?.toString();
+    final raw = entry?.mapAt('uiTokenAmount')?['amount']?.toString();
     return raw == null ? BigInt.zero : (BigInt.tryParse(raw) ?? BigInt.zero);
   }
+
+  // Saturation bounds for a delta too large to hold in a signed 64-bit int.
+  static const _maxInt = 9223372036854775807;
+  static const _minInt = -9223372036854775808;
 
   String _humanize(dynamic err, List<String> logs) {
     final joined = logs.join('\n');

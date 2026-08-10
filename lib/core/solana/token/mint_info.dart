@@ -1,3 +1,5 @@
+import 'package:solfare/core/util/json.dart';
+
 /// A Token-2022 transfer fee, withheld from the recipient on every transfer.
 class TransferFee {
   final int basisPoints;
@@ -8,10 +10,18 @@ class TransferFee {
   const TransferFee({required this.basisPoints, required this.maximumFee});
 
   /// Fee charged on [amount], rounded up as the program does.
+  ///
+  /// BigInt because `amount * basisPoints` overflows signed 64-bit at
+  /// reachable amounts. Measured: 1e16 base units (ten million tokens at nine
+  /// decimals) at 1000 bps returned -844,674,407,370,954, the maximumFee
+  /// clamp did not catch it because the value was negative, and netOf then
+  /// reported the recipient receiving *more* than was sent.
   int feeOn(int amount) {
-    if (basisPoints == 0) return 0;
-    final raw = (amount * basisPoints + 9999) ~/ 10000;
-    return raw > maximumFee ? maximumFee : raw;
+    if (basisPoints == 0 || amount <= 0) return 0;
+    final raw = (BigInt.from(amount) * BigInt.from(basisPoints) + BigInt.from(9999)) ~/
+        BigInt.from(10000);
+    final capped = raw > BigInt.from(maximumFee) ? BigInt.from(maximumFee) : raw;
+    return capped.toInt();
   }
 
   /// What actually lands in the recipient's account.
@@ -63,17 +73,41 @@ class MintInfo {
   /// the newer one is assumed, which is the common case since most mints
   /// never schedule a change.
   static MintInfo parse(String mint, Map<String, dynamic> account, {int? currentEpoch}) {
-    final programId = account['owner'] as String? ?? tokenProgramId;
-    final info = account['data']?['parsed']?['info'] as Map<String, dynamic>?;
+    // No `?? tokenProgramId` fallback: the owner decides which token program
+    // the recipient's associated account is derived under, and guessing plain
+    // SPL for a Token-2022 mint derives an address nobody controls. A mint
+    // whose owner we cannot read is a mint we must not transfer.
+    final programId = account.stringAt('owner');
+    if (programId == null) {
+      throw const FormatException('That mint does not say which program owns it.');
+    }
+
+    // pathAt rather than a chain of ?[]: getAccountInfo is asked for
+    // jsonParsed and falls back to base64 for anything it cannot parse,
+    // returning `data` as a two-element List. Indexing that with a String
+    // throws a TypeError, and TokenService calls needsEpoch outside its own
+    // try — so a Solana Pay request naming a wallet address as its spl-token
+    // reached the user as a raw type error.
+    final parsed = account.pathAt(['data', 'parsed']);
+    final info = parsed?.mapAt('info');
     if (info == null) {
       throw const FormatException('That account is not a token mint.');
     }
 
-    final extensions = (info['extensions'] as List?) ?? const [];
+    // A token *account* also parses to a non-null `info` — it carries mint,
+    // owner and tokenAmount — and would come back here as a mint with zero
+    // decimals, which then derives an ATA from something that is not a mint.
+    if (parsed?.stringAt('type') != 'mint') {
+      throw const FormatException('That account is a token account, not a mint.');
+    }
+
+    final extensions = info.listAt('extensions') ?? const [];
     Map<String, dynamic>? state(String name) {
       for (final e in extensions) {
-        if ((e as Map)['extension'] == name) {
-          return (e['state'] as Map?)?.cast<String, dynamic>() ?? const {};
+        final entry = asJsonMap(e);
+        if (entry == null) continue;
+        if (entry.stringAt('extension') == name) {
+          return entry.mapAt('state') ?? const {};
         }
       }
       return null;
@@ -127,12 +161,14 @@ class MintInfo {
   /// the epoch has to be known to answer correctly.
   static bool needsEpoch(Map<String, dynamic> account) {
     final extensions =
-        (account['data']?['parsed']?['info']?['extensions'] as List?) ?? const [];
+        account.pathAt(['data', 'parsed', 'info'])?.listAt('extensions') ?? const [];
     for (final e in extensions) {
-      if ((e as Map)['extension'] != 'transferFeeConfig') continue;
-      final state = e['state'] as Map?;
-      final newer = state?['newerTransferFee'] as Map?;
-      final older = state?['olderTransferFee'] as Map?;
+      final entry = asJsonMap(e);
+      if (entry == null) continue;
+      if (entry.stringAt('extension') != 'transferFeeConfig') continue;
+      final state = entry.mapAt('state');
+      final newer = state?.mapAt('newerTransferFee');
+      final older = state?.mapAt('olderTransferFee');
       if (newer == null || older == null) return false;
       // Identical schedules mean no change is pending and the epoch cannot
       // change the answer.

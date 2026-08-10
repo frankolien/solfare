@@ -1,7 +1,7 @@
 import 'package:solfare/core/solana/lamports.dart';
 import 'package:bloc/bloc.dart';
+import 'package:solana/dto.dart';
 import 'package:solana/solana.dart' as solana;
-import 'package:solana/src/rpc/dto/account_data/stake_program/authorized.dart';
 import 'package:solfare/core/solana/transaction_service.dart';
 import 'package:solfare/core/solana/tx_outcome.dart';
 import 'package:solfare/core/wallet/keyring.dart';
@@ -43,31 +43,63 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
     emit(const StakingLoading());
     try {
       final raw = await _rpcDataSource.getStakeAccounts(event.walletAddress);
-      final accounts = raw.map((a) => StakeAccount(
-            pubkey: a['pubkey'] as String,
-            lamports: a['lamports'] as int,
-            voterPubkey: a['voterPubkey'] as String?,
-            state: _determineState(
-              a['activationEpoch'] as int,
-              a['deactivationEpoch'] as int,
-            ),
-            activationEpoch: a['activationEpoch'] as int,
-            deactivationEpoch: a['deactivationEpoch'] as int,
-          )).toList();
+      // The epoch is what makes the states distinguishable. Without it the
+      // old code had no branch that could return 'active' at all, so an
+      // account staked for months reported "activating" forever — and the
+      // detail screen showed "Time to stake: ~6h 38m" to match.
+      final currentEpoch = await _currentEpoch();
+      final accounts = raw.map((a) {
+        final activation = a['activationEpoch'] as int;
+        final deactivation = a['deactivationEpoch'] as int;
+        return StakeAccount(
+          pubkey: a['pubkey'] as String,
+          lamports: a['lamports'] as int,
+          voterPubkey: a['voterPubkey'] as String?,
+          state: _determineState(activation, deactivation, currentEpoch),
+          activationEpoch: activation,
+          deactivationEpoch: deactivation,
+        );
+      }).toList();
       emit(StakeAccountsFetched(accounts));
     } catch (e) {
       emit(StakingError(e.toString()));
     }
   }
 
-  String _determineState(int activationEpoch, int deactivationEpoch) {
-    // Max u64 means "not set"
-    const maxEpoch = 9223372036854775807;
-    if (deactivationEpoch != maxEpoch && deactivationEpoch != 0) {
-      return 'deactivating';
+  /// Null when the epoch cannot be read, which leaves the states as
+  /// conservative as they were rather than inventing one.
+  Future<int?> _currentEpoch() async {
+    try {
+      return await _rpcDataSource.getEpoch();
+    } catch (e) {
+      debugLog('[StakingBloc] epoch lookup failed: $e');
+      return null;
     }
-    if (activationEpoch == 0) return 'inactive';
-    return 'activating';
+  }
+
+  /// The four states a stake account can be in, decided against the epoch.
+  ///
+  /// `_neverEpoch` (u64 max, clamped to max i64 on the way in) means the
+  /// field is unset — a delegation that never deactivates, or one that has
+  /// not activated.
+  String _determineState(int activationEpoch, int deactivationEpoch, int? currentEpoch) {
+    const neverEpoch = 9223372036854775807;
+    final deactivating = deactivationEpoch != neverEpoch && deactivationEpoch != 0;
+
+    if (currentEpoch == null) {
+      // Same answers as before, minus the ones that need an epoch.
+      if (deactivating) return 'deactivating';
+      return activationEpoch == 0 ? 'inactive' : 'activating';
+    }
+
+    if (deactivating) {
+      // Cooldown finishes at the end of the deactivation epoch; only after
+      // that is the balance actually withdrawable.
+      return deactivationEpoch < currentEpoch ? 'inactive' : 'deactivating';
+    }
+    if (activationEpoch == 0 || activationEpoch == neverEpoch) return 'inactive';
+    // Warmup finishes at the end of the activation epoch.
+    return activationEpoch < currentEpoch ? 'active' : 'activating';
   }
 
   Future<void> _onFetchValidators(

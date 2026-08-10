@@ -1,4 +1,6 @@
 import 'dart:convert';
+
+import 'package:solfare/core/util/json.dart';
 import 'package:http/http.dart' as http;
 import 'package:solfare/features/explore/data/model/crypto_news_model.dart';
 import 'package:solfare/features/explore/domain/entities/dapp_item.dart';
@@ -43,10 +45,11 @@ class ExploreDataSourceImpl implements ExploreDataSource {
       });
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final results = (data['results'] as List?) ?? [];
+        final results = asJsonMap(jsonDecode(response.body))?.listAt('results') ?? const [];
         final news = results
-            .map((json) => CryptoNewsModel.fromJson(json as Map<String, dynamic>))
+            .map(asJsonMap)
+            .whereType<Map<String, dynamic>>()
+            .map(CryptoNewsModel.fromJson)
             .toList();
 
         _cachedNews = news;

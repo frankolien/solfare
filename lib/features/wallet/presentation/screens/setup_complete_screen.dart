@@ -89,7 +89,7 @@ class _SetupCompleteScreenState extends State<SetupCompleteScreen> {
                         ),
                       )
                     : Container(
-                        color: Colors.grey[900]?.withOpacity(0.3),
+                        color: Colors.grey[900]?.withValues(alpha: 0.3),
                         child: const Icon(
                           Icons.flag,
                           color: Colors.white,

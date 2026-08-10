@@ -218,10 +218,9 @@ class _CreateWalletIntroScreenState extends State<CreateWalletIntroScreen> {
           const Spacer(flex: 1),
 
           // Video card — fixed proportion of screen
-          Container(
+          SizedBox(
             width: double.infinity,
             height: screenHeight * 0.5,
-            //color: const Color(0xFF0B0F14),
             child: isInitialized
                 ? ColorFiltered(
                     colorFilter: const ColorFilter.matrix(<double>[

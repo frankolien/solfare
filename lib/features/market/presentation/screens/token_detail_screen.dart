@@ -1,4 +1,6 @@
 import 'dart:async';
+
+import 'package:solfare/core/util/json.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -158,10 +160,14 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
         _chartUrl(days),
         ttl: const Duration(minutes: 5),
       );
-      final prices = body?['prices'] as List?;
-      final chartData = prices == null
-          ? <double>[]
-          : prices.map((p) => (p[1] as num).toDouble()).toList();
+      // Each point is a [timestampMs, price] pair; anything else is skipped
+      // rather than indexed blind.
+      final prices = body?['prices'];
+      final chartData = <double>[
+        for (final point in asJsonList(prices))
+          if (point is List && point.length > 1 && point[1] is num)
+            (point[1] as num).toDouble(),
+      ];
       // Drop the result if another fetch was kicked off after us (timeframe
       // changed) — without this, a slow response can clobber a freshly-
       // selected timeframe's data, or erase live-tick appends that landed

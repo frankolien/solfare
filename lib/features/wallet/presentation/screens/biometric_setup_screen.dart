@@ -31,7 +31,7 @@ class BiometricSetupScreen extends StatelessWidget {
                 height: 120,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.grey[900]?.withOpacity(0.5),
+                  color: Colors.grey[900]?.withValues(alpha: 0.5),
                 ),
                 child: const Icon(
                   Icons.lock_open,

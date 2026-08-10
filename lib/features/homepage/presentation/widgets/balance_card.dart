@@ -66,7 +66,7 @@ class BalanceCard extends StatelessWidget {
         future: getApplicationDocumentsDirectory(),
         builder: (context, snap) {
           if (!snap.hasData) {
-            return Container(color: Colors.grey[900]?.withOpacity(0.5));
+            return Container(color: Colors.grey[900]?.withValues(alpha: 0.5));
           }
           return Stack(
             fit: StackFit.expand,
@@ -75,10 +75,10 @@ class BalanceCard extends StatelessWidget {
                 File('${snap.data!.path}/$filename'),
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) =>
-                    Container(color: Colors.grey[900]?.withOpacity(0.5)),
+                    Container(color: Colors.grey[900]?.withValues(alpha: 0.5)),
               ),
               // Scrim for text legibility over unpredictable user photos.
-              Container(color: Colors.black.withOpacity(0.35)),
+              Container(color: Colors.black.withValues(alpha: 0.35)),
             ],
           );
         },
@@ -90,7 +90,7 @@ class BalanceCard extends StatelessWidget {
       height: double.infinity,
       fit: BoxFit.cover,
       errorBuilder: (_, __, ___) =>
-          Container(color: Colors.grey[900]?.withOpacity(0.5)),
+          Container(color: Colors.grey[900]?.withValues(alpha: 0.5)),
     );
   }
 
@@ -167,7 +167,7 @@ class BalanceCard extends StatelessWidget {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: Colors.grey[800]?.withOpacity(0.7),
+              color: Colors.grey[800]?.withValues(alpha: 0.7),
               shape: BoxShape.circle,
             ),
             child: Center(

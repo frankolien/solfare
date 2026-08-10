@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:solfare/features/staking/domain/entities/validator_info.dart';
+import 'package:solfare/features/staking/domain/stake_limits.dart';
 import 'package:solfare/features/staking/presentation/bloc/staking_bloc.dart';
 import 'package:solfare/features/staking/presentation/bloc/staking_event.dart';
 import 'package:solfare/features/staking/presentation/bloc/staking_state.dart';
@@ -123,9 +124,5 @@ class _ValidatorPickerSheetState extends State<ValidatorPickerSheet> {
     );
   }
 
-  String _formatStake(double sol) {
-    if (sol >= 1000000) return '${(sol / 1000000).toStringAsFixed(1)}M';
-    if (sol >= 1000) return '${(sol / 1000).toStringAsFixed(1)}K';
-    return sol.toStringAsFixed(0);
-  }
+  String _formatStake(double sol) => StakeLimits.formatStake(sol);
 }

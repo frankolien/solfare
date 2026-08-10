@@ -36,4 +36,15 @@ class StakeLimits {
     if (amount <= 0) return false;
     return amount <= maxStakeable(balance);
   }
+
+  /// A validator's total stake, short enough for a row.
+  ///
+  /// Shared so the stake screen and the validator picker it opens cannot
+  /// disagree about one validator's number — they did: 12,345 on one and
+  /// 12.3K on the other.
+  static String formatStake(double sol) {
+    if (sol >= 1000000) return '${(sol / 1000000).toStringAsFixed(1)}M';
+    if (sol >= 1000) return '${(sol / 1000).toStringAsFixed(1)}K';
+    return sol.toStringAsFixed(0);
+  }
 }
