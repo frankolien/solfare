@@ -28,6 +28,22 @@ class DappSession {
   /// Opaque token echoed by the dapp on later requests.
   final String sessionToken;
 
+  /// Where replies go, fixed at connect time.
+  ///
+  /// It used to be read off each incoming request instead. That let a
+  /// captured deeplink be resent with the callback swapped: the payload
+  /// decrypts (same key, same nonce, same ciphertext), the sheet shows the
+  /// real dapp and the real preview, and the signed transaction is delivered
+  /// to whoever asked last.
+  final String redirectLink;
+
+  /// Nonces already accepted from this dapp, newest last.
+  ///
+  /// Sealed payloads are replayable without this: the same ciphertext opens
+  /// every time. Bounded, because a session is long-lived and an unbounded
+  /// list is a way to fill the keychain.
+  final List<String> seenNonces;
+
   final DateTime createdAt;
   final DateTime lastUsedAt;
 
@@ -39,32 +55,68 @@ class DappSession {
     required this.sessionToken,
     required this.createdAt,
     required this.lastUsedAt,
+    this.redirectLink = '',
+    this.seenNonces = const [],
   });
 
   /// Sessions go stale rather than living forever. A dapp the user has not
   /// opened in a month should have to ask again.
   static const Duration maxIdle = Duration(days: 30);
 
-  bool isExpiredAt(DateTime now) => now.difference(lastUsedAt) > maxIdle;
+  /// And an absolute ceiling regardless of use. Without one, a dapp that
+  /// pings monthly holds its grant forever, which is not what "I connected
+  /// to this once" means.
+  static const Duration maxLifetime = Duration(days: 90);
 
-  DappSession touched(DateTime now) => DappSession(
+  /// How many nonces to remember. Generous next to any real request rate,
+  /// and small enough that the stored session stays a few kilobytes.
+  static const int nonceMemory = 256;
+
+  bool isExpiredAt(DateTime now) =>
+      now.difference(lastUsedAt) > maxIdle ||
+      now.difference(createdAt) > maxLifetime;
+
+  bool hasSeen(String nonce) => seenNonces.contains(nonce);
+
+  /// Records [nonce] and marks the session used, dropping the oldest nonces
+  /// once the window is full.
+  DappSession accepting(String nonce, DateTime now) {
+    final next = [...seenNonces, nonce];
+    return _copy(
+      lastUsedAt: now,
+      seenNonces:
+          next.length <= nonceMemory ? next : next.sublist(next.length - nonceMemory),
+    );
+  }
+
+  DappSession touched(DateTime now) => _copy(lastUsedAt: now);
+
+  DappSession _copy({DateTime? lastUsedAt, List<String>? seenNonces}) => DappSession(
         origin: origin,
         dappPublicKey: dappPublicKey,
         sessionPrivateKey: sessionPrivateKey,
         walletAddress: walletAddress,
         sessionToken: sessionToken,
+        redirectLink: redirectLink,
+        seenNonces: seenNonces ?? this.seenNonces,
         createdAt: createdAt,
-        lastUsedAt: now,
+        lastUsedAt: lastUsedAt ?? this.lastUsedAt,
       );
 
+  // UTC on the way out. toIso8601String() on a local DateTime emits no
+  // offset and parses back as local, so a session written in UTC+2 and read
+  // in UTC-7 shifted nine hours — living that much too long or dying that
+  // much early, depending on which way the user travelled.
   Map<String, dynamic> toJson() => {
         'origin': origin,
         'dappPublicKey': dappPublicKey,
         'sessionPrivateKey': sessionPrivateKey,
         'walletAddress': walletAddress,
         'sessionToken': sessionToken,
-        'createdAt': createdAt.toIso8601String(),
-        'lastUsedAt': lastUsedAt.toIso8601String(),
+        'redirectLink': redirectLink,
+        'seenNonces': seenNonces,
+        'createdAt': createdAt.toUtc().toIso8601String(),
+        'lastUsedAt': lastUsedAt.toUtc().toIso8601String(),
       };
 
   factory DappSession.fromJson(Map<String, dynamic> json) => DappSession(
@@ -73,8 +125,13 @@ class DappSession {
         sessionPrivateKey: json['sessionPrivateKey'] as String,
         walletAddress: json['walletAddress'] as String,
         sessionToken: json['sessionToken'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        lastUsedAt: DateTime.parse(json['lastUsedAt'] as String),
+        redirectLink: json['redirectLink'] as String? ?? '',
+        seenNonces: [
+          for (final n in (json['seenNonces'] as List? ?? const []))
+            if (n is String) n,
+        ],
+        createdAt: DateTime.parse(json['createdAt'] as String).toUtc(),
+        lastUsedAt: DateTime.parse(json['lastUsedAt'] as String).toUtc(),
       );
 }
 

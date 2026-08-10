@@ -202,7 +202,7 @@ class _ConfirmSendSheetState extends State<ConfirmSendSheet> {
     // A blocked preview is a refusal, so the control stays dead rather than
     // inviting a slide that cannot succeed.
     final ready = preview != null && !preview.blocked;
-    final danger = preview?.hasDanger ?? false;
+    final danger = preview?.needsDeliberateApproval ?? false;
     final fill = danger ? const Color(0xFFE03131) : Colors.yellow;
 
     return Padding(

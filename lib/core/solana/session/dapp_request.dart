@@ -69,9 +69,17 @@ class DappSignMessageRequest extends DappSealedRequest {
 }
 
 class DappDisconnectRequest extends DappRequest {
+  /// The token handed out at connect time, echoed back.
+  ///
+  /// Disconnect carries no ciphertext, so this is the only thing that proves
+  /// the sender is the dapp rather than anyone who read its public key out of
+  /// a connect URL. Without it, any app could silently revoke a session.
+  final String sessionToken;
+
   const DappDisconnectRequest({
     required super.dappPublicKey,
     required super.redirectLink,
+    required this.sessionToken,
   });
 }
 
@@ -121,7 +129,13 @@ class DappRequestParser {
         );
 
       case 'disconnect':
-        return DappDisconnectRequest(dappPublicKey: dappPublicKey, redirectLink: redirect);
+        final token = params['session'];
+        if (token == null || token.isEmpty) return null;
+        return DappDisconnectRequest(
+          dappPublicKey: dappPublicKey,
+          redirectLink: redirect,
+          sessionToken: token,
+        );
 
       case 'signAndSendTransaction':
       case 'signTransaction':

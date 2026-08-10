@@ -142,7 +142,7 @@ class SolanaPaySheet extends StatelessWidget {
 
   Widget _approve(BuildContext context, PayReady? ready) {
     final enabled = ready != null;
-    final danger = ready?.preview.hasDanger ?? false;
+    final danger = ready?.preview.needsDeliberateApproval ?? false;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),

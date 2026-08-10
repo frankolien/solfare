@@ -185,6 +185,17 @@ class TxPreview {
 
   bool get hasDanger => worstSeverity == RiskSeverity.danger;
 
+  /// Whether the sheet should make the user break stride before approving.
+  ///
+  /// Wider than [hasDanger] on purpose. `TxPreview.unverified` carries no
+  /// flags at all, so a transaction the network could not check scored the
+  /// same as a fully verified safe one — same yellow button, same wording —
+  /// and for signTransaction the wallet then handed a dapp a signature over
+  /// a payload it had never inspected. "This will fail" is only a caution
+  /// too, and approving one is a guaranteed loss of the fee.
+  bool get needsDeliberateApproval =>
+      hasDanger || unverified || willFail || blocked;
+
   /// Instructions worth showing — compute budget is stripped.
   List<DecodedInstruction> get visibleInstructions =>
       instructions.where((i) => !i.isNoise).toList();

@@ -92,6 +92,29 @@ class DappApprovalSheet extends StatelessWidget {
                     fontFamily: 'FKGroteskSemiMono',
                     fontWeight: FontWeight.w600),
               ),
+              // Said out loud, because it is not verified. The origin comes
+              // from an `app_url` query parameter the caller supplies, and
+              // over a custom scheme nothing ties it to the encryption key —
+              // so any app can open a connect link claiming to be jup.ag.
+              // Until there is a Universal Links association to check it
+              // against, presenting it as fact is the lie.
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  Icon(Icons.info_outline, size: 10, color: Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      'Name claimed by the app, not verified',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 9,
+                        fontFamily: 'FKGrotesk',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 8),
               Text('Wallet',
                   style:
@@ -175,7 +198,10 @@ class DappApprovalSheet extends StatelessWidget {
       );
 
   Widget _buttons(BuildContext context) {
-    final danger = prompt.preview?.hasDanger ?? false;
+    // needsDeliberateApproval, not hasDanger. An unverified preview carries
+    // no flags at all, so a transaction the network could not check used to
+    // render the same ordinary yellow Approve as a fully verified safe one.
+    final danger = prompt.preview?.needsDeliberateApproval ?? false;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
       child: Row(

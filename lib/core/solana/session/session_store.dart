@@ -38,7 +38,10 @@ class SessionStore {
   /// Live sessions only. Expired ones are dropped as they are found, so a
   /// stale session cannot be used just because nobody opened the list.
   Future<List<DappSession>> active({DateTime? now}) async {
-    final clock = now ?? DateTime.now();
+    // UTC throughout: sessions are stored in UTC, and comparing them against
+    // a local clock is how a nine-hour timezone shift became nine hours of
+    // extra session life.
+    final clock = (now ?? DateTime.now()).toUtc();
     final sessions = await all();
     final live = sessions.where((s) => !s.isExpiredAt(clock)).toList();
     if (live.length != sessions.length) await _write(live);
@@ -69,7 +72,7 @@ class SessionStore {
     final sessions = await all();
     final index = sessions.indexWhere((s) => s.dappPublicKey == dappPublicKey);
     if (index == -1) return;
-    sessions[index] = sessions[index].touched(now ?? DateTime.now());
+    sessions[index] = sessions[index].touched((now ?? DateTime.now()).toUtc());
     await _write(sessions);
   }
 
@@ -77,6 +80,21 @@ class SessionStore {
     final sessions = await all();
     sessions.removeWhere((s) => s.dappPublicKey == dappPublicKey);
     await _write(sessions);
+  }
+
+  /// Records [nonce] against a dapp's session and marks it used.
+  ///
+  /// Returns false when that nonce has been seen before, which means the
+  /// payload is a replay and must not be acted on.
+  Future<bool> accept(String dappPublicKey, String nonce, {DateTime? now}) async {
+    final sessions = await all();
+    final index = sessions.indexWhere((s) => s.dappPublicKey == dappPublicKey);
+    if (index == -1) return false;
+    if (sessions[index].hasSeen(nonce)) return false;
+
+    sessions[index] = sessions[index].accepting(nonce, (now ?? DateTime.now()).toUtc());
+    await _write(sessions);
+    return true;
   }
 
   Future<void> revokeAll() => SecureStore.instance.delete(key: _key);

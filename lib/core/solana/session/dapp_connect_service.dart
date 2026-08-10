@@ -77,6 +77,19 @@ class DappConnectService {
         _tx = transactions,
         _preview = preview;
 
+  /// One refusal for every reason a request might be refused.
+  ///
+  /// "No session for this key", "the token did not match", "that nonce has
+  /// been used" and "the payload did not decrypt" are all answered the same
+  /// way on purpose. Distinguishing them hands a caller an oracle: the codes
+  /// used to differ, so any local app could enumerate exactly which dapps
+  /// this wallet had connected by sending garbage for each candidate key and
+  /// reading which error came back.
+  static const _unreadable = DappRequestRejected(
+    'Could not read that request.',
+    code: DappRequestParser.errorInvalidRequest,
+  );
+
   /// Work out what is being asked, without acting on it.
   Future<DappPrompt> prepare(DappRequest request, {required String walletAddress}) async {
     if (request is DappConnectRequest) {
@@ -88,15 +101,18 @@ class DappConnectService {
       walletAddress: walletAddress,
     );
     if (session == null) {
-      // Either never connected, expired, or connected to a different wallet.
-      // The dapp is told to reconnect and nothing else.
-      throw const DappRequestRejected(
-        'This app is not connected to this wallet.',
-        code: DappRequestParser.errorUnauthorized,
-      );
+      // Deliberately the same refusal a bad payload gets. Answering 4100
+      // here and 4200 there let any local app enumerate exactly which dapps
+      // this wallet is connected to, one candidate key at a time.
+      throw _unreadable;
     }
 
     if (request is DappDisconnectRequest) {
+      // Disconnect carries no ciphertext, so nothing proves the sender holds
+      // the dapp's private key — its public key is in every connect URL and
+      // in plenty of dapp bundles. The echoed session token is the only
+      // thing that does, so it is required rather than ignored.
+      if (request.sessionToken != session.sessionToken) throw _unreadable;
       return DappPrompt(request: request, origin: session.origin, session: session);
     }
 
@@ -107,6 +123,13 @@ class DappConnectService {
       sessionPrivateKey: session.sessionPrivateKey,
       dappPublicKey: session.dappPublicKey,
     );
+
+    // A sealed payload opens every time it is presented, so without this a
+    // captured deeplink can be resent verbatim — the sheet shows the real
+    // dapp and the real preview, and the signature goes wherever the resend
+    // asked. Recorded before the user is shown anything.
+    final fresh = await _sessions.accept(session.dappPublicKey, sealed.nonce);
+    if (!fresh) throw _unreadable;
 
     if (request is DappSignMessageRequest) {
       final raw = payload['message'];
@@ -143,7 +166,7 @@ class DappConnectService {
 
     if (request is DappConnectRequest) {
       final keys = SessionCrypto.generateKeyPair();
-      final now = DateTime.now();
+      final now = DateTime.now().toUtc();
       final token = SessionCrypto.randomToken();
 
       final session = DappSession(
@@ -152,6 +175,9 @@ class DappConnectService {
         sessionPrivateKey: keys.privateKey,
         walletAddress: keyPair.address,
         sessionToken: token,
+        // Pinned now, and every later reply goes here rather than to
+        // whatever address the incoming request happened to name.
+        redirectLink: request.redirectLink.toString(),
         createdAt: now,
         lastUsedAt: now,
       );
@@ -178,6 +204,12 @@ class DappConnectService {
     final session = prompt.session!;
     await _sessions.touch(session.dappPublicKey);
 
+    // Where the answer goes, decided at connect time rather than by the
+    // request in hand. A captured deeplink resent with a different
+    // redirect_link would otherwise have the signed transaction delivered to
+    // whoever resent it.
+    final replyTo = _replyTo(session, request);
+
     final Map<String, dynamic> result;
     if (request is DappSignMessageRequest) {
       final signature = await keyPair.sign(utf8.encode(prompt.message!));
@@ -187,7 +219,7 @@ class DappConnectService {
       if (request is DappSignAndSendRequest) {
         final outcome = await _tx.signAndSendPayload(base64Tx: base64Tx, signer: keyPair);
         if (!outcome.isConfirmed) {
-          return _error(request.redirectLink, session,
+          return _error(replyTo, session,
               outcome.error ?? 'The transaction did not confirm.');
         }
         result = {'signature': outcome.signature};
@@ -205,10 +237,20 @@ class DappConnectService {
       sessionPrivateKey: session.sessionPrivateKey,
       dappPublicKey: session.dappPublicKey,
     );
-    return DappRequestParser.reply(request.redirectLink, {
+    return DappRequestParser.reply(replyTo, {
       'nonce': sealed.nonce,
       'data': sealed.payload,
     });
+  }
+
+  /// The callback recorded when the session was created.
+  ///
+  /// Falls back to the request's own for sessions written before the field
+  /// existed — those keep the old behaviour rather than becoming unusable,
+  /// and age out within the 30-day idle window.
+  static Uri _replyTo(DappSession session, DappRequest request) {
+    if (session.redirectLink.isEmpty) return request.redirectLink;
+    return Uri.tryParse(session.redirectLink) ?? request.redirectLink;
   }
 
   /// The user said no, or we refused before asking.
@@ -226,7 +268,7 @@ class DappConnectService {
         sessionPrivateKey: session.sessionPrivateKey,
         dappPublicKey: session.dappPublicKey,
       );
-      return DappRequestParser.reply(request.redirectLink, {
+      return DappRequestParser.reply(_replyTo(session, request), {
         'nonce': sealed.nonce,
         'data': sealed.payload,
       });

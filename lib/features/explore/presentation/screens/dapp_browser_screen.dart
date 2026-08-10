@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:solfare/core/util/app_log.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class DappBrowserScreen extends StatefulWidget {
@@ -18,7 +21,6 @@ class DappBrowserScreen extends StatefulWidget {
 class _DappBrowserScreenState extends State<DappBrowserScreen> {
   late final WebViewController _controller;
   String _currentUrl = '';
-  String _pageTitle = '';
   bool _isLoading = true;
   double _loadingProgress = 0;
   bool _canGoBack = false;
@@ -28,11 +30,22 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
   void initState() {
     super.initState();
     _currentUrl = widget.initialUrl;
-    _pageTitle = widget.title ?? '';
 
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(NavigationDelegate(
+        // There was no navigation delegate rule at all, so every scheme was
+        // permitted: file:// reads the app's own sandbox, intent:// and
+        // content:// reach other apps on Android, and about: escapes the
+        // origin the URL bar is showing. https only.
+        onNavigationRequest: (request) {
+          final uri = Uri.tryParse(request.url);
+          if (uri != null && uri.scheme == 'https') {
+            return NavigationDecision.navigate;
+          }
+          debugLog('[Browser] blocked navigation to ${request.url}');
+          return NavigationDecision.prevent;
+        },
         onPageStarted: (url) {
           setState(() {
             _currentUrl = url;
@@ -48,22 +61,30 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
           _canGoBack = await _controller.canGoBack();
           _canGoForward = await _controller.canGoForward();
 
-          final title = await _controller.getTitle();
-          setState(() {
-            if (title != null && title.isNotEmpty) _pageTitle = title;
-          });
+          // The page's own title is deliberately not read. It is attacker
+          // -controlled text and the URL bar is the only origin indicator
+          // this browser has.
+          setState(() {});
         },
       ))
       ..loadRequest(Uri.parse(widget.initialUrl));
   }
 
+  /// The host, and only the host.
+  ///
+  /// `replaceFirst('www.', '')` rewrote the string anywhere that sequence
+  /// appeared, so `paypal.com.www.evil.com` rendered as `paypal.com.evil.com`
+  /// — a different domain from the one being visited. Only a genuine leading
+  /// `www.` is dropped now.
   String _displayUrl(String url) {
-    try {
-      final uri = Uri.parse(url);
-      return uri.host.replaceFirst('www.', '');
-    } catch (_) {
-      return url;
-    }
+    final uri = Uri.tryParse(url);
+    final host = uri?.host ?? '';
+    if (host.isEmpty) return url;
+    final bare = host.startsWith('www.') ? host.substring(4) : host;
+    // An http page is not the same claim as an https one, and the scheme is
+    // the difference between a connection somebody can rewrite and one they
+    // cannot.
+    return uri?.scheme == 'https' ? bare : '$bare (not secure)';
   }
 
   @override
@@ -144,7 +165,10 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        _pageTitle.isNotEmpty ? _pageTitle : _displayUrl(_currentUrl),
+                        // The host, never the page's own <title>. A site
+                        // serving `<title>jup.ag</title>` used to own the
+                        // only origin indicator in the wallet.
+                        _displayUrl(_currentUrl),
                         style: TextStyle(
                           color: Colors.grey[400],
                           fontSize: 12,
@@ -333,19 +357,27 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
   }
 
   void _navigateToUrl(String input) {
-    String url = input.trim();
-    if (url.isEmpty) return;
+    final typed = input.trim();
+    if (typed.isEmpty) return;
 
-    // Add https:// if not present
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      if (url.contains('.')) {
-        url = 'https://$url';
-      } else {
-        // Treat as search
-        url = 'https://www.google.com/search?q=${Uri.encodeComponent(url)}';
-      }
+    // Anything without a dot is a search, not an address. Deciding that
+    // first means a bare word can never be prefixed into something like
+    // `https://javascript:alert(1)`, which Uri.parse rejects with a
+    // FormatException — uncaught, so it took the whole screen down.
+    String url;
+    if (typed.startsWith('https://') || typed.startsWith('http://')) {
+      url = typed;
+    } else if (typed.contains('.') && !typed.contains(':') && !typed.contains(' ')) {
+      url = 'https://$typed';
+    } else {
+      url = 'https://www.google.com/search?q=${Uri.encodeComponent(typed)}';
     }
 
-    _controller.loadRequest(Uri.parse(url));
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.host.isEmpty) return;
+    // http is upgraded rather than loaded: the delegate would block it, and
+    // silently doing nothing reads as a broken address bar.
+    final target = uri.scheme == 'https' ? uri : uri.replace(scheme: 'https');
+    unawaited(_controller.loadRequest(target));
   }
 }
