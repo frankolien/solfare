@@ -17,6 +17,14 @@ class TokenSelectorSheet extends StatefulWidget {
 
 class _TokenSelectorSheetState extends State<TokenSelectorSheet> {
   final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    // The class had no dispose at all, so one controller leaked on every
+    // open of the token picker.
+    _searchController.dispose();
+    super.dispose();
+  }
   List<SwapToken> _filtered = [];
 
   @override

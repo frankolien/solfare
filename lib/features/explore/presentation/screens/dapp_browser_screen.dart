@@ -290,7 +290,7 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
 
   void _showUrlInputSheet() {
     final controller = TextEditingController(text: _currentUrl);
-    showModalBottomSheet(
+    unawaited(showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
@@ -353,7 +353,9 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
           ),
         ),
       ),
-    );
+    )
+        // Created per sheet open and never released before.
+        .whenComplete(controller.dispose));
   }
 
   void _navigateToUrl(String input) {

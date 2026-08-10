@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:solfare/features/explore/domain/entities/dapp_item.dart';
@@ -279,7 +281,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   void _showUrlInputSheet() {
     final controller = TextEditingController();
-    showModalBottomSheet(
+    unawaited(showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
@@ -341,7 +343,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
           ),
         ),
       ),
-    );
+    )
+        // Created per sheet open and never released before.
+        .whenComplete(controller.dispose));
   }
 
   void _navigateToUrl(String input) {

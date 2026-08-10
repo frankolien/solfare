@@ -1,4 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:solana/solana.dart';
+import 'package:solfare/core/constant/solana_path.dart';
 import 'package:solfare/core/error/exception.dart';
 import 'package:solfare/core/wallet/keyring.dart';
 
@@ -8,6 +12,40 @@ void main() {
       'abandon abandon abandon abandon abandon about';
 
   group('Keyring', () {
+    test('the derivation path is pinned to a known address', () async {
+      // The one test in this file that would notice a changed derivation
+      // path. Every other one holds if SolanaPath.defaultPath moves —
+      // determinism still holds, lengths still hold, and keyPairFromMnemonic
+      // still agrees with publicKeyFor because both call the same private
+      // helper. Meanwhile every existing user's wallet would become a
+      // different, empty address, silently.
+      //
+      // Golden value derived from this mnemonic at m/44'/501'/0'/0'.
+      final derived = await Keyring.publicKeyFor(testMnemonic);
+      expect(derived.address, 'HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk');
+      expect(SolanaPath.defaultPath, "m/44'/501'/0'/0'");
+    });
+
+    test('a derived keypair can actually sign', () async {
+      // Nothing in this file signed anything, so the invariant the comment
+      // in Keyring.keyPairFromMnemonic defends — "do NOT zero priv,
+      // Ed25519HDKeyPair stores it by reference" — was undefended. Mirroring
+      // the finally/_zero from publicKeyFor would break every signature in
+      // the app while all six of the old tests stayed green.
+      final keypair = await Keyring.keyPairFromMnemonic(testMnemonic);
+      final signature = await keypair.sign(utf8.encode('solfare'));
+      expect(signature.bytes.length, 64);
+      expect(signature.bytes.any((b) => b != 0), isTrue,
+          reason: 'a zeroed private key signs zeroes');
+
+      final verified = await verifySignature(
+        message: utf8.encode('solfare'),
+        signature: signature.bytes,
+        publicKey: keypair.publicKey,
+      );
+      expect(verified, isTrue);
+    });
+
     test('derivation is deterministic for the same mnemonic', () async {
       final a = await Keyring.publicKeyFor(testMnemonic);
       final b = await Keyring.publicKeyFor(testMnemonic);
