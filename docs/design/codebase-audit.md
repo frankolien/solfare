@@ -190,6 +190,14 @@ There is no `LAMPORTS_PER_SOL` anywhere; the literal `1000000000` appears at
 three files away. The fix never propagated because there was nowhere for it to
 propagate to.
 
+**Correction, found while fixing this.** That comment's example is wrong:
+`0.29 * 1e9` is exactly `290000000.0` in Dart, measured. The *rule* is right
+— `0.000065 * 1e9` really is `64999.99999999999`, so `toInt()` under-sends —
+but every divergence sits below a millionth of a SOL, so the staking
+truncation was a genuine defect with an invented justification. Worth
+recording as its own lesson: a comment asserting a specific number is a claim
+that has to be checked like any other.
+
 ### 2.5 The swap quotes one amount and executes another
 
 - `swap_bloc.dart:92` quotes with `.toInt()` (truncate) while `:221` executes

@@ -1,3 +1,4 @@
+import 'package:solfare/core/solana/lamports.dart';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -79,7 +80,7 @@ class PayResolver {
       instructions.add(solana.SystemInstruction.transfer(
         fundingAccount: payerKey,
         recipientAccount: solana.Ed25519HDPublicKey.fromBase58(request.recipient),
-        lamports: (value * 1000000000).round(),
+        lamports: Lamports.fromSol(value),
       ));
     } else {
       final mint = await _tokens.mintInfo(request.splToken!);

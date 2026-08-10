@@ -1,4 +1,6 @@
+import 'package:solfare/core/solana/lamports.dart';
 import 'package:flutter/material.dart';
+import 'package:solfare/core/solana/explorer.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:solfare/features/wallet/domain/entities/transactions.dart';
@@ -30,8 +32,8 @@ class TransactionDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final amountInSol = tx.amount / 1000000000;
-    final feeInSol = tx.transactionFee / 1000000000;
+    final amountInSol = Lamports.toSol(tx.amount);
+    final feeInSol = Lamports.toSol(tx.transactionFee);
     final sign = _isSent ? '-' : '+';
 
     return Container(
@@ -205,7 +207,7 @@ class TransactionDetailSheet extends StatelessWidget {
                 const SizedBox(height: 4),
                 GestureDetector(
                   onTap: () async {
-                    final url = 'https://explorer.solana.com/tx/${tx.signature}?cluster=devnet';
+                    final url = Explorer.tx(tx.signature);
                     try {
                       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
                     } catch (_) {

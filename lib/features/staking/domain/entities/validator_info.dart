@@ -1,3 +1,4 @@
+import 'package:solfare/core/solana/lamports.dart';
 import 'package:equatable/equatable.dart';
 
 class ValidatorInfo extends Equatable {
@@ -17,7 +18,7 @@ class ValidatorInfo extends Equatable {
     this.commission = 0.0,
   });
 
-  double get totalStakeInSol => activatedStake / 1000000000;
+  double get totalStakeInSol => Lamports.toSol(activatedStake);
 
   @override
   List<Object?> get props => [votePubkey, name, apyPercent];

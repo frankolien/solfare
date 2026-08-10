@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:solfare/core/solana/explorer.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:solfare/features/staking/domain/entities/stake_account.dart';
@@ -91,7 +92,7 @@ class StakeAccountDetailScreen extends StatelessWidget {
   }
 
   void _openExplorer() async {
-    final url = 'https://explorer.solana.com/address/${account.pubkey}?cluster=devnet';
+    final url = Explorer.address(account.pubkey);
     try {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     } catch (_) {}

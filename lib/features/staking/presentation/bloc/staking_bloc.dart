@@ -1,3 +1,4 @@
+import 'package:solfare/core/solana/lamports.dart';
 import 'package:bloc/bloc.dart';
 import 'package:solana/solana.dart' as solana;
 import 'package:solana/src/rpc/dto/account_data/stake_program/authorized.dart';
@@ -109,7 +110,7 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
       final senderKeyPair = await _deriveKeyPair();
       final stakeAccountKeyPair = await solana.Ed25519HDKeyPair.random();
 
-      final lamports = (event.amountInSol * 1000000000).toInt();
+      final lamports = Lamports.fromSol(event.amountInSol);
       // Stake accounts are 200 bytes; the rent-exempt minimum has to be
       // funded on top of the staked amount or the account gets purged.
       final rentExemption = await _rpcDataSource.getMinimumBalanceForRentExemption(200);

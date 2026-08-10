@@ -1,3 +1,4 @@
+import 'package:solfare/core/solana/lamports.dart';
 import 'dart:math';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:solfare/core/solana/preview/preview_engine.dart';
@@ -152,7 +153,7 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
   Future<double> _balanceOf(SwapToken token, String owner) async {
     try {
       if (token.mint == SwapToken.sol.mint) {
-        return await _rpc.getBalance(owner) / 1000000000;
+        return Lamports.toSol(await _rpc.getBalance(owner));
       }
       return await _rpc.getTokenBalance(owner, token.mint);
     } catch (e) {

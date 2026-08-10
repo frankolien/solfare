@@ -1,3 +1,4 @@
+import 'package:solfare/core/solana/lamports.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -282,7 +283,7 @@ class InstructionDecoder {
       BigInt.from(_u64(data, offset)).toUnsigned(64).toString();
 
   String _sol(int lamports) {
-    final sol = lamports / 1000000000;
+    final sol = Lamports.toSol(lamports);
     if (sol == 0) return '0';
     if (sol < 0.000001) return sol.toStringAsExponential(2);
     var s = sol.toStringAsFixed(9);

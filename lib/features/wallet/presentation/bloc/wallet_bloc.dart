@@ -1,3 +1,4 @@
+import 'package:solfare/core/solana/lamports.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -707,7 +708,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     try {
       final active = await _repository.getActiveWallet();
       if (active == null) return;
-      final balanceUsd = (lamports / 1000000000) * price;
+      final balanceUsd = Lamports.toSol(lamports) * price;
       await WidgetBridge.pushWallet(
         walletName: active.name,
         balanceUsd: balanceUsd,
@@ -753,7 +754,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       final instruction = solana.SystemInstruction.transfer(
         fundingAccount: keyPair.publicKey,
         recipientAccount: solana.Ed25519HDPublicKey.fromBase58(event.recipientAddress),
-        lamports: (event.amountInSol * 1000000000).round(),
+        lamports: Lamports.fromSol(event.amountInSol),
       );
 
       // What the destination is cannot be read off the transaction — a
@@ -1046,9 +1047,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       }
       final senderKeyPair = await Keyring.keyPairFromMnemonic(mnemonic);
 
-      // round(), not toInt(): 0.29 * 1e9 is 289999999.99999994 in binary
-      // floating point, and truncating under-sends a lamport.
-      final lamports = (event.amountInSol * 1000000000).round();
+      final lamports = Lamports.fromSol(event.amountInSol);
 
       final instruction = solana.SystemInstruction.transfer(
         fundingAccount: senderKeyPair.publicKey,

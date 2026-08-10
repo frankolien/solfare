@@ -1,3 +1,4 @@
+import 'package:solfare/core/solana/lamports.dart';
 import 'package:equatable/equatable.dart';
 
 class StakeAccount extends Equatable {
@@ -17,7 +18,7 @@ class StakeAccount extends Equatable {
     this.deactivationEpoch = 0,
   });
 
-  double get amountInSol => lamports / 1000000000;
+  double get amountInSol => Lamports.toSol(lamports);
 
   @override
   List<Object?> get props => [pubkey, lamports, voterPubkey, state];

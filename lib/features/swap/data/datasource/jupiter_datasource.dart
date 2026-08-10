@@ -138,7 +138,11 @@ class JupiterDataSource {
       logoUrl: '$_cg/33566/large/dogwifhat.jpg?1702499428',
     ),
     SwapToken(
-      mint: 'RaydiumPoolv4111111111111111111111111111111',
+      // Not a placeholder anyone would notice by eye: the old value read
+      // like an address but contained 'l', which base58 excludes, so it was
+      // not even decodable. Selecting RAY produced "Failed to get quote"
+      // forever.
+      mint: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
       symbol: 'RAY',
       name: 'Raydium',
       decimals: 6,

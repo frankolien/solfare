@@ -1,3 +1,4 @@
+import 'package:solfare/core/solana/lamports.dart';
 import 'package:flutter/material.dart';
 import 'package:solfare/core/solana/preview/tx_preview.dart';
 
@@ -182,7 +183,7 @@ class TxPreviewBody extends StatelessWidget {
   }
 
   String _sol(int lamports) {
-    var s = (lamports / 1000000000).toStringAsFixed(9).replaceFirst(RegExp(r'0+$'), '');
+    var s = Lamports.toSol(lamports).toStringAsFixed(9).replaceFirst(RegExp(r'0+$'), '');
     return s.endsWith('.') ? s.substring(0, s.length - 1) : s;
   }
 }

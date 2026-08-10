@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:solfare/core/solana/explorer.dart';
 import 'package:flutter/services.dart';
 import 'package:lottie/lottie.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -84,7 +85,7 @@ class StakeStatusSheet extends StatelessWidget {
             const Divider(color: Colors.white10, height: 1, indent: 20, endIndent: 20),
             const SizedBox(height: 12),
             _buildActionRow(context, 'Explorer', Icons.open_in_new, () async {
-              final url = 'https://explorer.solana.com/tx/$signature?cluster=devnet';
+              final url = Explorer.tx(signature!);
               try {
                 await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
               } catch (_) {

@@ -1,3 +1,4 @@
+import 'package:solfare/core/solana/lamports.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -30,7 +31,7 @@ class TxEstimate {
   });
 
   int get totalFeeLamports => baseFeeLamports + priorityFeeLamports;
-  double get totalFeeSol => totalFeeLamports / 1000000000;
+  double get totalFeeSol => Lamports.toSol(totalFeeLamports);
 }
 
 /// Builds, prices, sends and confirms transactions. A signature from

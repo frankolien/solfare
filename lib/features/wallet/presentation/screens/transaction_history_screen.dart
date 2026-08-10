@@ -1,4 +1,6 @@
+import 'package:solfare/core/solana/lamports.dart';
 import 'package:flutter/material.dart';
+import 'package:solfare/core/solana/explorer.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lottie/lottie.dart';
@@ -317,7 +319,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     }
 
     final sent = _isSent(tx);
-    final amountInSol = tx.amount / 1000000000;
+    final amountInSol = Lamports.toSol(tx.amount);
     final sign = sent ? '-' : '+';
     final color = sent ? Colors.white : const Color(0xFF4CAF50);
     final otherAddress = sent ? tx.receiver : tx.sender;
@@ -489,7 +491,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       items: [
         PopupMenuItem(
           onTap: () async {
-            final url = 'https://explorer.solana.com/tx/${tx.signature}?cluster=devnet';
+            final url = Explorer.tx(tx.signature);
             try {
               await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
             } catch (_) {
@@ -521,7 +523,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
         ),
         PopupMenuItem(
           onTap: () {
-            SharePlus.instance.share(ShareParams(text: 'https://explorer.solana.com/tx/${tx.signature}?cluster=devnet'));
+            SharePlus.instance.share(ShareParams(text: Explorer.tx(tx.signature)));
           },
           child: const Text(
             'Share',

@@ -1,3 +1,4 @@
+import 'package:solfare/core/solana/lamports.dart';
 import 'package:equatable/equatable.dart';
 import 'package:solfare/core/solana/pay/pay_request.dart';
 import 'package:solfare/core/solana/preview/tx_preview.dart';
@@ -81,7 +82,7 @@ class BalanceFetched extends WalletState {
   List<Object?> get props => [balance, address];
 
   /// Convert lamports to SOL
-  double get balanceInSol => balance / 1000000000;
+  double get balanceInSol => Lamports.toSol(balance);
 }
 
 /// Airdrop requested successfully

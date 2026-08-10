@@ -1,3 +1,4 @@
+import 'package:solfare/core/solana/lamports.dart';
 import 'package:equatable/equatable.dart';
 import 'package:solfare/features/wallet/domain/entities/wallet.dart';
 
@@ -45,7 +46,7 @@ class RequestAirdropEvent extends WalletEvent {
 
   const RequestAirdropEvent({
     required this.address,
-    this.lamports = 1000000000, // 1 SOL
+    this.lamports = Lamports.perSol,
   });
 
   @override
