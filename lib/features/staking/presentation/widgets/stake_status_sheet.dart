@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:solfare/core/solana/explorer.dart';
 import 'package:flutter/services.dart';
@@ -89,7 +90,9 @@ class StakeStatusSheet extends StatelessWidget {
               try {
                 await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
               } catch (_) {
-                if (context.mounted) Clipboard.setData(ClipboardData(text: url));
+                if (context.mounted) {
+                  unawaited(Clipboard.setData(ClipboardData(text: url)));
+                }
               }
             }),
             const SizedBox(height: 20),

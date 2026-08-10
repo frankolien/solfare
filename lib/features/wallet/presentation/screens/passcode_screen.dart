@@ -74,14 +74,14 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
                 if (!_hasNavigated && mounted) {
                   _hasNavigated = true;
                   Future.microtask(() {
-                    if (mounted) context.go(AppRoutes.homepage);
+                    if (context.mounted) context.go(AppRoutes.homepage);
                   });
                 }
               } else if (state is PasscodeSaved) {
                 if (!_hasNavigated && mounted) {
                   _hasNavigated = true;
                   Future.microtask(() {
-                    if (mounted) context.go(AppRoutes.biometricSetup);
+                    if (context.mounted) context.go(AppRoutes.biometricSetup);
                   });
                 }
               } else if (state is PasscodeError) {
@@ -109,7 +109,7 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
                       );
                 } else if (widget.mode == PasscodeMode.enter) {
                   Future.delayed(const Duration(milliseconds: 300), () {
-                    if (mounted && !_hasNavigated) {
+                    if (context.mounted && !_hasNavigated) {
                       context.push(
                         AppRoutes.confirmPasscode,
                         extra: state.passcode,

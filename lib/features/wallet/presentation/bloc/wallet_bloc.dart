@@ -361,9 +361,9 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
   ) async {
     emit(WalletAddressLoaded(wallet.address));
     _watchedAddress = wallet.address;
-    _balanceWs.watch(wallet.address);
+    unawaited(_balanceWs.watch(wallet.address));
     _startPricePolling();
-    _priceWs.start();
+    unawaited(_priceWs.start());
     emit(WalletCustomizationLoaded(
       walletName: wallet.name,
       cardBackground: wallet.cardBackground,
@@ -611,7 +611,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       }
       emit(BalanceFetched(balance: balance, address: event.address));
       _lastLamports = balance;
-      _pushWalletWidget();
+      await _pushWalletWidget(force: true);
     } catch (e) {
       emit(WalletError(e.toString()));
     }
@@ -661,7 +661,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
         priceUsd: price,
         priceChange24h: priceChange24h,
       ));
-      WidgetBridge.pushPrice(
+      await WidgetBridge.pushPrice(
         symbol: 'SOL',
         priceUsd: price,
         percentChange24h: priceChange24h,
@@ -669,7 +669,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       );
       // Fresh price → refresh the wallet widget too, in case the very first
       // balance fetch beat us here and was skipped for lack of a price.
-      _pushWalletWidget();
+      await _pushWalletWidget(force: true);
     } catch (e) {
       // Don't emit error state for price fetch failures - just log it
       // Price is not critical for app functionality
@@ -689,22 +689,37 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       priceUsd: event.priceUsd,
       priceChange24h: event.percentChange24h,
     ));
-    WidgetBridge.pushPrice(
+    await WidgetBridge.pushPrice(
       symbol: 'SOL',
       priceUsd: event.priceUsd,
       percentChange24h: event.percentChange24h,
       sparkline: const [],
     );
-    _pushWalletWidget();
+    await _pushWalletWidget();
   }
 
   // Best-effort push to the iOS widget extension. Skipped silently on
   // Android / when we don't yet have both a price and a lamports figure to
   // compose the USD value from.
-  Future<void> _pushWalletWidget() async {
+  // The last home-screen-widget push, so a 1 Hz price feed does not drive a
+  // secure-storage read and two platform-channel calls every second. The
+  // widget is a glanceable summary; a minute-stale figure on it is invisible,
+  // and the work was not.
+  DateTime? _lastWidgetPush;
+  static const _widgetPushInterval = Duration(seconds: 30);
+
+  Future<void> _pushWalletWidget({bool force = false}) async {
     final price = _lastSolPriceUsd;
     final lamports = _lastLamports;
     if (price == null || lamports == null) return;
+
+    final now = DateTime.now();
+    final last = _lastWidgetPush;
+    if (!force && last != null && now.difference(last) < _widgetPushInterval) {
+      return;
+    }
+    _lastWidgetPush = now;
+
     try {
       final active = await _repository.getActiveWallet();
       if (active == null) return;

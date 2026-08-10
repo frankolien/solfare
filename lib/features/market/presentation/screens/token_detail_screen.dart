@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -30,7 +31,19 @@ class TokenDetailScreen extends StatefulWidget {
   /// mint's decimals and the balance, which a market listing does not carry.
   final SplToken? holding;
 
-  const TokenDetailScreen({super.key, required this.token, this.holding});
+  /// Native SOL balance, needed when this screen is showing SOL itself.
+  ///
+  /// SOL has no [holding] — it is not an SPL token — so the send screen was
+  /// handed a hardcoded 0 and its "amount <= balance" check could never pass.
+  /// Send was a dead button on the app's most-visited asset.
+  final double solBalance;
+
+  const TokenDetailScreen({
+    super.key,
+    required this.token,
+    this.holding,
+    this.solBalance = 0,
+  });
 
   @override
   State<TokenDetailScreen> createState() => _TokenDetailScreenState();
@@ -330,16 +343,16 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
       return;
     }
     if (!mounted) return;
-    Navigator.of(context).push(
+    unawaited(Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => SendSolScreen(
           senderAddress: address,
-          balanceInSol: 0,
+          balanceInSol: widget.solBalance,
           solPriceUsd: widget.token.currentPrice,
           token: widget.holding,
         ),
       ),
-    );
+    ));
   }
 
   PopupMenuItem<String> _menuItem(String value, IconData icon, String label) {

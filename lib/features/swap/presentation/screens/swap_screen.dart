@@ -51,14 +51,21 @@ class _SwapScreenState extends State<SwapScreen> {
     }
   }
 
-  void _showTokenSelector(BuildContext context, List<SwapToken> tokens, SwapToken current, bool isInput) async {
+  Future<void> _showTokenSelector(
+    BuildContext context,
+    List<SwapToken> tokens,
+    SwapToken current,
+    bool isInput,
+  ) async {
     final selected = await showModalBottomSheet<SwapToken>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => TokenSelectorSheet(tokens: tokens, selectedToken: current),
     );
-    if (selected != null && mounted) {
+    // context.mounted rather than State.mounted: this context belongs to the
+    // builder that opened the sheet, not to this State.
+    if (selected != null && context.mounted) {
       if (isInput) {
         context.read<SwapBloc>().add(SelectInputTokenEvent(selected));
       } else {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:solfare/core/security/secure_store.dart';
 import 'package:solfare/main.dart';
@@ -61,7 +62,7 @@ class _LanguageScreenState extends State<LanguageScreen> {
     setState(() => _selected = code);
     await _storage.write(key: _storageKey, value: code);
     if (mounted) {
-      context.localeProvider.setLocale(code);
+      unawaited(context.localeProvider.setLocale(code));
     }
   }
 

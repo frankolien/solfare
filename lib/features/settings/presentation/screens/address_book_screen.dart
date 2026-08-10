@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:solfare/features/wallet/data/datasource/contacts_local_datasource.dart';
 
@@ -23,9 +25,18 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
     _loadContacts();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadContacts() async {
     final contacts = await _dataSource.getContacts();
     final recents = await _dataSource.getRecents();
+    // Two awaits on secure storage before this runs. Backing out of the
+    // screen while they are in flight used to reach setState after dispose.
+    if (!mounted) return;
     setState(() {
       _contacts = contacts;
       _recents = recents;
@@ -52,12 +63,15 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
     final nameController = TextEditingController();
     final addressController = TextEditingController();
 
-    showModalBottomSheet(
+    // The builder's context is named apart from the screen's on purpose:
+    // shadowing it is what let a `mounted` check on the screen guard a
+    // Navigator call against the sheet.
+    unawaited(showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
         child: Container(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
           decoration: const BoxDecoration(
@@ -101,9 +115,14 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                     final address = addressController.text.trim();
                     if (name.isEmpty || address.isEmpty) return;
 
+                    // Captured before the await. `mounted` here is the
+                    // screen's, but `context` is the sheet's — so if the user
+                    // swiped the sheet away mid-save, the guard passed and
+                    // Navigator.pop removed the Address Book screen instead.
+                    final navigator = Navigator.of(sheetContext);
                     await _dataSource.saveContact(Contact(name: name, address: address));
-                    if (mounted) Navigator.pop(context);
-                    _loadContacts();
+                    navigator.pop();
+                    await _loadContacts();
                   },
                   child: const Text(
                     'Save',
@@ -115,7 +134,12 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
           ),
         ),
       ),
-    );
+      // Created per sheet open and never released before — one controller
+      // pair leaked for the life of the app on every "add contact" tap.
+    ).whenComplete(() {
+      nameController.dispose();
+      addressController.dispose();
+    }));
   }
 
   Widget _buildTextField(TextEditingController controller, String hint) {

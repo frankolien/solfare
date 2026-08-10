@@ -1066,15 +1066,19 @@ class _SendSolScreenState extends State<SendSolScreen> {
                             ),
                             onPressed: nameController.text.trim().isNotEmpty
                                 ? () async {
+                                    // Both captured before the awaits: the
+                                    // guard below was this screen's `mounted`
+                                    // while the two calls belonged to the
+                                    // sheet and the router.
+                                    final navigator = Navigator.of(sheetContext);
+                                    final router = GoRouter.of(context);
                                     await _contactsDS.saveContact(Contact(
                                       name: nameController.text.trim(),
                                       address: _recipientAddress,
                                     ));
                                     await _loadContacts();
-                                    if (mounted) {
-                                      Navigator.of(sheetContext).pop();
-                                      context.go(AppRoutes.homepage);
-                                    }
+                                    navigator.pop();
+                                    router.go(AppRoutes.homepage);
                                   }
                                 : null,
                             child: Text(

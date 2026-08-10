@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -134,7 +135,7 @@ class _PhotoPickerSheetState extends State<PhotoPickerSheet> {
       setState(() => _downloading = null);
       _showError('Could not load that photo. Try another one.');
     } finally {
-      subscription?.cancel();
+      unawaited(subscription?.cancel());
     }
   }
 
@@ -193,7 +194,7 @@ class _PhotoPickerSheetState extends State<PhotoPickerSheet> {
                   _hasMore = true;
                   _loading = true;
                 });
-                _init();
+                unawaited(_init());
               },
               child: const Text(
                 'Manage',

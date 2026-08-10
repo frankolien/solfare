@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:solfare/core/security/secure_store.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
@@ -65,7 +66,7 @@ class _GeneralScreenState extends State<GeneralScreen> {
       MaterialPageRoute(builder: (_) => const LanguageScreen()),
     );
     // Reload when coming back
-    _loadLanguage();
+    unawaited(_loadLanguage());
   }
 
   @override

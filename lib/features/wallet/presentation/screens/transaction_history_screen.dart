@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:solfare/core/solana/lamports.dart';
 import 'package:flutter/material.dart';
 import 'package:solfare/core/solana/explorer.dart';
@@ -496,7 +497,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
               await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
             } catch (_) {
               if (mounted) {
-                Clipboard.setData(ClipboardData(text: url));
+                unawaited(Clipboard.setData(ClipboardData(text: url)));
               }
             }
           },

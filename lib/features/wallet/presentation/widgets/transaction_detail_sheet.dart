@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:solfare/core/solana/lamports.dart';
 import 'package:flutter/material.dart';
 import 'package:solfare/core/solana/explorer.dart';
@@ -212,7 +213,7 @@ class TransactionDetailSheet extends StatelessWidget {
                       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
                     } catch (_) {
                       if (context.mounted) {
-                        Clipboard.setData(ClipboardData(text: url));
+                        unawaited(Clipboard.setData(ClipboardData(text: url)));
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('Link copied — open in browser'),

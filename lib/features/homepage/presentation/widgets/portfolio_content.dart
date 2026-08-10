@@ -182,6 +182,9 @@ class PortfolioContent extends StatelessWidget {
                 isVerified: true,
                 stats: {MarketWindow.h24: MarketStats(priceChange: priceChange)},
               ),
+              // SOL has no SplToken holding, so this is the only way the
+              // detail screen learns the balance its Send action needs.
+              solBalance: balanceInSol,
             ),
           ),
         );

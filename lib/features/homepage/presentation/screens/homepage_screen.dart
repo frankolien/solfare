@@ -280,14 +280,17 @@ class _HomepageScreenState extends State<HomepageScreen> {
   void _handleWalletState(BuildContext context, WalletState state) {
     if (state is WalletCleared) {
       Future.microtask(() {
-        if (mounted) context.go(AppRoutes.onboarding);
+        // context.mounted, not State.mounted: the context here is the
+        // listener's, and a still-mounted State does not mean that element
+        // is still in the tree.
+        if (context.mounted) context.go(AppRoutes.onboarding);
       });
     } else if (state is AirdropRequested) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Airdrop requested! Balance will update shortly.'), backgroundColor: Colors.green),
       );
       Future.delayed(const Duration(seconds: 3), () {
-        if (_walletAddress != null && mounted) {
+        if (_walletAddress != null && context.mounted) {
           context.read<WalletBloc>().add(FetchBalanceEvent(_walletAddress!));
         }
       });

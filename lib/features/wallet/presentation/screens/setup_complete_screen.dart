@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solfare/core/router/app_router.dart';
@@ -24,16 +25,16 @@ class _SetupCompleteScreenState extends State<SetupCompleteScreen> {
     try {
       _controller = VideoPlayerController.asset(
         'assets/assets/videos/onboarding/onboarding_success.mp4',
-      )
-        ..setLooping(true)
-        ..setVolume(0);
+      );
+      unawaited(_controller!.setLooping(true));
+      unawaited(_controller!.setVolume(0));
 
       await _controller!.initialize();
       if (mounted) {
         setState(() {
           _isInitialized = true;
         });
-        _controller!.play();
+        unawaited(_controller!.play());
       }
     } catch (e) {
       // If video fails to load, just show the static UI

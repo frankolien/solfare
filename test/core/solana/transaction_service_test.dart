@@ -12,7 +12,7 @@ import 'package:solfare/features/wallet/data/datasource/solana_rpc_datasource.da
 /// quietly returning a plausible value.
 class _FakeRpc implements SolanaRpcDataSource {
   final Map<String, dynamic>? blockhash;
-  final Object? blockhashError;
+  final Exception? blockhashError;
   final Map<String, dynamic>? status;
   final List<String> logs;
 

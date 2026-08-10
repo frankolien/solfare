@@ -65,7 +65,7 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
     }
   }
 
-  void _onPaste() async {
+  Future<void> _onPaste() async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     if (data?.text != null) {
       _phraseController.text = data!.text!.trim();

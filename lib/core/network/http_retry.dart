@@ -23,6 +23,9 @@ class HttpRetry {
     int maxAttempts = defaultMaxAttempts,
     Duration initialBackoff = defaultInitialBackoff,
   }) async {
+    // Object?, because `catch (e)` binds one — a socket failure can be an
+    // Error as easily as an Exception. It is only ever rethrown through the
+    // typed wrapper below, so nothing anonymous escapes.
     Object? lastError;
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
@@ -43,8 +46,9 @@ class HttpRetry {
       final jitterMs = Random().nextInt(100);
       await Future.delayed(Duration(milliseconds: backoffMs + jitterMs));
     }
-    // Unreachable — the loop above either returns or throws.
-    throw lastError ?? StateError('HttpRetry: no attempts made');
+    // Unreachable — the loop above either returns or throws. Wrapped rather
+    // than rethrown raw so a caller can always catch this by type.
+    throw HttpRetryException('Request failed after $maxAttempts attempts', lastError);
   }
 
   static bool _isRetryableStatus(int code) => code == 429 || (code >= 500 && code < 600);
@@ -63,4 +67,19 @@ class _StatusError implements Exception {
   _StatusError(this.statusCode);
   @override
   String toString() => 'HTTP $statusCode';
+}
+
+/// Raised when every attempt was used up without a usable response.
+///
+/// Wraps whatever the last attempt threw so the cause survives, while giving
+/// callers a type they can catch — the old code rethrew the raw `Object?`,
+/// which no `on ... catch` could name.
+class HttpRetryException implements Exception {
+  final String message;
+  final Object? cause;
+
+  const HttpRetryException(this.message, [this.cause]);
+
+  @override
+  String toString() => cause == null ? message : '$message: $cause';
 }

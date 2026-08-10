@@ -91,7 +91,9 @@ class StakeAccountDetailScreen extends StatelessWidget {
     );
   }
 
-  void _openExplorer() async {
+  // Future-returning, not `void async`: a void async function cannot be
+  // awaited and its failures cannot be observed by anyone.
+  Future<void> _openExplorer() async {
     final url = Explorer.address(account.pubkey);
     try {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);

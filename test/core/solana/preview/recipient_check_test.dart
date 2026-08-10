@@ -7,7 +7,7 @@ import 'package:solfare/features/wallet/data/datasource/solana_rpc_datasource.da
 /// reached, so the rest throws rather than quietly returning something.
 class _FakeRpc implements SolanaRpcDataSource {
   final Map<String, dynamic>? account;
-  final Object? error;
+  final Exception? error;
 
   _FakeRpc({this.account, this.error});
 

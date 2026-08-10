@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solfare/core/router/app_router.dart';
@@ -62,16 +63,15 @@ class _CreateWalletIntroScreenState extends State<CreateWalletIntroScreen> {
   Future<void> _initVideo(int index) async {
     if (_videoControllers[index] != null) return;
 
-    final controller =
-        VideoPlayerController.asset(_steps[index].videoAsset)
-          ..setLooping(true)
-          ..setVolume(0);
+    final controller = VideoPlayerController.asset(_steps[index].videoAsset);
+    unawaited(controller.setLooping(true));
+    unawaited(controller.setVolume(0));
 
     _videoControllers[index] = controller;
     await controller.initialize();
     if (mounted) {
       setState(() {});
-      controller.play();
+      unawaited(controller.play());
     }
   }
 

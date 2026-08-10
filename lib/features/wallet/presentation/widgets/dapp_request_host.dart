@@ -87,7 +87,10 @@ class _DappRequestHostState extends State<DappRequestHost> {
       // the Navigator and cannot host a sheet. Present over the router's
       // Navigator instead.
       final navigatorContext = rootNavigatorKey.currentContext;
-      if (!mounted || navigatorContext == null) return;
+      // navigatorContext.mounted, not this widget's `mounted`: the context
+      // belongs to the router's Navigator, which is the thing that has to
+      // still be there to host the sheet.
+      if (navigatorContext == null || !navigatorContext.mounted) return;
 
       final approved = await showModalBottomSheet<bool>(
             context: navigatorContext,
