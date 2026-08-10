@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:solfare/features/settings/presentation/screens/connected_apps_screen.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_event.dart';
 
@@ -31,9 +32,11 @@ class _SecurityPrivacyScreenState extends State<SecurityPrivacyScreen> {
                   children: [
                     _buildMenuItem(
                       icon: Iconsax.document_code,
-                      title: 'Manage apps',
-                      subtitle: 'Apps you connected to previously',
-                      onTap: () {},
+                      title: 'Connected apps',
+                      subtitle: 'See and disconnect apps that can ask to sign',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ConnectedAppsScreen()),
+                      ),
                     ),
                     _buildMenuItem(
                       icon: Iconsax.link,
