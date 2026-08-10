@@ -1,10 +1,11 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solfare/core/router/app_router.dart';
+import 'package:solfare/core/security/secure_clipboard.dart';
 import 'package:solfare/core/security/secure_screen.dart';
 import 'package:solfare/features/wallet/domain/entities/wallet.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
@@ -252,11 +253,20 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
                 // Copy button
                 GestureDetector(
                   onTap: () {
-                    Clipboard.setData(
-                        ClipboardData(text: wallet.mnemonic));
+                    // SecureClipboard, not the raw API. This is the one
+                    // screen that shows a brand-new seed, and it was the one
+                    // place copying it left the twelve words in the system
+                    // clipboard indefinitely — readable by any foreground
+                    // app or IME, and pushed to the user's Mac over
+                    // Universal Clipboard.
+                    unawaited(SecureClipboard.copySensitive(wallet.mnemonic));
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Recovery phrase copied!')),
+                      SnackBar(
+                        content: Text(
+                          'Recovery phrase copied. It clears in '
+                          '${SecureClipboard.ttl.inSeconds} seconds.',
+                        ),
+                      ),
                     );
                   },
                   child: Row(

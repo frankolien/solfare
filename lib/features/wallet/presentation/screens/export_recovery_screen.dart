@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:solfare/core/security/secure_store.dart';
-import 'package:solfare/core/security/passcode_crypto.dart';
+import 'package:solfare/core/security/passcode_gate.dart';
 import 'package:solfare/core/security/secure_clipboard.dart';
 import 'package:solfare/core/security/secure_screen.dart';
 import 'package:solfare/core/wallet/active_wallet.dart';
@@ -15,7 +14,6 @@ class ExportRecoveryScreen extends StatefulWidget {
 }
 
 class _ExportRecoveryScreenState extends State<ExportRecoveryScreen> {
-  final _storage = SecureStore.instance;
   String? _mnemonic;
   bool _isRevealed = false;
   bool _isLoading = true;
@@ -85,10 +83,22 @@ class _ExportRecoveryScreenState extends State<ExportRecoveryScreen> {
               _buildMiniKeypad(entered, (val) async {
                 setDialogState(() => entered = val);
                 if (val.length == 6) {
-                  final stored = await _storage.read(key: 'wallet_passcode');
-                  final ok = stored != null && await PasscodeCrypto.verify(val, stored);
+                  // Through the shared gate, which owns the attempt counter
+                  // and the lockout. This dialog used to read the hash and
+                  // verify it here — unlimited guesses on the screen that
+                  // reveals the seed.
+                  final attempt = await PasscodeGate.verify(val);
                   if (!mounted || !context.mounted) return;
-                  if (ok) {
+                  if (attempt is PasscodeLocked) {
+                    setDialogState(() => entered = '');
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text(PasscodeGate.describe(attempt.remaining)),
+                      backgroundColor: Colors.red,
+                      duration: const Duration(seconds: 2),
+                    ));
+                    return;
+                  }
+                  if (attempt is PasscodeAccepted) {
                     Navigator.pop(ctx);
                     setState(() => _isRevealed = true);
                   } else {

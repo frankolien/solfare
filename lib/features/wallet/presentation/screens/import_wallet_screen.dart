@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:solfare/core/security/app_lock.dart';
+import 'package:solfare/core/security/secure_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 import 'package:solfare/core/router/app_router.dart';
@@ -26,7 +29,18 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
   bool _walletFound = false;
 
   @override
+  void initState() {
+    super.initState();
+    // A TextField the user types or pastes twelve words into is a seed on
+    // screen exactly like the create flow's, and this was the one such
+    // screen that never asked for protection — screenshot-able, and in the
+    // app-switcher snapshot.
+    unawaited(SecureScreen.enable());
+  }
+
+  @override
   void dispose() {
+    unawaited(SecureScreen.disable());
     _phraseController.dispose();
     super.dispose();
   }
