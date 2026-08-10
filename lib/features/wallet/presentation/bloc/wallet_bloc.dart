@@ -551,9 +551,12 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       final exists = await _repository.hasWallet();
       emit(WalletExistsChecked(exists));
     } catch (e) {
-      // If check fails (e.g., corrupted data), default to no wallet
-      // This is safer than blocking the user
-      emit(const WalletExistsChecked(false));
+      // This used to answer "no wallet" and call it the safer default. It is
+      // the opposite: the screen acts on that answer by offering to create
+      // one, and creating one writes over the blob nobody could read. A
+      // wallet that cannot be read is still a wallet.
+      debugLog('[Wallet] exists check failed: $e');
+      emit(WalletStoreUnreadable('$e'));
     }
   }
 

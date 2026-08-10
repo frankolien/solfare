@@ -70,9 +70,17 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
       final name = prefs.getString('wallet_name') ?? 'Main Wallet';
       final card = prefs.getString('card_background') ?? 'card_1.png';
 
+      // The legacy address key can be missing where the mnemonic is not.
+      // Carrying '' forward makes hasWallet() reject the account on its
+      // length check, which sends a user who owns a wallet to onboarding.
+      // The mnemonic is the source of truth; derive from it.
+      final address = (legacyAddress == null || legacyAddress.isEmpty)
+          ? (await Keyring.publicKeyFor(legacyMnemonic)).address
+          : legacyAddress;
+
       final account = WalletAccount(
         id: WalletAccountsStore.newId(),
-        address: legacyAddress ?? '',
+        address: address,
         mnemonic: legacyMnemonic,
         name: name,
         cardBackground: card,
@@ -84,6 +92,11 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
       await _secureStorage.delete(key: _legacyMnemonicKey);
       await _secureStorage.delete(key: _legacyAddressKey);
       await prefs.setBool(_migrationDoneKey, true);
+    } on CorruptWalletStoreException {
+      // The one failure that must not be retried-and-forgotten: the accounts
+      // blob is already there and unreadable, so "migrate the legacy keys
+      // into it" would write over it.
+      rethrow;
     } catch (_) {
       // Don't throw — leave legacy keys in place so the next launch retries.
     }
@@ -128,8 +141,13 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
       if (words.length != 12 && words.length != 24) return false;
       if (active.address.length < 32 || active.address.length > 50) return false;
       return true;
-    } catch (_) {
-      return false;
+    } on CorruptWalletStoreException {
+      rethrow;
+    } catch (e) {
+      // "false" here used to mean both "no wallet" and "I could not tell",
+      // and the caller acts on it by offering to create one. Only the first
+      // of those is a safe thing to act on.
+      throw LocalStorageException('Failed to check for a wallet: $e');
     }
   }
 

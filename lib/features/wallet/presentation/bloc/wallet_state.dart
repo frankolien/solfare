@@ -53,6 +53,20 @@ class WalletExistsChecked extends WalletState {
   List<Object?> get props => [exists];
 }
 
+/// The check could not be completed — storage is present but unreadable.
+///
+/// Deliberately not `WalletExistsChecked(false)`. That answer is acted on by
+/// offering to create a wallet, and creating one overwrites the blob that
+/// could not be read. "I don't know" has to survive as far as the screen.
+class WalletStoreUnreadable extends WalletState {
+  final String message;
+
+  const WalletStoreUnreadable(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}
+
 /// Balance fetched successfully
 class BalanceFetched extends WalletState {
   final int balance; // Balance in lamports

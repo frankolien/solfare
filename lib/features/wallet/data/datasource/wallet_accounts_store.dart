@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:solfare/core/error/exception.dart';
 import 'package:solfare/core/security/secure_store.dart';
 import 'package:solfare/features/wallet/domain/entities/wallet_account.dart';
 
@@ -32,12 +33,21 @@ class WalletAccountsStore {
       return list
           .map((e) => WalletAccount.fromJson(e as Map<String, dynamic>))
           .toList();
-    } catch (_) {
-      return const [];
+    } catch (e) {
+      // Deliberately not an empty list. A blob that exists and will not
+      // decode is the one case where guessing costs the user everything:
+      // every mutator below reads, modifies and writes the whole list, so
+      // "there are no wallets" would be persisted over a wallet that is
+      // still sitting there intact, one decode bug away from readable.
+      throw CorruptWalletStoreException('Stored wallets could not be read: $e');
     }
   }
 
   // Single write path so add/remove/rename all go through one atomic blob.
+  //
+  // Every caller reads through loadAll first, which throws rather than
+  // returning empty on a blob it cannot decode — so this can never be
+  // reached holding a list that lost entries to a parse failure.
   Future<void> saveAll(List<WalletAccount> wallets) async {
     final payload = jsonEncode(wallets.map((w) => w.toJson()).toList());
     await _storage.write(key: _walletsKey, value: payload);

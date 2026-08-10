@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:solfare/core/error/exception.dart';
 import 'package:solfare/features/wallet/data/datasource/wallet_accounts_store.dart';
 import 'package:solfare/features/wallet/domain/entities/wallet_account.dart';
 
@@ -91,6 +92,55 @@ void main() {
       await s.wipe();
       expect(await s.loadAll(), isEmpty);
       expect(await s.getActiveId(), isNull);
+    });
+
+    group('a blob that will not decode', () {
+      test('is refused, not reported as an empty store', () async {
+        // The whole point. An empty list here is acted on by offering to
+        // create a wallet, and creating one overwrites this blob.
+        backing['wallets_v1'] = 'not json at all';
+        expect(
+          WalletAccountsStore().loadAll(),
+          throwsA(isA<CorruptWalletStoreException>()),
+        );
+      });
+
+      test('is refused when the JSON parses but the entries do not', () async {
+        backing['wallets_v1'] = '[{"id": 42}]';
+        expect(
+          WalletAccountsStore().loadAll(),
+          throwsA(isA<CorruptWalletStoreException>()),
+        );
+      });
+
+      test('is refused when the payload is not a list', () async {
+        backing['wallets_v1'] = '{"id": "a"}';
+        expect(
+          WalletAccountsStore().loadAll(),
+          throwsA(isA<CorruptWalletStoreException>()),
+        );
+      });
+
+      test('survives the read — nothing overwrites it', () async {
+        const original = 'not json at all';
+        backing['wallets_v1'] = original;
+        final s = WalletAccountsStore();
+        await expectLater(s.loadAll(), throwsA(isA<CorruptWalletStoreException>()));
+        await expectLater(s.getActive(), throwsA(isA<CorruptWalletStoreException>()));
+        expect(backing['wallets_v1'], original,
+            reason: 'an unreadable wallet is still a wallet');
+      });
+
+      test('an absent blob is still just an empty store', () async {
+        // "Nothing stored" and "stored but unreadable" have to stay apart in
+        // both directions, or a fresh install becomes an error screen.
+        expect(await WalletAccountsStore().loadAll(), isEmpty);
+      });
+
+      test('an empty string is an empty store, not a decode failure', () async {
+        backing['wallets_v1'] = '';
+        expect(await WalletAccountsStore().loadAll(), isEmpty);
+      });
     });
 
     test('newId produces unique 32-char hex strings', () {
