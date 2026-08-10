@@ -6,11 +6,12 @@
 >
 > **Still open, and why:**
 >
-> - **1.5 — the passcode gates a boolean, not the key.** The mnemonic is
->   stored unwrapped, so anyone who can read the keychain has it without the
->   passcode. Fixing it properly means an AES-GCM envelope keyed by the
->   existing PBKDF2 output, plus a migration for every existing install. It is
->   the largest remaining item and wants its own design pass.
+> - ~~**1.5 — the passcode gates a boolean, not the key.**~~ Done — see
+>   `docs/design/passcode-envelope.md`. The mnemonic is sealed with a key
+>   split out of the same PBKDF2 pass, held for the unlocked session only.
+>   The iteration count is deliberately still 100k: raising it in the same
+>   migration that changes the storage format doubles the risk on a path
+>   where failure loses the seed.
 > - **3.5 — Token-2022 permanent delegate and transfer hook** are parsed and
 >   discarded. `_tokenSendNotes` surfaces only the transfer fee.
 > - **3.6 — the previewed fee excludes the priority bid**, so a congested
