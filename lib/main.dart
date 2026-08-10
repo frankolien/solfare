@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:solfare/core/constant/api_keys.dart';
 import 'package:solfare/core/constant/network.dart';
 import 'package:solfare/core/deeplink/deep_link_bridge.dart';
 import 'package:solfare/core/locale/locale_provider.dart';
@@ -21,7 +21,7 @@ import 'package:solfare/l10n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env');
+  await ApiKeys.loadLocalEnv();
   await NetworkConstants.load();
   await _wipeSecureStorageOnFreshInstall();
   // Before the first frame, so the router's first redirect already knows

@@ -72,9 +72,23 @@ Flutter / Dart, `flutter_bloc`, `go_router`, `solana`, `bip39`, `ed25519_hd_key`
 
 ```bash
 flutter pub get
-cp .env.example .env   # add your RPC endpoint and any API keys
-flutter run
+flutter run \
+  --dart-define=HELIUS_API_KEY=your_helius_key \
+  --dart-define=JUPITER_API_KEY=your_jupiter_key
 ```
+
+API keys are passed per build rather than bundled. `.env` used to be listed
+under `flutter: assets:`, which put it inside the IPA and the APK as a plain
+file — `unzip -p Solfare.ipa 'Payload/*/flutter_assets/.env'` returned the key
+from any user's copy. `.gitignore` kept it out of the repository, which is
+correct and also beside the point.
+
+A `--dart-define` is compiled into the binary and still extractable by anyone
+determined enough; nothing shipped to a device is a secret. What it buys is a
+key that is per-build, so it can be rotated and scoped without a code change,
+and a debug key that cannot silently become the production one. Without them
+the app runs and Helius-backed features (tokens, NFTs, live balances) come back
+empty.
 
 Mainnet by default; Devnet selectable from Settings → Network.
 

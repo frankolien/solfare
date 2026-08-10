@@ -1,4 +1,4 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:solfare/core/constant/api_keys.dart';
 import 'package:solfare/core/security/secure_store.dart';
 
 enum SolanaNetwork {
@@ -15,7 +15,7 @@ class NetworkConstants {
   static const _storageKey = 'solana_network';
   static final _storage = SecureStore.instance;
 
-  static String get _heliusApiKey => dotenv.env['HELIUS_API_KEY'] ?? '';
+  static String get _heliusApiKey => ApiKeys.helius;
 
   // Listeners fired on network switch so services (WS etc.) can reconnect.
   static final List<void Function(SolanaNetwork)> _listeners = [];

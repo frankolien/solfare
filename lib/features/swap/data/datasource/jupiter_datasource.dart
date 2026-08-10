@@ -1,11 +1,14 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:solfare/core/constant/api_keys.dart';
 import 'package:solfare/core/network/http_retry.dart';
 import 'package:solfare/features/swap/domain/entities/swap_token.dart';
 
 class JupiterDataSource {
   static const _baseUrl = 'https://api.jup.ag/swap/v2';
-  static const _apiKey = 'jup_104bd617e849942e58c53cf16716a011ae9fa63bec958a6df49df4f1b19c7077';
+  // Was a literal in this file, so it shipped in every build and sat in
+  // the repository's history. Per-build now, like the Helius key.
+  static String get _apiKey => ApiKeys.jupiter;
 
   final http.Client client;
 
