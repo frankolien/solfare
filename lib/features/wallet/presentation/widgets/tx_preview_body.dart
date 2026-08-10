@@ -30,8 +30,71 @@ class TxPreviewBody extends StatelessWidget {
         if (p.willFail) _willFail(p.failureReason),
         for (final flag in p.flags) _flagTile(flag),
         if (p.ownDeltas.isNotEmpty) _deltas(p.ownDeltas),
+        // The decoded steps. These were computed and then never rendered:
+        // visibleInstructions had no call sites anywhere in the app, and
+        // RiskFlag.instructionIndex was never read either. So an instruction
+        // reached the user only if a risk rule happened to fire on it, or it
+        // moved a balance on an account whose address equalled the wallet's.
+        // A Stake::Withdraw draining a stake account to somebody else clears
+        // both of those and used to render as a fee and nothing else.
+        if (p.visibleInstructions.isNotEmpty) _steps(p.visibleInstructions),
         _feeRow(p),
       ],
+    );
+  }
+
+  Widget _steps(List<DecodedInstruction> instructions) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              instructions.length == 1 ? 'What it does' : 'What it does, in order',
+              style: TextStyle(
+                color: Colors.grey[500],
+                fontSize: 10,
+                fontFamily: 'FKGrotesk',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          for (final ix in instructions)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 5),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Container(
+                      width: 4,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[700],
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      ix.summary,
+                      style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 10,
+                        fontFamily: 'FKGrotesk',
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 

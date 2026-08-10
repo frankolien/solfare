@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:solana/dto.dart' show LatestBlockhash;
 import 'package:solana/encoder.dart' as encoder;
 import 'package:solana/solana.dart' as solana;
@@ -60,7 +62,9 @@ class PreviewEngine {
     return _previewEncoded(
       encoded: probe.encode(),
       staticKeys: [for (final k in probe.compiledMessage.accountKeys) k.toBase58()],
-      instructions: instructions,
+      // Instructions we built ourselves need no resolving: there are no
+      // lookup tables in a message this app compiled.
+      raw: [for (final ix in instructions) RawInstruction.from(ix)],
       ownerAddress: ownerAddress,
       symbols: symbols,
       extraFlags: extraFlags,
@@ -70,10 +74,14 @@ class PreviewEngine {
   /// Preview a transaction somebody else built — a Jupiter route, a merchant's
   /// payload, a dapp request.
   ///
-  /// Instruction decoding needs the address lookup tables a v0 message refers
-  /// to, and we do not have them here. When decompilation fails the deltas
-  /// still stand on their own, and the caller is told the instruction list is
-  /// missing rather than being shown an empty one as if it meant "nothing".
+  /// Instruction account indices are resolved against the simulation's own
+  /// account list, which already includes everything the address lookup tables
+  /// pulled in. This used to go through `decompileMessage()`, whose
+  /// `addressLookupTableAccounts` parameter defaults to an empty list — and
+  /// the resolver throws on that the moment a message has any table lookups.
+  /// So every v0 transaction using a table (which is to say: every Jupiter
+  /// route and most dapp requests) decoded to zero instructions, and every
+  /// instruction-level risk rule was skipped in silence.
   Future<TxPreview> previewSigned({
     required String base64Tx,
     required String ownerAddress,
@@ -87,20 +95,12 @@ class PreviewEngine {
       return const TxPreview.unverified('This transaction could not be read.');
     }
 
-    List<encoder.Instruction> instructions = const [];
-    try {
-      instructions = tx.decompileMessage().instructions;
-    } catch (e) {
-      debugLog('[Preview] could not decompile message: $e');
-    }
-
     return _previewEncoded(
       encoded: base64Tx,
       staticKeys: [for (final k in tx.compiledMessage.accountKeys) k.toBase58()],
-      instructions: instructions,
+      compiled: tx.compiledMessage.instructions,
       ownerAddress: ownerAddress,
       symbols: symbols,
-      instructionsUnavailable: instructions.isEmpty,
       userInitiated: false,
     );
   }
@@ -108,11 +108,11 @@ class PreviewEngine {
   Future<TxPreview> _previewEncoded({
     required String encoded,
     required List<String> staticKeys,
-    required List<encoder.Instruction> instructions,
     required String ownerAddress,
     required Map<String, String> symbols,
+    List<RawInstruction>? raw,
+    List<encoder.CompiledInstruction>? compiled,
     List<RiskFlag> extraFlags = const [],
-    bool instructionsUnavailable = false,
     bool userInitiated = true,
   }) async {
     final Map<String, dynamic> sim;
@@ -126,7 +126,10 @@ class PreviewEngine {
     final keys = _accountKeys(staticKeys, sim);
     final fee = (sim['fee'] as int?) ?? 0;
     final deltas = _deltas(sim, keys, ownerAddress, symbols, fee);
-    final decoded = _decoder.decodeAll(instructions);
+
+    final resolved = raw ?? _resolve(compiled ?? const [], keys);
+    final instructionsUnavailable = resolved == null;
+    final decoded = _decoder.decodeRaw(resolved ?? const []);
 
     final err = sim['err'];
     final logs = ((sim['logs'] as List?) ?? const []).cast<String>();
@@ -151,6 +154,39 @@ class PreviewEngine {
       willFail: err != null,
       failureReason: err != null ? _humanize(err, logs) : null,
     );
+  }
+
+  /// Resolves a compiled message's account indices against [keys].
+  ///
+  /// Returns null — not an empty list — when an index points past the end of
+  /// the key list, which means the simulation did not report every address the
+  /// message refers to. An empty list would read as "this transaction does
+  /// nothing", which is the most dangerous thing a preview can say.
+  List<RawInstruction>? _resolve(
+    List<encoder.CompiledInstruction> compiled,
+    List<String> keys,
+  ) {
+    final out = <RawInstruction>[];
+    for (final ix in compiled) {
+      if (ix.programIdIndex >= keys.length) {
+        debugLog('[Preview] program index ${ix.programIdIndex} past ${keys.length} keys');
+        return null;
+      }
+      final accounts = <String>[];
+      for (final index in ix.accountKeyIndexes) {
+        if (index >= keys.length) {
+          debugLog('[Preview] account index $index past ${keys.length} keys');
+          return null;
+        }
+        accounts.add(keys[index]);
+      }
+      out.add(RawInstruction(
+        programId: keys[ix.programIdIndex],
+        data: Uint8List.fromList(ix.data.toList()),
+        accounts: accounts,
+      ));
+    }
+    return out;
   }
 
   /// Balance arrays are indexed by the message's account list: the static

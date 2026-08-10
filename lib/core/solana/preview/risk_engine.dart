@@ -34,11 +34,18 @@ class RiskEngine {
     ];
 
     if (instructionsUnavailable) {
+      // Danger, not caution. Every instruction-level rule below is skipped
+      // when this fires, so an unlimited approval or an ownership transfer
+      // would come back with no flags at all — and an approval moves no
+      // balances either, so the deltas do not cover for it. "We could not
+      // check the dangerous part" has to read as dangerous.
       flags.add(const RiskFlag(
-        severity: RiskSeverity.caution,
+        severity: RiskSeverity.danger,
         title: 'Instructions could not be read',
-        detail: 'The balance changes below are still from the network\'s own '
-            'simulation, but the individual steps could not be decoded.',
+        detail: 'The balance changes below are from the network\'s own '
+            'simulation, but the individual steps could not be decoded — so '
+            'nothing here has been checked for approvals or ownership '
+            'changes, which move no balance.',
       ));
     }
 
@@ -65,15 +72,21 @@ class RiskEngine {
       switch (ix.kind) {
         case 'approve':
         case 'approveChecked':
-          final unlimited = ix.fields['amount'] == InstructionDecoder.unlimitedAmount;
+          final unlimited =
+              InstructionDecoder.isEffectivelyUnlimited(ix.fields['amount']);
+          final delegate = _short(ix.fields['delegate']);
           flags.add(RiskFlag(
             severity: unlimited ? RiskSeverity.danger : RiskSeverity.caution,
-            title: unlimited ? 'Unlimited spending approval' : 'Spending approval',
+            // The detail used to be a constant string, so an approval of
+            // 0.01 USDC and an approval of everything read identically.
+            // Whose approval it is, is the part worth naming.
             detail: unlimited
-                ? 'Another account is being given permission to move this token '
-                    'out of your wallet, with no limit and no expiry.'
-                : 'Another account is being given permission to move this token '
-                    'out of your wallet.',
+                ? '$delegate is being given permission to move this token out '
+                    'of your wallet, with no limit and no expiry.'
+                : '$delegate is being given permission to move up to '
+                    '${ix.fields['amount'] ?? 'an amount'} of this token out of '
+                    'your wallet.',
+            title: unlimited ? 'Unlimited spending approval' : 'Spending approval',
             instructionIndex: ix.index,
           ));
 
@@ -124,6 +137,25 @@ class RiskEngine {
               instructionIndex: ix.index,
             ));
           }
+      }
+
+      // A recognised program running an instruction we cannot decode. The
+      // check below only catches unrecognised *programs*, so this used to
+      // produce nothing at all: System::AssignWithSeed (tag 10) hands an
+      // account to another program exactly like Assign (tag 1), which is
+      // flagged as danger — and came back silent. Same for the *WithSeed and
+      // *Checked variants of the stake authorize instructions, and for every
+      // Token-2022 extension instruction.
+      if (ix.kind == DecodedInstruction.unknownKind &&
+          ix.isKnownProgram &&
+          !ix.isNoise) {
+        flags.add(RiskFlag(
+          severity: RiskSeverity.caution,
+          title: 'An unrecognised step',
+          detail: '${ix.programName} is doing something Solfare cannot read, '
+              'so it has not been checked.',
+          instructionIndex: ix.index,
+        ));
       }
 
       if (!ix.isKnownProgram && !ix.isNoise) {

@@ -7,6 +7,30 @@ import 'package:solfare/core/constant/network.dart';
 import 'package:solfare/core/solana/preview/program_registry.dart';
 import 'package:solfare/core/solana/preview/tx_preview.dart';
 
+/// An instruction reduced to the three things the decoder reads.
+///
+/// Exists so instructions can be decoded straight out of a compiled message
+/// with the account indices resolved against the simulation's key list. The
+/// old path went through `decompileMessage()`, which needs the actual address
+/// lookup table accounts and throws without them — so every v0 transaction
+/// that used a table decoded to nothing at all.
+class RawInstruction {
+  final String programId;
+  final Uint8List data;
+  final List<String> accounts;
+
+  const RawInstruction({
+    required this.programId,
+    required this.data,
+    required this.accounts,
+  });
+
+  RawInstruction.from(encoder.Instruction ix)
+      : programId = ix.programId.toBase58(),
+        data = Uint8List.fromList(ix.data.toList()),
+        accounts = [for (final a in ix.accounts) a.pubKey.toBase58()];
+}
+
 /// Turns raw instructions into readable summaries.
 ///
 /// The one rule: never invent a name for something we do not recognise.
@@ -29,15 +53,18 @@ class InstructionDecoder {
   /// u64 max — the amount an "unlimited" approval carries.
   static const String unlimitedAmount = '18446744073709551615';
 
-  List<DecodedInstruction> decodeAll(List<encoder.Instruction> instructions) => [
+  List<DecodedInstruction> decodeAll(List<encoder.Instruction> instructions) =>
+      decodeRaw([for (final ix in instructions) RawInstruction.from(ix)]);
+
+  List<DecodedInstruction> decodeRaw(List<RawInstruction> instructions) => [
         for (var i = 0; i < instructions.length; i++) decode(instructions[i], i),
       ];
 
-  DecodedInstruction decode(encoder.Instruction ix, int index) {
-    final programId = ix.programId.toBase58();
+  DecodedInstruction decode(RawInstruction ix, int index) {
+    final programId = ix.programId;
     final name = ProgramRegistry.nameFor(programId, network: network);
-    final data = Uint8List.fromList(ix.data.toList());
-    final accounts = [for (final a in ix.accounts) a.pubKey.toBase58()];
+    final data = ix.data;
+    final accounts = ix.accounts;
 
     switch (programId) {
       case _systemProgram:
@@ -179,9 +206,25 @@ class InstructionDecoder {
     }
   }
 
-  String _approveSummary(String amount) => amount == unlimitedAmount
+  String _approveSummary(String amount) => isEffectivelyUnlimited(amount)
       ? 'Grant unlimited spending of a token'
       : 'Grant spending of a token';
+
+  /// Whether an approval amount may as well be unlimited.
+  ///
+  /// Comparing against u64 max exactly is a check a drainer clears by
+  /// subtracting one: `u64::MAX - 1` is still about 1.8e13 of any token with
+  /// six decimals, and it used to render as an ordinary orange "Spending
+  /// approval". The threshold is 2^63, which no honest approval reaches —
+  /// the entire supply of every real SPL token is orders of magnitude below
+  /// it — and which no amount of arithmetic can slip under while still
+  /// draining anyone.
+  static bool isEffectivelyUnlimited(String? amount) {
+    if (amount == null) return false;
+    final value = BigInt.tryParse(amount);
+    if (value == null) return false;
+    return value >= BigInt.two.pow(63);
+  }
 
   // ── Associated Token Account ──
 

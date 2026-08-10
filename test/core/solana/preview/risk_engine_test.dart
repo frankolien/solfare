@@ -48,6 +48,49 @@ void main() {
       expect(has(flags, RiskSeverity.caution, 'spending approval'), isTrue);
       expect(flags.any((f) => f.severity == RiskSeverity.danger), isFalse);
     });
+
+    test('one less than u64 max is still unlimited', () {
+      // Comparing against u64 max exactly is a check you clear by
+      // subtracting one. u64::MAX - 1 is ~1.8e13 USDC and used to render as
+      // an ordinary orange "Spending approval" with a yellow approve button.
+      final flags = risk.evaluate(
+        instructions: [ix('approve', fields: {'amount': '18446744073709551614'})],
+        deltas: const [],
+      );
+      expect(has(flags, RiskSeverity.danger, 'unlimited'), isTrue);
+    });
+
+    test('anything past 2^63 is unlimited', () {
+      final flags = risk.evaluate(
+        instructions: [ix('approve', fields: {'amount': '9223372036854775808'})],
+        deltas: const [],
+      );
+      expect(has(flags, RiskSeverity.danger, 'unlimited'), isTrue);
+    });
+
+    test('a large but real approval stays a caution', () {
+      // The entire supply of every real SPL token is orders of magnitude
+      // below the threshold, so honest approvals must not trip it.
+      final flags = risk.evaluate(
+        instructions: [ix('approve', fields: {'amount': '1000000000000000'})],
+        deltas: const [],
+      );
+      expect(has(flags, RiskSeverity.caution, 'spending approval'), isTrue);
+      expect(flags.any((f) => f.severity == RiskSeverity.danger), isFalse);
+    });
+
+    test('the delegate is named, so two approvals do not read alike', () {
+      final flags = risk.evaluate(
+        instructions: [
+          ix('approve', fields: {
+            'amount': InstructionDecoder.unlimitedAmount,
+            'delegate': '8xTf7ZLvBqCzHZWmnGL7CxHRWZqL3qYzTNy1MEwSc2Ke',
+          }),
+        ],
+        deltas: const [],
+      );
+      expect(flags.first.detail, contains('8xTf'));
+    });
   });
 
   group('authority', () {
@@ -173,11 +216,46 @@ void main() {
       expect(flags.first.detail, contains('fee'));
     });
 
-    test('undecodable instructions are admitted, not hidden', () {
+    test('undecodable instructions are dangerous, not merely admitted', () {
+      // Every instruction-level rule is skipped when this fires, and the
+      // things those rules catch — approvals, ownership transfers — move no
+      // balance, so the deltas do not cover for them either. A transaction
+      // nobody could check has to read as dangerous, not as a note.
       final flags = risk.evaluate(
         instructions: const [], deltas: const [], instructionsUnavailable: true,
       );
-      expect(has(flags, RiskSeverity.caution, 'could not be read'), isTrue);
+      expect(has(flags, RiskSeverity.danger, 'could not be read'), isTrue);
+    });
+
+    test('an unreadable step on a known program is not silence', () {
+      // System::AssignWithSeed is tag 10 and hands an account to another
+      // program exactly like Assign (tag 1), which is danger. The decoder
+      // returns unknownKind with programName still set, and the unknown-
+      // *program* check below never fired for it — so this produced no flag
+      // of any kind. Same for the stake authorize *WithSeed/*Checked
+      // variants and every Token-2022 extension instruction.
+      final flags = risk.evaluate(
+        instructions: [
+          ix(DecodedInstruction.unknownKind, programName: 'System Program'),
+        ],
+        deltas: const [],
+      );
+      expect(flags, isNotEmpty);
+      expect(has(flags, RiskSeverity.caution, 'unrecognised step'), isTrue);
+    });
+
+    test('compute budget instructions are still not a warning', () {
+      // isNoise has to keep winning, or every transaction we build warns
+      // about its own fee instructions.
+      final flags = risk.evaluate(
+        instructions: [
+          ix('setComputeUnitPrice',
+              programName: 'Compute Budget Program',
+              fields: const {'microLamports': '100'}),
+        ],
+        deltas: const [],
+      );
+      expect(flags, isEmpty);
     });
 
     test('a plain send raises nothing at all', () {

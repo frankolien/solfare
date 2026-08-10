@@ -26,7 +26,7 @@ void main() {
         lamports: 500000000,
       );
 
-      final d = decoder.decode(ix, 0);
+      final d = decoder.decode(RawInstruction.from(ix), 0);
 
       expect(d.kind, 'transfer');
       expect(d.programName, 'System Program');
@@ -47,7 +47,7 @@ void main() {
         mint: mint,
       );
 
-      final d = decoder.decode(ix, 0);
+      final d = decoder.decode(RawInstruction.from(ix), 0);
 
       expect(d.kind, 'transferChecked');
       expect(d.fields['amount'], '1500000');
@@ -64,7 +64,7 @@ void main() {
         sourceOwner: alice,
       );
 
-      final d = decoder.decode(ix, 0);
+      final d = decoder.decode(RawInstruction.from(ix), 0);
 
       expect(d.kind, 'approve');
       expect(d.fields['amount'], InstructionDecoder.unlimitedAmount);
@@ -79,7 +79,7 @@ void main() {
         sourceOwner: alice,
       );
 
-      final d = decoder.decode(ix, 0);
+      final d = decoder.decode(RawInstruction.from(ix), 0);
 
       expect(d.fields['amount'], '1000');
       expect(d.summary, isNot(contains('unlimited')));
@@ -93,7 +93,7 @@ void main() {
         newAuthority: bob,
       );
 
-      expect(decoder.decode(ix, 0).kind, 'setAuthority');
+      expect(decoder.decode(RawInstruction.from(ix), 0).kind, 'setAuthority');
     });
 
     test('decodes closeAccount', () {
@@ -103,7 +103,7 @@ void main() {
         owner: alice,
       );
 
-      final d = decoder.decode(ix, 0);
+      final d = decoder.decode(RawInstruction.from(ix), 0);
       expect(d.kind, 'closeAccount');
       expect(d.fields['destination'], bob.toBase58());
     });
@@ -112,7 +112,7 @@ void main() {
   group('compute budget', () {
     test('reads back the unit limit', () {
       final ix = solana.ComputeBudgetInstruction.setComputeUnitLimit(units: 200000);
-      final d = decoder.decode(ix, 0);
+      final d = decoder.decode(RawInstruction.from(ix), 0);
 
       expect(d.kind, 'setComputeUnitLimit');
       expect(d.fields['units'], '200000');
@@ -121,7 +121,7 @@ void main() {
 
     test('reads back the priority price', () {
       final ix = solana.ComputeBudgetInstruction.setComputeUnitPrice(microLamports: 12345);
-      final d = decoder.decode(ix, 0);
+      final d = decoder.decode(RawInstruction.from(ix), 0);
 
       expect(d.kind, 'setComputeUnitPrice');
       expect(d.fields['microLamports'], '12345');
@@ -131,7 +131,7 @@ void main() {
   group('memo', () {
     test('keeps the text but does not present it as authority', () {
       final ix = solana.MemoInstruction(signers: [alice], memo: 'Order #1847');
-      final d = decoder.decode(ix, 0);
+      final d = decoder.decode(RawInstruction.from(ix), 0);
 
       expect(d.kind, 'memo');
       expect(d.fields['memo'], 'Order #1847');
@@ -151,7 +151,7 @@ void main() {
         data: encoder.ByteArray(const [9, 9, 9]),
       );
 
-      final d = decoder.decode(ix, 0);
+      final d = decoder.decode(RawInstruction.from(ix), 0);
 
       expect(d.programName, isNull);
       expect(d.isKnownProgram, isFalse);
