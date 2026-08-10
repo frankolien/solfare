@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solfare/core/deeplink/deep_link_bridge.dart';
+import 'package:solfare/core/security/app_lock.dart';
 import 'package:solfare/features/homepage/presentation/screens/homepage_screen.dart';
 import 'package:solfare/features/wallet/presentation/screens/biometric_setup_screen.dart';
 import 'package:solfare/features/wallet/presentation/screens/create_wallet_intro_screen.dart';
@@ -43,9 +44,26 @@ final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 final GoRouter appRouter = GoRouter(
   navigatorKey: rootNavigatorKey,
   initialLocation: AppRoutes.splash,
+  // The lock is enforced here rather than by whichever screen happens to be
+  // first, because "first" is not a thing the app controls: a deeplink, or
+  // the exception handler below, can name any route. Refusing centrally is
+  // the only version of this that a new route cannot forget to opt into.
+  refreshListenable: AppLock.instance,
+  redirect: (context, state) {
+    if (!AppLock.instance.isLocked) return null;
+    final target = state.matchedLocation;
+    // Splash is allowed through: it is where the app decides whether a
+    // passcode is even expected, and it can only route to unlock or
+    // onboarding from there.
+    if (target == AppRoutes.splash || target == AppRoutes.unlockPasscode) {
+      return null;
+    }
+    return AppRoutes.unlockPasscode;
+  },
   // A URL that is not a page — a dapp request, or anything malformed —
   // reaches the router on some launch paths. Hand it to the deeplink bridge
-  // and go home, rather than showing the user a GoException.
+  // and go home, rather than showing the user a GoException. The redirect
+  // above still applies to that homepage hop.
   onException: (context, state, router) {
     DeepLinkBridge.handleExternal(state.uri.toString());
     router.go(AppRoutes.homepage);

@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:solfare/core/constant/network.dart';
 import 'package:solfare/core/deeplink/deep_link_bridge.dart';
 import 'package:solfare/core/locale/locale_provider.dart';
+import 'package:solfare/core/security/app_lock.dart';
 import 'package:solfare/features/wallet/presentation/widgets/dapp_request_host.dart';
 import 'package:solfare/core/router/app_router.dart';
 import 'package:solfare/features/explore/presentation/bloc/explore_bloc.dart';
@@ -23,6 +24,10 @@ void main() async {
   await dotenv.load(fileName: '.env');
   await NetworkConstants.load();
   await _wipeSecureStorageOnFreshInstall();
+  // Before the first frame, so the router's first redirect already knows
+  // whether a passcode is expected rather than letting one frame of wallet
+  // through while it finds out.
+  await AppLock.instance.load();
   DeepLinkBridge.init(appRouter);
   runApp(const MainApp());
 }
@@ -54,6 +59,7 @@ class MainApp extends StatefulWidget {
 
 class _MainAppState extends State<MainApp> {
   final _localeProvider = LocaleProvider();
+  late final AppLifecycleListener _lifecycle;
 
   @override
   void initState() {
@@ -61,10 +67,19 @@ class _MainAppState extends State<MainApp> {
     _localeProvider.addListener(() {
       setState(() {});
     });
+    // The passcode was only ever asked for at cold start, so a phone left
+    // unlocked and handed over hours later opened straight onto the wallet.
+    // Locking is decided on return rather than on leaving, so the app does
+    // not tear down what the user was doing while they are not looking.
+    _lifecycle = AppLifecycleListener(
+      onPause: AppLock.instance.didLeave,
+      onRestart: AppLock.instance.didReturn,
+    );
   }
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     _localeProvider.dispose();
     super.dispose();
   }

@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:solfare/core/security/app_lock.dart';
 import 'package:solfare/core/security/passcode_crypto.dart';
 import 'package:solfare/features/wallet/presentation/bloc/passcode_event.dart';
 import 'package:solfare/features/wallet/presentation/bloc/passcode_state.dart';
@@ -113,6 +114,9 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
         }
         await _secureStorage.delete(key: _attemptsKey);
         await _secureStorage.delete(key: _lockoutUntilKey);
+        // Opens the door for the router. Done here rather than in the screen
+        // so the lock cannot be left engaged by a listener that did not run.
+        AppLock.instance.unlock();
         emit(const PasscodeVerified());
         return;
       }
@@ -152,6 +156,9 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
       await _secureStorage.write(key: _passcodeKey, value: hashed);
       await _secureStorage.delete(key: _attemptsKey);
       await _secureStorage.delete(key: _lockoutUntilKey);
+      // Setting a passcode both creates the lock and satisfies it — the user
+      // is holding the phone and has just typed it twice.
+      AppLock.instance.adopt();
       emit(const PasscodeSaved());
     } catch (e) {
       emit(PasscodeError(e.toString()));

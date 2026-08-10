@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solfare/core/router/app_router.dart';
+import 'package:solfare/core/security/app_lock.dart';
 import 'package:solfare/core/solana/session/dapp_request.dart';
 import 'package:solfare/core/util/app_log.dart';
 
@@ -26,6 +27,7 @@ class DeepLinkBridge {
 
   static void init(GoRouter router) {
     _router = router;
+    AppLock.instance.addListener(_flushWhenUnlocked);
     _channel.setMethodCallHandler((call) async {
       if (call.method != 'open') return null;
       final raw = call.arguments as String?;
@@ -33,6 +35,19 @@ class DeepLinkBridge {
       _handle(raw);
       return null;
     });
+  }
+
+  // A URL that arrived while the app was locked. Held rather than dropped:
+  // the user tapped a link and expects it to have done something, and a
+  // signing request that vanishes silently is worse than one that waits.
+  static String? _deferred;
+
+  static void _flushWhenUnlocked() {
+    if (AppLock.instance.isLocked) return;
+    final raw = _deferred;
+    if (raw == null) return;
+    _deferred = null;
+    _handle(raw);
   }
 
   /// A dapp request that arrived and has not been shown to the user yet.
@@ -43,6 +58,18 @@ class DeepLinkBridge {
   static void _handle(String raw) {
     final uri = Uri.tryParse(raw);
     if (uri == null || uri.scheme != 'solfare') return;
+
+    // Hold everything while the app is locked. This used to end in an
+    // unconditional go(homepage), which meant any other installed app could
+    // open `solfare://receive` and replace the lock screen with the wallet.
+    // Parsing is deferred too: a dapp request must not reach the approval
+    // sheet before the person who owns the keys has proved they are here.
+    if (AppLock.instance.isLocked) {
+      debugLog('[DeepLink] deferred until unlock: ${uri.host}${uri.path}');
+      _deferred = raw;
+      _router?.go(AppRoutes.unlockPasscode);
+      return;
+    }
 
     // v1/* is the dApp Connect surface. Checked before the navigation hosts
     // so a signing request can never be mistaken for "open the send screen".

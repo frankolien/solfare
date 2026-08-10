@@ -2,6 +2,7 @@ import 'package:bip39/bip39.dart' as bip39;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:solfare/core/error/exception.dart';
+import 'package:solfare/core/security/app_lock.dart';
 import 'package:solfare/core/security/secure_store.dart';
 import 'package:solfare/core/wallet/keyring.dart';
 import 'package:solfare/features/wallet/data/datasource/wallet_accounts_store.dart';
@@ -150,6 +151,13 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
       // Clear legacy keys too in case wipe is called pre-migration.
       await _secureStorage.delete(key: _legacyMnemonicKey);
       await _secureStorage.delete(key: _legacyAddressKey);
+      // The passcode belongs to the wallet it guards. Leaving it behind
+      // means the next wallet created on this device silently inherits the
+      // old one, and the app-lock keeps demanding a passcode for a wallet
+      // that no longer exists.
+      await _secureStorage.delete(key: AppLock.passcodeKey);
+      await _secureStorage.delete(key: 'passcode_failed_attempts');
+      await _secureStorage.delete(key: 'passcode_lockout_until');
     } catch (e) {
       throw LocalStorageException('Failed to clear wallet: $e');
     }

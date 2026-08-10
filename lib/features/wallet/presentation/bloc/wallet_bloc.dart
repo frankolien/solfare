@@ -7,6 +7,7 @@ import 'package:solana/encoder.dart' as encoder;
 import 'package:solana/solana.dart' as solana;
 import 'package:solfare/core/util/app_log.dart';
 import 'package:solfare/core/constant/network.dart';
+import 'package:solfare/core/security/app_lock.dart';
 import 'package:solfare/core/solana/pay/pay_request.dart';
 import 'package:solfare/core/solana/pay/pay_resolver.dart';
 import 'package:solfare/core/solana/preview/preview_engine.dart';
@@ -632,6 +633,10 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       _stopPricePolling();
       await _balanceWs.stop();
       await _repository.clearWallet();
+      // The passcode went with it, so the lock has nothing left to guard —
+      // without this the router would hold the user on an unlock screen for
+      // a wallet that no longer exists.
+      AppLock.instance.forget();
       emit(const WalletCleared());
     } catch (e) {
       emit(WalletError(e.toString()));
