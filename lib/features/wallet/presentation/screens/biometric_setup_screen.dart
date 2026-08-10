@@ -14,7 +14,6 @@ class BiometricSetupScreen extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             children: [
-              // Close button
               Align(
                 alignment: Alignment.topRight,
                 child: IconButton(
@@ -25,7 +24,6 @@ class BiometricSetupScreen extends StatelessWidget {
 
               const Spacer(flex: 2),
 
-              // Padlock icon
               Container(
                 width: 120,
                 height: 120,
@@ -42,7 +40,6 @@ class BiometricSetupScreen extends StatelessWidget {
 
               const SizedBox(height: 40),
 
-              // Title
               const Text(
                 'Unlock Quicker',
                 style: TextStyle(
@@ -54,7 +51,6 @@ class BiometricSetupScreen extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              // Description
               Text(
                 'Biometric unlock is coming soon. You can continue using your passcode for now.',
                 style: TextStyle(
@@ -67,7 +63,6 @@ class BiometricSetupScreen extends StatelessWidget {
 
               const Spacer(flex: 3),
 
-              // Continue button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(

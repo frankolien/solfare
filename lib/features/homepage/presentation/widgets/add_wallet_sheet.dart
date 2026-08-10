@@ -3,10 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:solfare/core/router/app_router.dart';
 
 /// Bottom sheet offering the two "add wallet" paths: create fresh or import.
-///
-/// Routes through the existing onboarding screens — the underlying
-/// WalletBloc events are identical on first install and subsequent adds, so
-/// no new flow is needed.
 Future<void> showAddWalletSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,

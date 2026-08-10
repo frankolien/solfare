@@ -4,12 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 // Pushes lightweight read-only snapshots into the iOS WidgetKit extension's
-// shared UserDefaults via a MethodChannel. The widget extension (separate
-// process) reads these on its next timeline refresh.
-//
-// Keep the payload small — it's read every widget refresh and there's no
-// reason for sensitive material to ever cross this boundary. Mnemonics,
-// private keys, addresses → never. Display values only.
+// shared UserDefaults via a MethodChannel.
 class WidgetBridge {
   WidgetBridge._();
 
@@ -40,8 +35,8 @@ class WidgetBridge {
         'symbol': symbol,
         'priceUsd': priceUsd,
         'percentChange24h': percentChange24h,
-        // Cap sparkline length — the widget renders a tiny chart and the
-        // whole payload is serialised as JSON into UserDefaults.
+        // Cap sparkline length — the widget renders a tiny chart and the whole
+        // payload is serialised as JSON into UserDefaults.
         'sparkline': sparkline.length > 40
             ? sparkline.sublist(sparkline.length - 40)
             : sparkline,

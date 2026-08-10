@@ -6,26 +6,15 @@ import 'package:solfare/core/util/app_log.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 /// Live SOL/USDT price stream over Binance's public WebSocket.
-///
-/// Binance's `@ticker` stream pushes a rolling 24h stats frame every second
-/// for any unauthenticated client — no API key, no rate limit. We use it as
-/// the live overlay on top of the CoinGecko cold-start snapshot so the
-/// home-screen price card and the iOS widget feel real.
-///
-/// Reconnect + lifecycle behavior is modeled on [BalanceWsService]:
-/// exponential backoff capped at 30s, socket released while backgrounded.
 class BinancePriceWsService with WidgetsBindingObserver {
   BinancePriceWsService({required this.onTick}) {
     WidgetsBinding.instance.addObserver(this);
   }
 
   /// Fires whenever Binance pushes a fresh ticker frame.
-  ///   - [priceUsd]: last trade price
-  ///   - [percentChange24h]: rolling 24h % change
   final void Function(double priceUsd, double percentChange24h) onTick;
 
-  // Public combined-stream endpoint. solusdt only for now; multi-pair would
-  // be `/stream?streams=solusdt@ticker/jupusdt@ticker/...`.
+  // Public combined-stream endpoint.
   static const _wsUrl = 'wss://stream.binance.com:9443/ws/solusdt@ticker';
 
   WebSocketChannel? _channel;
@@ -106,8 +95,8 @@ class BinancePriceWsService with WidgetsBindingObserver {
   void _handleMessage(dynamic raw) {
     try {
       final msg = jsonDecode(raw as String) as Map<String, dynamic>;
-      // ticker frame fields per Binance docs:
-      //   c = last price (string), P = 24h % change (string)
+      // ticker frame fields per Binance docs: c = last price (string), P = 24h
+      // % change (string)
       final price = double.tryParse(msg['c']?.toString() ?? '');
       final change = double.tryParse(msg['P']?.toString() ?? '');
       if (price == null || change == null) return;

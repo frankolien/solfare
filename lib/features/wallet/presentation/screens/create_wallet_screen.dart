@@ -105,7 +105,6 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
         children: [
           const SizedBox(height: 16),
 
-          // Blurred mnemonic card (wraps content)
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
@@ -116,13 +115,10 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
             ),
             child: Column(
               children: [
-                // Blurred word grid
                 Stack(
                   children: [
-                    // The actual grid (blurred)
                     _buildWordGrid(words, blurred: true),
 
-                    // Overlay with text
                     Positioned.fill(
                       child: Center(
                         child: Column(
@@ -181,7 +177,6 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
 
           const Spacer(),
 
-          // Continue button (disabled)
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -205,7 +200,6 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Skip for now
           TextButton(
             onPressed: _handleSaveWallet,
             child: const Text(
@@ -223,9 +217,6 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
     );
   }
 
-  // ──────────────────────────────────────────────
-  // REVEALED STATE (after tapping Show — matches Figma right screen)
-  // ──────────────────────────────────────────────
   Widget _buildRevealedView(Wallet wallet) {
     final words = wallet.mnemonic.split(' ');
 
@@ -235,7 +226,6 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
         children: [
           const SizedBox(height: 16),
 
-          // Mnemonic card (wraps content)
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
@@ -250,15 +240,9 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
 
                 const SizedBox(height: 20),
 
-                // Copy button
                 GestureDetector(
                   onTap: () {
-                    // SecureClipboard, not the raw API. This is the one
-                    // screen that shows a brand-new seed, and it was the one
-                    // place copying it left the twelve words in the system
-                    // clipboard indefinitely — readable by any foreground
-                    // app or IME, and pushed to the user's Mac over
-                    // Universal Clipboard.
+                    // SecureClipboard, not the raw API.
                     unawaited(SecureClipboard.copySensitive(wallet.mnemonic));
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -291,7 +275,6 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
 
           const Spacer(),
 
-          // Continue button (active)
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -320,7 +303,6 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Skip for now
           TextButton(
             onPressed: _handleSaveWallet,
             child: const Text(
@@ -338,9 +320,6 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
     );
   }
 
-  // ──────────────────────────────────────────────
-  // WORD GRID — 2 columns, 6 rows (matching Figma layout)
-  // ──────────────────────────────────────────────
   Widget _buildWordGrid(List<String> words, {required bool blurred}) {
     final halfLength = (words.length / 2).ceil();
     final leftWords = words.sublist(0, halfLength);
@@ -408,9 +387,6 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
     );
   }
 
-  // ──────────────────────────────────────────────
-  // ERROR STATE
-  // ──────────────────────────────────────────────
   Widget _buildError(String error) {
     return Center(
       child: Padding(
@@ -428,7 +404,6 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () {
-                // Dispatch event to retry wallet creation
                 context.read<WalletBloc>().add(const CreateWalletEvent());
               },
               style:

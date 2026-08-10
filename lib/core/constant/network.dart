@@ -29,8 +29,8 @@ class NetworkConstants {
   static SolanaNetwork get current => _current;
   static String get solanaUrl => _current.url;
 
-  // Helius DAS endpoint — supports getAssetsByOwner (regular + compressed NFTs).
-  // Helius only serves mainnet and devnet; testnet falls back to mainnet DAS.
+  // Helius DAS endpoint — supports getAssetsByOwner (regular + compressed
+  // NFTs).
   static String get heliusDasUrl {
     final cluster = _current == SolanaNetwork.devnet ? 'devnet' : 'mainnet';
     return 'https://$cluster.helius-rpc.com/?api-key=$_heliusApiKey';

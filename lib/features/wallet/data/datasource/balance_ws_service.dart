@@ -7,16 +7,7 @@ import 'package:solfare/core/util/app_log.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 /// Maintains a Solana JSON-RPC WebSocket subscription to a single account's
-/// balance changes via `accountSubscribe`. When the server pushes a change,
-/// [onChange] fires and the caller is expected to re-fetch via HTTP.
-///
-/// Design choices:
-///   - Single subscription (just the native SOL account). Token accounts
-///     would multiply the cost and complexity.
-///   - Exponential backoff on reconnect: 1s → 2s → 4s → 8s → 16s → 30s cap.
-///   - 30-second ping keepalive so Helius doesn't close the idle socket.
-///   - Silent failures — this is a nice-to-have overlay on top of manual
-///     refresh. It never throws to the UI or shows errors.
+/// balance changes via `accountSubscribe`.
 class BalanceWsService with WidgetsBindingObserver {
   BalanceWsService({required this.onChange}) {
     WidgetsBinding.instance.addObserver(this);
@@ -34,8 +25,6 @@ class BalanceWsService with WidgetsBindingObserver {
   int _reconnectAttempts = 0;
   bool _stopped = false;
 
-  /// Start watching [address]. If already watching the same address, no-op.
-  /// Switches targets if called with a different one.
   Future<void> watch(String address) async {
     if (_currentAddress == address && _channel != null) return;
     _stopped = false;
@@ -44,15 +33,14 @@ class BalanceWsService with WidgetsBindingObserver {
     _connect();
   }
 
-  /// Stop watching and close the socket. Call from bloc.close() — after this
-  /// the service will not auto-reconnect on lifecycle events either.
+  /// Stop watching and close the socket.
   Future<void> stop() async {
     _stopped = true;
     _currentAddress = null;
     await _disconnect();
   }
 
-  /// Fully tear down, including the lifecycle observer. Call on bloc.close.
+  /// Fully tear down, including the lifecycle observer.
   Future<void> dispose() async {
     WidgetsBinding.instance.removeObserver(this);
     await stop();
@@ -94,13 +82,8 @@ class BalanceWsService with WidgetsBindingObserver {
       _channel = channel;
 
       // `channel.ready` resolves once the WS handshake succeeds or errors.
-      // DNS failures (offline simulator, no internet) surface here rather
-      // than as a synchronous throw, so we must await it in a zone that
-      // catches the rejection — otherwise the exception escapes to the
-      // root zone and the debugger stops.
       channel.ready.then((_) {
         if (_stopped) return;
-        // Fire accountSubscribe once the socket is actually open.
         _send({
           'jsonrpc': '2.0',
           'id': 1,
@@ -141,7 +124,6 @@ class BalanceWsService with WidgetsBindingObserver {
     try {
       final msg = jsonDecode(raw as String) as Map<String, dynamic>;
 
-      // Confirmation of subscribe — store the subscription id.
       if (msg['id'] == 1 && msg['result'] is int) {
         _subscriptionId = msg['result'] as int;
         _reconnectAttempts = 0; // successful handshake resets backoff
@@ -149,7 +131,6 @@ class BalanceWsService with WidgetsBindingObserver {
         return;
       }
 
-      // Push notification.
       if (msg['method'] == 'accountNotification') {
         debugLog('[WS] accountNotification — triggering balance refetch');
         onChange();

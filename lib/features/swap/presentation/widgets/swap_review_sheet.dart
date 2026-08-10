@@ -6,11 +6,6 @@ import 'package:solfare/features/swap/presentation/bloc/swap_state.dart';
 import 'package:solfare/features/wallet/presentation/widgets/tx_preview_body.dart';
 
 /// What the swap actually does, before it is sent.
-///
-/// The body is the same one every other approval in the app uses, so a route
-/// from Jupiter is read the same way as a payment request or a dapp asking
-/// for a signature — from the network's own simulation, not from whoever
-/// proposed it.
 class SwapReviewSheet extends StatelessWidget {
   final SwapReviewing state;
 

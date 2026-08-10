@@ -8,10 +8,6 @@ class LocalStorageException implements Exception {
 }
 
 /// The wallet blob is present but could not be read.
-///
-/// Distinct from "there are no wallets" on purpose. Collapsing the two sends
-/// a user who owns a wallet to the create-a-wallet screen, and the first
-/// thing that screen does is overwrite the blob nobody could read.
 class CorruptWalletStoreException implements Exception {
   final String message;
   const CorruptWalletStoreException(this.message);

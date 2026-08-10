@@ -6,21 +6,14 @@ import 'package:solfare/core/security/app_lock.dart';
 import 'package:solfare/core/solana/session/dapp_request.dart';
 import 'package:solfare/core/util/app_log.dart';
 
-// Receives solfare:// URLs from the native side (AppDelegate forwards them
-// via MethodChannel) and translates them into router navigations.
-//
-// Recognised hosts: send | swap | receive | stake | market.
-// Anything else falls through to the homepage.
+// Receives solfare:// URLs from the native side (AppDelegate forwards them via
+// MethodChannel) and translates them into router navigations.
 class DeepLinkBridge {
   DeepLinkBridge._();
 
   static const _channel = MethodChannel('solfare/deeplink');
 
-  // Last intent received but not yet consumed by a screen. Surfaces here
-  // because GoRouter doesn't carry custom intent state across navigations
-  // and the existing send/swap routes need wallet data the widget can't
-  // supply. The HomepageScreen can watch this notifier to flip tabs or
-  // open sheets when an intent arrives while it's already in view.
+  // Last intent received but not yet consumed by a screen.
   static final ValueNotifier<String?> intent = ValueNotifier<String?>(null);
 
   static GoRouter? _router;
@@ -37,9 +30,7 @@ class DeepLinkBridge {
     });
   }
 
-  // A URL that arrived while the app was locked. Held rather than dropped:
-  // the user tapped a link and expects it to have done something, and a
-  // signing request that vanishes silently is worse than one that waits.
+  // A URL that arrived while the app was locked.
   static String? _deferred;
 
   static void _flushWhenUnlocked() {
@@ -51,19 +42,13 @@ class DeepLinkBridge {
   }
 
   /// A dapp request that arrived and has not been shown to the user yet.
-  /// Separate from [intent] because these are not navigation — they are
-  /// somebody asking for a signature, and they get their own approval sheet.
   static final ValueNotifier<DappRequest?> dappRequest = ValueNotifier<DappRequest?>(null);
 
   static void _handle(String raw) {
     final uri = Uri.tryParse(raw);
     if (uri == null || uri.scheme != 'solfare') return;
 
-    // Hold everything while the app is locked. This used to end in an
-    // unconditional go(homepage), which meant any other installed app could
-    // open `solfare://receive` and replace the lock screen with the wallet.
-    // Parsing is deferred too: a dapp request must not reach the approval
-    // sheet before the person who owns the keys has proved they are here.
+    // Hold everything while the app is locked.
     if (AppLock.instance.isLocked) {
       debugLog('[DeepLink] deferred until unlock: ${uri.host}${uri.path}');
       _deferred = raw;
@@ -71,8 +56,7 @@ class DeepLinkBridge {
       return;
     }
 
-    // v1/* is the dApp Connect surface. Checked before the navigation hosts
-    // so a signing request can never be mistaken for "open the send screen".
+    // v1/* is the dApp Connect surface.
     final request = DappRequestParser.parse(uri);
     if (request != null) {
       debugLog('[DeepLink] dapp request: ${uri.host}${uri.path}');
@@ -84,13 +68,12 @@ class DeepLinkBridge {
     final host = uri.host;
     debugLog('[DeepLink] $raw → $host');
     intent.value = host;
-    // Route everything to the homepage for now. The screen reads `intent`
-    // on mount / on change and decides what to surface.
+    // Route everything to the homepage for now.
     _router?.go(AppRoutes.homepage);
   }
 
-  /// A URL that reached the app by a path other than the method channel —
-  /// the router's exception handler, for instance. Same handling either way.
+  /// A URL that reached the app by a path other than the method channel — the
+  /// router's exception handler, for instance.
   static void handleExternal(String raw) => _handle(raw);
 
   // Test-only seam.

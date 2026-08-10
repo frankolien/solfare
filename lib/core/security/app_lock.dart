@@ -3,32 +3,15 @@ import 'package:solfare/core/security/secure_store.dart';
 import 'package:solfare/core/security/wallet_key.dart';
 
 /// Whether the app is currently allowed to be used.
-///
-/// The passcode used to be a single navigation decision taken once on the
-/// splash screen. Anything that navigated by another route — a `solfare://`
-/// deeplink, the router's own exception handler — landed on the homepage
-/// with full spend authority, and nothing re-checked afterwards. This holds
-/// the fact instead, so the router can refuse rather than the splash screen
-/// having to be the only door.
-///
-/// A [ChangeNotifier] because GoRouter takes one directly as its
-/// `refreshListenable`: locking has to re-run the redirect, not just be true
-/// the next time somebody happens to navigate.
 class AppLock extends ChangeNotifier {
   AppLock._();
 
   static final AppLock instance = AppLock._();
 
-  /// The key the passcode hash is stored under. Owned here because whether a
-  /// passcode exists is what decides if there is anything to lock.
+  /// The key the passcode hash is stored under.
   static const passcodeKey = 'wallet_passcode';
 
   /// How long the app may sit in the background before it re-locks.
-  ///
-  /// Zero would re-prompt every time the user checked an address in another
-  /// app, which trains them to type the passcode without reading the screen.
-  /// A minute is long enough to survive a copy-paste round trip and short
-  /// enough that a phone handed to somebody else arrives locked.
   static const lockAfter = Duration(seconds: 60);
 
   bool _hasPasscode = false;
@@ -36,22 +19,17 @@ class AppLock extends ChangeNotifier {
   DateTime? _leftAt;
 
   /// True when a passcode exists and it has not been entered this session.
-  /// Read synchronously by the router's redirect, so it can never be a future.
   bool get isLocked => _hasPasscode && !_unlocked;
 
-  /// Whether the user has set a passcode at all. A wallet created before the
-  /// passcode step is finished has nothing to unlock.
+  /// Whether the user has set a passcode at all.
   bool get hasPasscode => _hasPasscode;
 
-  /// Reads the stored passcode once, before the first frame. Called from
-  /// `main` so the first redirect already knows whether to hold the door.
+  /// Reads the stored passcode once, before the first frame.
   Future<void> load() async {
     try {
       _hasPasscode = await SecureStore.instance.read(key: passcodeKey) != null;
     } catch (_) {
-      // A storage read that fails is not evidence there is no passcode. Assume
-      // there is one: the cost of a wrong guess in this direction is a prompt
-      // the user can satisfy, and in the other direction it is an open wallet.
+      // A storage read that fails is not evidence there is no passcode.
       _hasPasscode = true;
     }
     notifyListeners();
@@ -83,10 +61,6 @@ class AppLock extends ChangeNotifier {
   }
 
   /// Require the passcode again on the next navigation.
-  ///
-  /// Drops the key that opens stored mnemonics along with it — otherwise
-  /// "locked" would only mean the router refuses to navigate, while anything
-  /// holding a reference could still read a seed.
   void lock() {
     _leftAt = null;
     WalletKey.clear();
@@ -95,9 +69,7 @@ class AppLock extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// The app went to the background. Only the time is recorded — locking
-  /// here would tear down whatever the user was doing while they are not
-  /// looking, and they would come back to a screen they did not leave.
+  /// The app went to the background. Only the time is recorded.
   void didLeave({DateTime? at}) {
     if (!_unlocked) return;
     _leftAt = at ?? DateTime.now();
@@ -109,7 +81,7 @@ class AppLock extends ChangeNotifier {
     _leftAt = null;
     if (leftAt == null) return;
     // A clock that moved backwards while we were away reads as a negative
-    // absence. Treat anything not clearly inside the window as outside it.
+    // absence.
     final away = (at ?? DateTime.now()).difference(leftAt);
     if (away.isNegative || away >= lockAfter) lock();
   }

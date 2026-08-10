@@ -9,8 +9,7 @@ abstract class MarketHomeEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Load every section. [force] skips the cache, which is what pull-to-refresh
-/// means.
+/// Load every section.
 class MarketHomeRequested extends MarketHomeEvent {
   final bool force;
 
@@ -20,8 +19,7 @@ class MarketHomeRequested extends MarketHomeEvent {
   List<Object?> get props => [force];
 }
 
-/// The starred mints changed. Redraws from what is already loaded where it
-/// can, and only asks the API about mints the home has never seen.
+/// The starred mints changed.
 class MarketHomeWatchlistChanged extends MarketHomeEvent {
   final List<String> mints;
 
@@ -31,8 +29,7 @@ class MarketHomeWatchlistChanged extends MarketHomeEvent {
   List<Object?> get props => [mints];
 }
 
-/// Internal: one section came back. Routed through the event loop so the
-/// emit happens inside a handler rather than after one has returned.
+/// Internal: one section came back.
 class MarketHomeSectionLoaded extends MarketHomeEvent {
   final MarketSection section;
   final List<MarketToken>? tokens;

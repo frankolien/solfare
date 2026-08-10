@@ -23,7 +23,6 @@ class DiscoverSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header
         Row(
           children: [
             const Text(
@@ -41,7 +40,6 @@ class DiscoverSection extends StatelessWidget {
         ),
         const SizedBox(height: 14),
 
-        // Category tabs
         SizedBox(
           height: 32,
           child: ListView.separated(
@@ -78,7 +76,6 @@ class DiscoverSection extends StatelessWidget {
         ),
         const SizedBox(height: 18),
 
-        // dApp list
         ...dapps.map((dapp) => _buildDappRow(dapp)),
       ],
     );
@@ -92,7 +89,6 @@ class DiscoverSection extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 20),
         child: Row(
           children: [
-            // Icon
             Container(
               width: 40,
               height: 40,
@@ -144,7 +140,6 @@ class DiscoverSection extends StatelessWidget {
             ),
             const SizedBox(width: 12),
 
-            // Name + description
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

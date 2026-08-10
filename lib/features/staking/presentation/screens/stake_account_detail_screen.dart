@@ -74,13 +74,11 @@ class StakeAccountDetailScreen extends StatelessWidget {
             onPressed: () {
               Navigator.pop(ctx);
               if (account.state == 'inactive' || account.state == 'deactivating') {
-                // Already deactivated — withdraw
                 context.read<StakingBloc>().add(WithdrawStakeEvent(
                   stakeAccountPubkey: account.pubkey,
                   lamports: account.lamports,
                 ));
               } else {
-                // Deactivate first
                 context.read<StakingBloc>().add(DeactivateStakeEvent(account.pubkey));
               }
             },
@@ -91,8 +89,8 @@ class StakeAccountDetailScreen extends StatelessWidget {
     );
   }
 
-  // Future-returning, not `void async`: a void async function cannot be
-  // awaited and its failures cannot be observed by anyone.
+  // Future-returning, not `void async`: a void async function cannot be awaited
+  // and its failures cannot be observed by anyone.
   Future<void> _openExplorer() async {
     final url = Explorer.address(account.pubkey);
     try {
@@ -126,7 +124,6 @@ class StakeAccountDetailScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
                 child: Row(
@@ -162,7 +159,6 @@ class StakeAccountDetailScreen extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              // Amount + status
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
@@ -205,7 +201,6 @@ class StakeAccountDetailScreen extends StatelessWidget {
 
               const SizedBox(height: 28),
 
-              // Details tab
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
@@ -220,7 +215,6 @@ class StakeAccountDetailScreen extends StatelessWidget {
 
               const Divider(color: Colors.white10, height: 20, indent: 0, endIndent: 0),
 
-              // Detail rows
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(

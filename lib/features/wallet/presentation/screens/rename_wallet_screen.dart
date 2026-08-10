@@ -38,7 +38,6 @@ class _RenameWalletScreenState extends State<RenameWalletScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
               child: Row(
@@ -62,7 +61,6 @@ class _RenameWalletScreenState extends State<RenameWalletScreen> {
 
             const SizedBox(height: 24),
 
-            // Text field
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: TextField(

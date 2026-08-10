@@ -84,7 +84,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
       child: Row(
         children: [
-          // MW avatar
           Container(
             width: 32,
             height: 32,
@@ -106,7 +105,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
           ),
           const SizedBox(width: 10),
 
-          // Search / URL bar
           Expanded(
             child: GestureDetector(
               onTap: _showUrlInputSheet,
@@ -137,7 +135,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
           const SizedBox(width: 10),
 
-          // More menu
           GestureDetector(
             onTap: () {},
             child: Icon(Icons.more_vert, color: Colors.grey[400], size: 20),
@@ -145,7 +142,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
           const SizedBox(width: 10),
 
-          // Tab count badge
           Container(
             width: 26,
             height: 26,
@@ -178,7 +174,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
         children: [
           const SizedBox(height: 16),
 
-          // Discover — dApp directory with category tabs
           DiscoverSection(
             dapps: state.dapps,
             selectedCategory: state.selectedCategory,
@@ -190,7 +185,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
           const SizedBox(height: 32),
 
-          // Feed — real news from CryptoPanic
           FeedSection(
             news: state.news,
             onNewsTap: (news) => _openBrowser(news.url),
@@ -209,10 +203,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 16),
-          // Discover title shimmer
           Container(width: 70, height: 14, decoration: BoxDecoration(color: Colors.grey[800], borderRadius: BorderRadius.circular(4))),
           const SizedBox(height: 16),
-          // Category tabs shimmer
           Row(
             children: List.generate(4, (_) => Padding(
               padding: const EdgeInsets.only(right: 8),
@@ -227,7 +219,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
             )),
           ),
           const SizedBox(height: 18),
-          // dApp rows shimmer
           ...List.generate(5, (_) => Padding(
             padding: const EdgeInsets.only(bottom: 18),
             child: Row(
@@ -248,10 +239,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ),
           )),
           const SizedBox(height: 32),
-          // Feed title shimmer
           Container(width: 40, height: 14, decoration: BoxDecoration(color: Colors.grey[800], borderRadius: BorderRadius.circular(4))),
           const SizedBox(height: 16),
-          // News rows shimmer
           ...List.generate(4, (_) => Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: Row(
@@ -296,7 +285,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Drag handle
               Container(
                 width: 36,
                 height: 4,
@@ -306,7 +294,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              // URL input
               Container(
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.white12),
@@ -344,7 +331,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
         ),
       ),
     )
-        // Created per sheet open and never released before.
         .whenComplete(controller.dispose));
   }
 

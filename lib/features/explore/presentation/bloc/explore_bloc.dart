@@ -8,7 +8,6 @@ import 'package:solfare/features/explore/presentation/bloc/explore_state.dart';
 class ExploreBloc extends Bloc<ExploreEvent, ExploreState> {
   late final ExploreDataSource _dataSource;
 
-  // Cache news so category switches don't re-fetch
   List<CryptoNews> _cachedNews = [];
   List<DappItem> _allDapps = [];
 
@@ -32,7 +31,6 @@ class ExploreBloc extends Bloc<ExploreEvent, ExploreState> {
         selectedCategory: 'Featured',
       ));
     } catch (e) {
-      // Still show dApps even if news fails
       _allDapps = _dataSource.getDapps();
       emit(ExploreLoaded(
         dapps: _allDapps,

@@ -34,10 +34,6 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(NavigationDelegate(
-        // There was no navigation delegate rule at all, so every scheme was
-        // permitted: file:// reads the app's own sandbox, intent:// and
-        // content:// reach other apps on Android, and about: escapes the
-        // origin the URL bar is showing. https only.
         onNavigationRequest: (request) {
           final uri = Uri.tryParse(request.url);
           if (uri != null && uri.scheme == 'https') {
@@ -61,9 +57,7 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
           _canGoBack = await _controller.canGoBack();
           _canGoForward = await _controller.canGoForward();
 
-          // The page's own title is deliberately not read. It is attacker
-          // -controlled text and the URL bar is the only origin indicator
-          // this browser has.
+          // The page's own title is deliberately not read.
           setState(() {});
         },
       ))
@@ -71,19 +65,13 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
   }
 
   // The host, and only the host.
-  //
-  // `replaceFirst('www.', '')` rewrote the string anywhere that sequence
-  // appeared, so `paypal.com.www.evil.com` rendered as `paypal.com.evil.com`
-  // — a different domain from the one being visited. Only a genuine leading
-  // `www.` is dropped now.
   String _displayUrl(String url) {
     final uri = Uri.tryParse(url);
     final host = uri?.host ?? '';
     if (host.isEmpty) return url;
     final bare = host.startsWith('www.') ? host.substring(4) : host;
-    // An http page is not the same claim as an https one, and the scheme is
-    // the difference between a connection somebody can rewrite and one they
-    // cannot.
+    // An http page is not the same claim as an https one, and the scheme is the
+    // difference between a connection somebody can rewrite and one they cannot.
     return uri?.scheme == 'https' ? bare : '$bare (not secure)';
   }
 
@@ -95,10 +83,8 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
         bottom: false,
         child: Column(
           children: [
-            // Browser toolbar
             _buildToolbar(),
 
-            // Loading bar
             if (_isLoading)
               LinearProgressIndicator(
                 value: _loadingProgress,
@@ -107,12 +93,10 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
                 minHeight: 2,
               ),
 
-            // WebView
             Expanded(
               child: WebViewWidget(controller: _controller),
             ),
 
-            // Bottom navigation bar
             _buildBottomBar(),
           ],
         ),
@@ -128,7 +112,6 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
       ),
       child: Row(
         children: [
-          // MW avatar
           Container(
             width: 30,
             height: 30,
@@ -150,7 +133,6 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
           ),
           const SizedBox(width: 10),
 
-          // URL bar
           Expanded(
             child: GestureDetector(
               onTap: _showUrlInputSheet,
@@ -165,9 +147,7 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        // The host, never the page's own <title>. A site
-                        // serving `<title>jup.ag</title>` used to own the
-                        // only origin indicator in the wallet.
+                        // The host, never the page's own <title>.
                         _displayUrl(_currentUrl),
                         style: TextStyle(
                           color: Colors.grey[400],
@@ -191,7 +171,6 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
 
           const SizedBox(width: 10),
 
-          // Home button
           GestureDetector(
             onTap: () => Navigator.of(context).pop(),
             child: Container(
@@ -219,7 +198,6 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          // Back
           GestureDetector(
             onTap: _canGoBack ? () => _controller.goBack() : null,
             child: Icon(
@@ -229,7 +207,6 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
             ),
           ),
 
-          // Forward
           GestureDetector(
             onTap: _canGoForward ? () => _controller.goForward() : null,
             child: Icon(
@@ -239,13 +216,11 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
             ),
           ),
 
-          // Reload
           GestureDetector(
             onTap: () => _controller.reload(),
             child: const Icon(Icons.refresh, color: Colors.white, size: 20),
           ),
 
-          // Close
           GestureDetector(
             onTap: () => Navigator.of(context).pop(),
             child: const Icon(Icons.close, color: Colors.white, size: 20),
@@ -274,7 +249,6 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
         ),
         PopupMenuItem(
           onTap: () {
-            // Copy URL
           },
           child: const Row(
             children: [
@@ -305,7 +279,6 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Drag handle
               Container(
                 width: 36,
                 height: 4,
@@ -316,7 +289,6 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
                 ),
               ),
 
-              // URL input
               Container(
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.white12),
@@ -354,7 +326,6 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
         ),
       ),
     )
-        // Created per sheet open and never released before.
         .whenComplete(controller.dispose));
   }
 
@@ -362,10 +333,7 @@ class _DappBrowserScreenState extends State<DappBrowserScreen> {
     final typed = input.trim();
     if (typed.isEmpty) return;
 
-    // Anything without a dot is a search, not an address. Deciding that
-    // first means a bare word can never be prefixed into something like
-    // `https://javascript:alert(1)`, which Uri.parse rejects with a
-    // FormatException — uncaught, so it took the whole screen down.
+    // Anything without a dot is a search, not an address.
     String url;
     if (typed.startsWith('https://') || typed.startsWith('http://')) {
       url = typed;

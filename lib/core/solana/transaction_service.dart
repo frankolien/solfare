@@ -34,20 +34,7 @@ class TxEstimate {
   double get totalFeeSol => Lamports.toSol(totalFeeLamports);
 }
 
-/// Builds, prices, sends and confirms transactions. A signature from
-/// `sendTransaction` only means one node accepted the bytes — the tx can
-/// still be dropped, and once its blockhash ages out (150 blocks, ~60s) it
-/// can never land, silently and without a fee.
-///
-/// Every send runs the same four steps:
-///   - Simulate to measure compute units and fail before anything is signed
-///     or broadcast. The probe is unsigned: the RPC is asked with
-///     `sigVerify: false`, so a signature would be work nobody checks.
-///   - Budget: request the measured limit and bid a priority fee off what
-///     recent blocks charged for these accounts.
-///   - Broadcast with node-side retries off; the loop below owns them.
-///   - Confirm: poll status, rebroadcasting the same signed bytes (same
-///     signature, so a duplicate can't double-spend) until expiry.
+/// Builds, prices, sends and confirms transactions.
 class TransactionService {
   final SolanaRpcDataSource _rpc;
   final PriorityFeeOracle _oracle;
@@ -61,26 +48,17 @@ class TransactionService {
   // Charged per signature by the runtime, and not biddable.
   static const int lamportsPerSignature = 5000;
 
-  // Account state can shift between the dry run and inclusion. 15% covers
-  // that without inflating the fee, which is charged on the limit.
+  // Account state can shift between the dry run and inclusion.
   static const double _computeHeadroom = 1.15;
 
-  // Used when an RPC declines to report unitsConsumed. Above a system
-  // transfer (~450 CU) and comfortably above a token transfer, below anything
-  // that overpays badly.
-  //
-  // Sending anyway on an unmeasurable transaction is a deliberate trade: an
-  // RPC that cannot simulate is not evidence the transaction cannot land. It
-  // only holds while every caller of this class builds transfers, which stay
-  // far under this. Anything routing through a program that could exceed it
-  // should price itself rather than inherit this number.
+  // Used when an RPC declines to report unitsConsumed.
   static const int _fallbackComputeUnits = 200000;
 
   static const Duration _statusPollInterval = Duration(milliseconds: 1200);
   static const Duration _rebroadcastInterval = Duration(seconds: 2);
 
-  /// Price [instructions] without sending, so a confirm screen can show a
-  /// real fee instead of a guess.
+  /// Price [instructions] without sending, so a confirm screen can show a real
+  /// fee instead of a guess.
   Future<TxEstimate> estimate({
     required List<encoder.Instruction> instructions,
     required List<solana.Ed25519HDKeyPair> signers,
@@ -106,14 +84,7 @@ class TransactionService {
     );
   }
 
-  /// Send [instructions] and wait for confirmation. On-chain failures come
-  /// back as a [TxOutcome] instead of throwing — the UI has to show them
-  /// differently from a success. [TxSimulationException] means it never left
-  /// the device.
-  ///
-  /// Expired transactions are rebuilt (new blockhash, higher fee tier) up to
-  /// [maxAttempts] times. Safe because expiry is absolute: past
-  /// lastValidBlockHeight the original can never be included.
+  /// Send [instructions] and wait for confirmation.
   Future<TxOutcome> sendAndConfirm({
     required List<encoder.Instruction> instructions,
     required List<solana.Ed25519HDKeyPair> signers,
@@ -125,18 +96,17 @@ class TransactionService {
     if (signers.isEmpty) {
       throw const TxSimulationException('No signer available for this transaction.');
     }
-    // A caller asking for no attempts still has to get an outcome rather than
-    // a null-check crash on the way out.
+    // A caller asking for no attempts still has to get an outcome rather than a
+    // null-check crash on the way out.
     final attempts = math.max(1, maxAttempts);
 
-    // One deadline for the whole call, not one per attempt. A retry inheriting
-    // a fresh timeout makes `timeout: 90s` mean three minutes.
+    // One deadline for the whole call, not one per attempt.
     final deadline = DateTime.now().add(timeout);
     TxOutcome? lastExpired;
 
     for (var attempt = 1; attempt <= attempts; attempt++) {
-      // Escalate the bid on a retry: the first attempt expiring is evidence
-      // the market moved above our bid while it sat in the queue.
+      // Escalate the bid on a retry: the first attempt expiring is evidence the
+      // market moved above our bid while it sat in the queue.
       final level = attempt == 1 ? feeLevel : _escalate(feeLevel);
 
       final outcome = await _attempt(
@@ -147,19 +117,14 @@ class TransactionService {
         deadline: deadline,
       );
 
-      // Only a proven expiry is safe to rebuild on. TxStatus.unknown means
-      // the first transaction may still be in the queue, and sending a second
-      // one with a fresh blockhash gives it a different signature — so the
-      // cluster would happily land both.
+      // Only a proven expiry is safe to rebuild on.
       if (outcome.status != TxStatus.expired) return outcome;
 
       lastExpired = outcome;
       debugLog('[Tx] Attempt $attempt expired before inclusion; rebuilding');
 
       // A retry needs room to finish, not merely a deadline that has not yet
-      // passed. Starting one with seconds left broadcasts a real transaction
-      // and then abandons it unpolled — which is the same "sent but nobody
-      // knows" state this whole method exists to avoid.
+      // passed.
       if (deadline.difference(DateTime.now()) < _minimumAttemptBudget) break;
     }
 
@@ -176,14 +141,6 @@ class TransactionService {
   static const Duration _minimumAttemptBudget = Duration(seconds: 20);
 
   /// Sign a transaction somebody else built, without broadcasting it.
-  ///
-  /// The payload arrives serialised with an empty slot for our signature, so
-  /// the message is signed and the signature written into the first slot
-  /// rather than the transaction being rebuilt — rebuilding would change the
-  /// bytes the merchant or dapp expects to see land.
-  ///
-  /// Returns the signed transaction, base64. A dapp asking for signTransaction
-  /// gets this and decides for itself when to send it.
   Future<String> signPayloadOnly({
     required String base64Tx,
     required solana.Ed25519HDKeyPair signer,
@@ -212,13 +169,6 @@ class TransactionService {
     return base64Encode(signed);
   }
 
-  // Which signature slot belongs to [signer].
-  //
-  // Slots are positional: the nth slot is the nth required signer in the
-  // message's account list. Assuming slot zero holds for anything the wallet
-  // pays for itself, and breaks the moment a payload is sponsored, relayed,
-  // or multi-signed — the signature lands in somebody else's slot and the
-  // transaction fails on chain with nothing to explain it.
   int _signatureSlotFor(
     String base64Tx,
     solana.Ed25519HDKeyPair signer,
@@ -228,8 +178,7 @@ class TransactionService {
     try {
       tx = encoder.SignedTx.decode(base64Tx);
     } catch (e) {
-      // Undecodable means the slot cannot be established. Signing slot zero
-      // on a guess is how a wrong transaction gets built quietly.
+      // Undecodable means the slot cannot be established.
       debugLog('[Tx] Could not read the payload to place a signature: $e');
       throw const TxSimulationException('That transaction could not be read.');
     }
@@ -271,9 +220,6 @@ class TransactionService {
   }
 
   /// Confirm a transaction built elsewhere (a Jupiter route, a dApp payload).
-  /// Those carry no block height, so expiry falls back to polling [blockhash]
-  /// for validity. Pass [encoded] to keep rebroadcasting, omit it to only
-  /// watch when someone else owns delivery.
   Future<TxOutcome> confirmSigned({
     required String signature,
     required String blockhash,
@@ -323,10 +269,8 @@ class TransactionService {
     final signature = signed.id;
 
     onPhase?.call(TxPhase.broadcasting);
-    // First broadcast keeps preflight on: it is one more chance to catch a
-    // bad transaction against a bank fresher than our simulation. A rejection
-    // here becomes a simulation failure rather than a raw RPC exception —
-    // callers already handle that shape, and nothing has left the device.
+    // First broadcast keeps preflight on: it is one more chance to catch a bad
+    // transaction against a bank fresher than our simulation.
     try {
       await _rpc.sendTransaction(encoded, skipPreflight: false);
     } catch (e) {
@@ -348,8 +292,8 @@ class TransactionService {
     );
   }
 
-  // Poll for confirmation while rebroadcasting, until the cluster decides
-  // or the blockhash expires.
+  // Poll for confirmation while rebroadcasting, until the cluster decides or
+  // the blockhash expires.
   Future<TxOutcome> _confirm({
     required String signature,
     required String? encoded,
@@ -385,9 +329,7 @@ class TransactionService {
       if (status != null) {
         if (status['err'] != null) {
           // getSignatureStatuses says a transaction failed but never why, and
-          // every readable branch of _humanizeError is driven by the logs. An
-          // on-chain failure without them can only ever come back generic —
-          // and on-chain is where the failures simulation cannot predict land.
+          // every readable branch of _humanizeError is driven by the logs.
           final logs = await _safeLogs(signature);
           return result(
             TxStatus.failed,
@@ -403,9 +345,7 @@ class TransactionService {
 
       final now = DateTime.now();
 
-      // Keep pushing the same bytes at the cluster. A leader that dropped it
-      // once may have room on the next slot, and the identical signature
-      // means a duplicate is a no-op rather than a second transfer.
+      // Keep pushing the same bytes at the cluster.
       if (encoded != null && now.difference(lastBroadcast) >= _rebroadcastInterval) {
         lastBroadcast = now;
         broadcasts++;
@@ -425,9 +365,7 @@ class TransactionService {
           final finalRead = await _safeStatus(signature);
           final finalStatus = finalRead.status;
 
-          // Same bar as the main loop. `err == null` alone also accepts
-          // `processed`, which is a block on a fork that can still be
-          // dropped — not something to report as confirmed.
+          // Same bar as the main loop.
           if (finalStatus != null && finalStatus['err'] == null) {
             final level = finalStatus['confirmationStatus'] as String?;
             if (level == 'confirmed' || level == 'finalized') {
@@ -436,9 +374,7 @@ class TransactionService {
           }
 
           // Only the cluster answering "I have no record of this" proves the
-          // transaction is dead. A read that failed proves nothing, and
-          // declaring expiry on it is what let the retry loop send a second
-          // transfer — so keep polling until the deadline instead.
+          // transaction is dead.
           if (!finalRead.readable) {
             debugLog('[Tx] $signature past expiry but status unreadable; still polling');
             continue;
@@ -450,16 +386,12 @@ class TransactionService {
       }
     }
 
-    // Out of time, not out of hope. The blockhash was never observed to be
-    // dead, so this may still land — say so rather than claiming it cost
-    // nothing and inviting a second send.
     return result(
       TxStatus.unknown,
       error: 'Still waiting on the network. Check the transaction before sending again.',
     );
   }
 
-  // Dry-run the instruction set and read back what it actually costs.
   Future<int> _measureComputeUnits(
     List<encoder.Instruction> instructions,
     List<solana.Ed25519HDKeyPair> signers,
@@ -467,10 +399,6 @@ class TransactionService {
   ) async {
     // Probe with the maximum limit so a genuinely expensive transaction is
     // measured rather than truncated by our own guess.
-    //
-    // Compiled, not signed. The RPC is asked with sigVerify: false, so the
-    // slot only has to be the right size — and measuring before any key is
-    // used is the order this class claims to work in.
     final probe = encoder.SignedTx(
       compiledMessage: solana.Message(
         instructions: _withBudget(instructions, limit: _maxComputeUnits, microLamports: 0),
@@ -504,8 +432,8 @@ class TransactionService {
     return units;
   }
 
-  // Compute budget instructions go first — the runtime reads the budget
-  // before executing anything that spends it.
+  // Compute budget instructions go first — the runtime reads the budget before
+  // executing anything that spends it.
   List<encoder.Instruction> _withBudget(
     List<encoder.Instruction> instructions, {
     required int limit,
@@ -537,15 +465,15 @@ class TransactionService {
     final blockhash = data['blockhash'];
     final height = data['lastValidBlockHeight'];
     if (blockhash is! String || height is! int) {
-      // Casting straight through turns a malformed response into a type
-      // error, which reaches the user as a crash rather than as a message.
+      // Casting straight through turns a malformed response into a type error,
+      // which reaches the user as a crash rather than as a message.
       throw const TxSimulationException('The network returned something unreadable.');
     }
     return LatestBlockhash(blockhash: blockhash, lastValidBlockHeight: height);
   }
 
-  // Every account the tx writes to, plus the fee payer — the set the fee
-  // market prices against.
+  // Every account the tx writes to, plus the fee payer — the set the fee market
+  // prices against.
   List<String> _writableAccounts(
     List<encoder.Instruction> instructions,
     solana.Ed25519HDPublicKey feePayer,
@@ -565,8 +493,6 @@ class TransactionService {
         FeeLevel.turbo => FeeLevel.turbo,
       };
 
-  // Program logs for a landed transaction, or nothing if they cannot be
-  // read. A missing explanation must not turn a known failure into an error.
   Future<List<String>> _safeLogs(String signature) async {
     try {
       return await _rpc.getTransactionLogs(signature);
@@ -576,8 +502,8 @@ class TransactionService {
     }
   }
 
-  // A broadcast rejection arrives wrapped by the RPC client, so the useful
-  // part is inside the message rather than in a typed error.
+  // A broadcast rejection arrives wrapped by the RPC client, so the useful part
+  // is inside the message rather than in a typed error.
   String _humanizeSendFailure(Object error) {
     final text = error.toString();
     if (text.contains('BlockhashNotFound')) {
@@ -594,10 +520,6 @@ class TransactionService {
 
   // Reads the signature's status, keeping "the RPC could not tell us" apart
   // from "the cluster has no record of it".
-  //
-  // Both used to come back as null, and the expiry check read null as "never
-  // landed" — so a 429 on the final poll declared a live transaction dead and
-  // the retry loop sent a second one.
   Future<_StatusRead> _safeStatus(String signature) async {
     try {
       return _StatusRead.ok(await _rpc.getSignatureStatus(signature));
@@ -607,9 +529,6 @@ class TransactionService {
     }
   }
 
-  // True once the transaction can no longer be included. Uses the block
-  // height when we built the tx, and blockhash validity when we didn't.
-  // A failed read returns false — a flaky RPC is not proof of expiry.
   Future<bool> _hasExpired(int? lastValidBlockHeight, String? blockhash) async {
     try {
       if (lastValidBlockHeight != null) {
@@ -622,8 +541,6 @@ class TransactionService {
     return false;
   }
 
-  // Turn a runtime error into something a user can act on. Raw shapes are
-  // `{"InstructionError":[1,{"Custom":6001}]}` or a bare "BlockhashNotFound".
   String _humanizeError(dynamic err, List<String> logs) {
     final joined = logs.join('\n');
 
@@ -674,9 +591,7 @@ class TransactionService {
   }
 }
 
-// The outcome of one status poll. Exists so "the RPC could not tell us" and
-// "the cluster has no record of it" cannot collapse into the same null —
-// only the second of those proves a transaction is dead.
+// The outcome of one status poll.
 class _StatusRead {
   final bool readable;
   final Map<String, dynamic>? status;

@@ -31,7 +31,7 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
   void initState() {
     super.initState();
     // The bloc carries leftover entered digits when arriving from the enter
-    // step. Reset so the keypad starts blank in the confirm step.
+    // step.
     if (widget.mode == PasscodeMode.confirm) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -85,8 +85,7 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
                   });
                 }
               } else if (state is PasscodeError) {
-                // Surface verification failures and lockouts. Without this
-                // the keypad silently clears and the user has no idea why.
+                // Surface verification failures and lockouts.
                 HapticFeedback.heavyImpact();
                 ScaffoldMessenger.of(context)
                   ..hideCurrentSnackBar()
@@ -100,7 +99,8 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
                     ),
                   );
               } else if (state is PasscodeEntering && state.isWrong) {
-                // Buzz so the user knows the keypad reset wasn't a tap they missed.
+                // Buzz so the user knows the keypad reset wasn't a tap they
+                // missed.
                 HapticFeedback.heavyImpact();
               } else if (state is PasscodeEntering && state.isComplete && !_hasNavigated) {
                 if (widget.mode == PasscodeMode.unlock) {
@@ -143,17 +143,11 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
                   children: [
                     const SizedBox(height: 40),
 
-                    // Passcode indicators (6 circles)
                     Expanded(
                       flex: 3,
                       child: _buildPasscodeIndicators(passcode, isWrong),
                     ),
 
-                    // Said at the point the promise is made. The passcode now
-                    // encrypts the recovery phrase rather than gating a
-                    // screen, so forgetting it means the phrase is the only
-                    // way back in — and a user who does not know that will
-                    // not have written it down.
                     if (widget.mode == PasscodeMode.enter)
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 44),
@@ -173,7 +167,6 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
 
                     const Spacer(),
 
-                    // Numeric keypad
                     _buildKeypad(),
 
                     SizedBox(height: isKeyboardVisible ? 20 : 40),
@@ -220,7 +213,6 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 40),
       child: Column(
         children: [
-          // Rows 1-3: Numbers 1-9
           for (int row = 0; row < 3; row++)
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
@@ -233,7 +225,6 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
               ),
             ),
 
-          // Row 4: 0 and delete
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
@@ -289,14 +280,12 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
   void _onDigitPressed(String digit) {
     HapticFeedback.lightImpact();
     
-    // Dispatch event to BLoC - BLoC will update state
     context.read<PasscodeBloc>().add(PasscodeDigitEntered(digit));
   }
 
   void _onDeletePressed() {
     HapticFeedback.lightImpact();
     
-    // Dispatch event to BLoC - BLoC will update state
     context.read<PasscodeBloc>().add(const PasscodeDigitDeleted());
   }
 }

@@ -12,11 +12,6 @@ import 'package:solfare/core/util/json.dart';
 import 'package:solfare/features/wallet/data/datasource/solana_rpc_datasource.dart';
 
 /// Works out what a transaction will do, before it is signed.
-///
-/// The balance changes come from the cluster's own simulation rather than
-/// from whoever asked for the signature, which is the entire point: a dapp
-/// can describe its transaction however it likes, and the simulation still
-/// reports what the transaction actually moves.
 class PreviewEngine {
   final SolanaRpcDataSource _rpc;
   final InstructionDecoder _decoder;
@@ -27,10 +22,6 @@ class PreviewEngine {
         _risk = risk ?? const RiskEngine();
 
   /// Preview instructions we built ourselves.
-  ///
-  /// [symbols] maps mint address to ticker, supplied by the caller from
-  /// whatever it already holds. The engine never fetches metadata — that
-  /// would put a second network call on the approval path.
   Future<TxPreview> preview({
     required List<encoder.Instruction> instructions,
     required List<solana.Ed25519HDKeyPair> signers,
@@ -63,8 +54,8 @@ class PreviewEngine {
     return _previewEncoded(
       encoded: probe.encode(),
       staticKeys: [for (final k in probe.compiledMessage.accountKeys) k.toBase58()],
-      // Instructions we built ourselves need no resolving: there are no
-      // lookup tables in a message this app compiled.
+      // Instructions we built ourselves need no resolving: there are no lookup
+      // tables in a message this app compiled.
       raw: [for (final ix in instructions) RawInstruction.from(ix)],
       ownerAddress: ownerAddress,
       symbols: symbols,
@@ -74,15 +65,6 @@ class PreviewEngine {
 
   /// Preview a transaction somebody else built — a Jupiter route, a merchant's
   /// payload, a dapp request.
-  ///
-  /// Instruction account indices are resolved against the simulation's own
-  /// account list, which already includes everything the address lookup tables
-  /// pulled in. This used to go through `decompileMessage()`, whose
-  /// `addressLookupTableAccounts` parameter defaults to an empty list — and
-  /// the resolver throws on that the moment a message has any table lookups.
-  /// So every v0 transaction using a table (which is to say: every Jupiter
-  /// route and most dapp requests) decoded to zero instructions, and every
-  /// instruction-level risk rule was skipped in silence.
   Future<TxPreview> previewSigned({
     required String base64Tx,
     required String ownerAddress,
@@ -157,12 +139,6 @@ class PreviewEngine {
     );
   }
 
-  // Resolves a compiled message's account indices against [keys].
-  //
-  // Returns null — not an empty list — when an index points past the end of
-  // the key list, which means the simulation did not report every address the
-  // message refers to. An empty list would read as "this transaction does
-  // nothing", which is the most dangerous thing a preview can say.
   List<RawInstruction>? _resolve(
     List<encoder.CompiledInstruction> compiled,
     List<String> keys,
@@ -190,9 +166,9 @@ class PreviewEngine {
     return out;
   }
 
-  // Balance arrays are indexed by the message's account list: the static
-  // keys first, then any addresses pulled in from lookup tables, writable
-  // before readonly.
+  // Balance arrays are indexed by the message's account list: the static keys
+  // first, then any addresses pulled in from lookup tables, writable before
+  // readonly.
   List<String> _accountKeys(List<String> staticKeys, Map<String, dynamic> sim) {
     final keys = [...staticKeys];
     final loaded = sim['loadedAddresses'] as Map<String, dynamic>?;
@@ -216,7 +192,7 @@ class PreviewEngine {
     ];
 
     // The signer's own movements are what they are deciding about; everything
-    // else is context. Within each group, the largest movement leads.
+    // else is context.
     deltas.sort((a, b) {
       if (a.isOwnAccount != b.isOwnAccount) return a.isOwnAccount ? -1 : 1;
       return b.rawDelta.abs().compareTo(a.rawDelta.abs());
@@ -238,9 +214,7 @@ class PreviewEngine {
     final count = [pre.length, post.length, keys.length].reduce((a, b) => a < b ? a : b);
     for (var i = 0; i < count; i++) {
       var delta = post[i] - pre[i];
-      // Index 0 is the fee payer and its delta includes the fee. The sheet
-      // shows the fee on its own line, so leaving it in would double-count
-      // it and make the amount look wrong by exactly the fee.
+      // Index 0 is the fee payer and its delta includes the fee.
       if (i == 0) delta += fee;
       if (delta == 0) continue;
 
@@ -289,9 +263,8 @@ class PreviewEngine {
         mint: mint,
         owner: entryOwner,
         // clamp, not toInt(): a u64 at or above 2^63 wraps to negative here,
-        // which flips isIncoming and suppressed the "nothing comes back"
-        // rule for every token in the transaction. A scam mint can legally
-        // hold a supply that large.
+        // which flips isIncoming and suppressed the "nothing comes back" rule
+        // for every token in the transaction.
         rawDelta: delta.isValidInt
             ? delta.toInt()
             : (delta.isNegative ? _minInt : _maxInt),
@@ -303,8 +276,8 @@ class PreviewEngine {
     return out;
   }
 
-  // Token amounts arrive as decimal strings because a u64 does not fit a
-  // signed int; parsing through BigInt keeps the top of the range intact.
+  // Token amounts arrive as decimal strings because a u64 does not fit a signed
+  // int; parsing through BigInt keeps the top of the range intact.
   BigInt _amount(Map<String, dynamic>? entry) {
     final raw = entry?.mapAt('uiTokenAmount')?['amount']?.toString();
     return raw == null ? BigInt.zero : (BigInt.tryParse(raw) ?? BigInt.zero);

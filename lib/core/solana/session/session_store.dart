@@ -5,11 +5,6 @@ import 'package:solfare/core/solana/session/dapp_session.dart';
 import 'package:solfare/core/util/app_log.dart';
 
 /// Where dapp sessions live.
-///
-/// Session private keys sit in the same secure storage as the mnemonic, not
-/// in shared preferences: a session key signs nothing by itself, but it
-/// decrypts everything a dapp ever sent, including transactions the user was
-/// asked to approve.
 class SessionStore {
   const SessionStore();
 
@@ -28,19 +23,17 @@ class SessionStore {
           if (entry is Map<String, dynamic>) DappSession.fromJson(entry),
       ];
     } catch (e) {
-      // Unreadable storage must not lock the user out of the wallet. Losing
-      // sessions costs a reconnect; throwing here would cost the app.
+      // Unreadable storage must not lock the user out of the wallet.
       debugLog('[Session] could not read sessions: $e');
       return const [];
     }
   }
 
-  /// Live sessions only. Expired ones are dropped as they are found, so a
-  /// stale session cannot be used just because nobody opened the list.
+  /// Live sessions only.
   Future<List<DappSession>> active({DateTime? now}) async {
-    // UTC throughout: sessions are stored in UTC, and comparing them against
-    // a local clock is how a nine-hour timezone shift became nine hours of
-    // extra session life.
+    // UTC throughout: sessions are stored in UTC, and comparing them against a
+    // local clock is how a nine-hour timezone shift became nine hours of extra
+    // session life.
     final clock = (now ?? DateTime.now()).toUtc();
     final sessions = await all();
     final live = sessions.where((s) => !s.isExpiredAt(clock)).toList();
@@ -83,9 +76,6 @@ class SessionStore {
   }
 
   /// Records [nonce] against a dapp's session and marks it used.
-  ///
-  /// Returns false when that nonce has been seen before, which means the
-  /// payload is a replay and must not be acted on.
   Future<bool> accept(String dappPublicKey, String nonce, {DateTime? now}) async {
     final sessions = await all();
     final index = sessions.indexWhere((s) => s.dappPublicKey == dappPublicKey);

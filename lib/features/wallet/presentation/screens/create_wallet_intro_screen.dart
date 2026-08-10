@@ -76,12 +76,10 @@ class _CreateWalletIntroScreenState extends State<CreateWalletIntroScreen> {
   }
 
   void _onPageChanged(int page) {
-    // Pause the old video
     _videoControllers[_currentPage]?.pause();
 
     setState(() => _currentPage = page);
 
-    // Init & play the new video
     _initVideo(page).then((_) {
       _videoControllers[page]?.seekTo(Duration.zero);
       _videoControllers[page]?.play();
@@ -95,7 +93,6 @@ class _CreateWalletIntroScreenState extends State<CreateWalletIntroScreen> {
         curve: Curves.easeInOut,
       );
     } else {
-      // All 3 steps done → go to recovery phrase screen
       context.push(AppRoutes.recoveryPhrase);
     }
   }
@@ -118,7 +115,6 @@ class _CreateWalletIntroScreenState extends State<CreateWalletIntroScreen> {
           children: [
             const SizedBox(height: 8),
 
-            // Progress bars at top
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
@@ -149,7 +145,6 @@ class _CreateWalletIntroScreenState extends State<CreateWalletIntroScreen> {
               ),
             ),
 
-            // Close button
             Align(
               alignment: Alignment.topRight,
               child: IconButton(
@@ -173,7 +168,6 @@ class _CreateWalletIntroScreenState extends State<CreateWalletIntroScreen> {
               ),
             ),
 
-            // Continue button
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: SizedBox(
@@ -217,7 +211,6 @@ class _CreateWalletIntroScreenState extends State<CreateWalletIntroScreen> {
         children: [
           const Spacer(flex: 1),
 
-          // Video card — fixed proportion of screen
           SizedBox(
             width: double.infinity,
             height: screenHeight * 0.5,
@@ -246,7 +239,6 @@ class _CreateWalletIntroScreenState extends State<CreateWalletIntroScreen> {
 
           const Spacer(flex: 2),
 
-          // Title
           Text(
             step.title,
             style: const TextStyle(
@@ -258,7 +250,6 @@ class _CreateWalletIntroScreenState extends State<CreateWalletIntroScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Description
           Text(
             step.description,
             style: TextStyle(

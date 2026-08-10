@@ -1,19 +1,14 @@
-/// Number and date formatting shared by the market list, the detail screen
-/// and the buy sheet, so a price reads the same everywhere it appears.
+/// Number and date formatting shared by the market list, the detail screen and
+/// the buy sheet, so a price reads the same everywhere it appears.
 class MarketFormat {
   const MarketFormat._();
 
   static const _subscripts = '₀₁₂₃₄₅₆₇₈₉';
 
-  // Where the subscript notation stops being useful. Below this a price is
-  // reported as "smaller than" rather than given a figure.
+  // Where the subscript notation stops being useful.
   static const int _maxSubscriptZeros = 18;
 
   /// A price with as much precision as it needs and no more.
-  ///
-  /// Below a tenth of a cent the leading zeros are collapsed into a subscript
-  /// count — `$0.0₃788` rather than `$0.000788`. Nine decimal places of a
-  /// memecoin price is a column of zeros nobody can compare at a glance.
   static String price(double value) {
     if (value.isNaN || value.isInfinite) return '—';
     if (value == 0) return r'$0';
@@ -29,9 +24,7 @@ class MarketFormat {
       zeros++;
     }
 
-    // Past the point the notation can express. Saying "smaller than this"
-    // beats scaling a number the loop never finished normalising — that
-    // printed $0.0₁₈10 for 1e-20, which is ten times the real value.
+    // Past the point the notation can express.
     if (scaled < 0.1) {
       return '$sign<\$0.0${_subscript(_maxSubscriptZeros)}1';
     }
@@ -43,13 +36,7 @@ class MarketFormat {
       zeros--;
     }
 
-    // Three significant digits, wherever they start. A fixed number of
-    // decimals either truncates a cheap token to nothing or pads a dear one
-    // with zeros that carry no information.
-    //
-    // Checked after the round-up, not before: 0.0009999 rounds to 0.001,
-    // which has a perfectly good plain form, and deciding first printed it
-    // as $0.0₂100 while every other value in that decade read as $0.00100.
+    // Three significant digits, wherever they start.
     if (zeros < 3) return '$sign\$${_trimmed(magnitude, zeros + 3)}';
 
     return '$sign\$0.0${_subscript(zeros)}$digits';
@@ -65,7 +52,7 @@ class MarketFormat {
     for (final (threshold, suffix) in units) {
       // 999.5 rather than 1.0 of the threshold: _significant rounds to three
       // digits, so anything from 999,500 up rendered as "$1000K" rather than
-      // promoting to "$1M". A $999.5M market cap read as $1000M.
+      // promoting to "$1M".
       if (magnitude >= threshold * 999.5 / 1000) {
         return '$sign\$${_significant(magnitude / threshold)}$suffix';
       }
@@ -99,8 +86,8 @@ class MarketFormat {
   static String shortMint(String mint) =>
       mint.length <= 12 ? mint : '${mint.substring(0, 4)}…${mint.substring(mint.length - 4)}';
 
-  // Fixed to [decimals], then stripped back to what the number says, but
-  // never past two places — `$0.5` reads like a typo where `$0.50` does not.
+  // Fixed to [decimals], then stripped back to what the number says, but never
+  // past two places — `$0.5` reads like a typo where `$0.50` does not.
   static String _trimmed(double value, int decimals) {
     var text = value.toStringAsFixed(decimals);
     while (text.contains('.') && text.endsWith('0') && text.split('.')[1].length > 2) {

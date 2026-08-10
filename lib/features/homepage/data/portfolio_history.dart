@@ -22,10 +22,6 @@ class PortfolioSnapshot {
 }
 
 /// Tracks the user's total portfolio USD value over time.
-///
-/// Storage model: per-address JSON list in SharedPreferences. One snapshot
-/// per hour max, retained for 90 days. Writes dedupe within the hour so
-/// repeated price refreshes don't bloat the file.
 class PortfolioHistory {
   PortfolioHistory._();
   static final PortfolioHistory instance = PortfolioHistory._();
@@ -36,8 +32,7 @@ class PortfolioHistory {
 
   String _key(String address) => '$_prefix$address';
 
-  /// Append a snapshot for [address]. Overwrites the last entry if it fell
-  /// within the same hour — we don't need 60 points per hour.
+  /// Append a snapshot for [address].
   Future<void> record(String address, double usdValue) async {
     if (address.isEmpty) return;
     if (usdValue.isNaN || usdValue.isInfinite) return;

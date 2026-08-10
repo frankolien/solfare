@@ -117,12 +117,10 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
         },
         child: BlocBuilder<WalletBloc, WalletState>(
           builder: (context, state) {
-            // Cache transactions when they arrive
             if (state is TransactionsFetched) {
               _cachedTransactions = state.transactions;
             }
 
-            // First load — no cached data yet
             if (state is WalletLoading && _cachedTransactions.isEmpty) {
               return _buildLoadingState();
             }
@@ -155,7 +153,6 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     );
   }
 
-  // Shimmer loading skeleton
   Widget _buildLoadingState() {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -268,7 +265,6 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Lottie refresh indicator
           AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             height: _isRefreshing ? 50 : 0,
@@ -333,7 +329,6 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: [
-            // SOL logo
             Container(
               width: 36,
               height: 36,

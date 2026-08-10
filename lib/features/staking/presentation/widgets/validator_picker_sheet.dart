@@ -39,7 +39,6 @@ class _ValidatorPickerSheetState extends State<ValidatorPickerSheet> {
       ),
       child: Column(
         children: [
-          // Handle + header
           Container(
             width: 36, height: 4,
             margin: const EdgeInsets.only(top: 12, bottom: 16),
@@ -49,7 +48,6 @@ class _ValidatorPickerSheetState extends State<ValidatorPickerSheet> {
           const SizedBox(height: 16),
           const Divider(color: Colors.white10, height: 1),
 
-          // Validator list
           Expanded(
             child: BlocBuilder<StakingBloc, StakingState>(
               builder: (context, state) {

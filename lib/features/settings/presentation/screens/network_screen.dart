@@ -18,7 +18,6 @@ class _NetworkScreenState extends State<NetworkScreen> {
     setState(() => _selected = network);
     await NetworkConstants.setNetwork(network);
 
-    // Re-fetch balance on the new network
     if (mounted) {
       context.read<WalletBloc>().add(const LoadWalletAddressEvent());
     }
@@ -31,7 +30,6 @@ class _NetworkScreenState extends State<NetworkScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
               child: Row(
@@ -53,7 +51,6 @@ class _NetworkScreenState extends State<NetworkScreen> {
               ),
             ),
 
-            // Network options
             ...SolanaNetwork.values.map((network) {
               final isSelected = _selected == network;
               return GestureDetector(

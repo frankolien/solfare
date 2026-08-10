@@ -17,19 +17,16 @@ enum FeeLevel {
   const FeeLevel(this.percentile);
 }
 
-/// Prices the priority fee from what recent blocks charged for the accounts
-/// a transaction touches. Solana's fee market is per-account — writing to a
-/// busy AMM pool costs more than writing to an idle account — so bidding off
-/// `getRecentPrioritizationFees` for that account set avoids both overpaying
-/// on quiet accounts and underbidding on hot ones.
+/// Prices the priority fee from what recent blocks charged for the accounts a
+/// transaction touches.
 class PriorityFeeOracle {
   final SolanaRpcDataSource _rpc;
 
   const PriorityFeeOracle(this._rpc);
 
   // Bid this much even when every recent slot reported zero: a tx with no
-  // priority fee sorts below every one that has any, and it costs ~0.00002
-  // SOL at 200k CU.
+  // priority fee sorts below every one that has any, and it costs ~0.00002 SOL
+  // at 200k CU.
   static const int _floorMicroLamports = 100;
 
   /// Ceiling on the priority component whatever the market says — a congested
@@ -46,8 +43,6 @@ class PriorityFeeOracle {
     final samples = await _rpc.getRecentPrioritizationFees(writableAccounts);
 
     // Zero-fee slots mean the block had room, not that entry was free.
-    // Including them drags the percentile to zero during the congestion
-    // we're pricing for.
     final paid = samples.where((f) => f > 0).toList()..sort();
 
     final bid = paid.isEmpty
@@ -74,7 +69,6 @@ class PriorityFeeOracle {
     return (sorted[lower] * (1 - weight) + sorted[upper] * weight).round();
   }
 
-  // Clamp the bid so the total stays under [maxPriorityLamports].
   int _capToMaxLamports(int microLamports, int computeUnitLimit) {
     if (computeUnitLimit <= 0) return microLamports;
     if (lamportsFor(microLamports, computeUnitLimit) <= maxPriorityLamports) {
@@ -83,8 +77,7 @@ class PriorityFeeOracle {
     return (maxPriorityLamports * 1000000) ~/ computeUnitLimit;
   }
 
-  /// What a bid of [microLamports] per CU costs at [computeUnitLimit]. The
-  /// runtime charges on the limit, not on units consumed.
+  /// What a bid of [microLamports] per CU costs at [computeUnitLimit].
   static int lamportsFor(int microLamports, int computeUnitLimit) =>
       (microLamports * computeUnitLimit + 999999) ~/ 1000000;
 }

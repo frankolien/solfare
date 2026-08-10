@@ -46,7 +46,6 @@ class _ExportRecoveryScreenState extends State<ExportRecoveryScreen> {
       setState(() => _isRevealed = false);
       return;
     }
-    // Ask for passcode before revealing
     _showPasscodeDialog();
   }
 
@@ -66,7 +65,6 @@ class _ExportRecoveryScreenState extends State<ExportRecoveryScreen> {
               Text('Enter your 6-digit passcode to reveal your recovery phrase.',
                 style: TextStyle(color: Colors.grey[400], fontSize: 11, fontFamily: 'FKGrotesk', height: 1.4)),
               const SizedBox(height: 16),
-              // Passcode dots
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(6, (i) => Container(
@@ -79,14 +77,11 @@ class _ExportRecoveryScreenState extends State<ExportRecoveryScreen> {
                 )),
               ),
               const SizedBox(height: 20),
-              // Number pad
               _buildMiniKeypad(entered, (val) async {
                 setDialogState(() => entered = val);
                 if (val.length == 6) {
-                  // Through the shared gate, which owns the attempt counter
-                  // and the lockout. This dialog used to read the hash and
-                  // verify it here — unlimited guesses on the screen that
-                  // reveals the seed.
+                  // Through the shared gate, which owns the attempt counter and
+                  // the lockout.
                   final attempt = await PasscodeGate.verify(val);
                   if (!mounted || !context.mounted) return;
                   if (attempt is PasscodeLocked) {
@@ -169,7 +164,6 @@ class _ExportRecoveryScreenState extends State<ExportRecoveryScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
               child: Row(
@@ -193,7 +187,6 @@ class _ExportRecoveryScreenState extends State<ExportRecoveryScreen> {
             if (_isLoading)
               const Center(child: CircularProgressIndicator(color: Colors.yellow, strokeWidth: 2))
             else if (_mnemonic != null) ...[
-              // Phrase card
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Container(
@@ -205,7 +198,6 @@ class _ExportRecoveryScreenState extends State<ExportRecoveryScreen> {
                   ),
                   child: Column(
                     children: [
-                      // Phrase text — blurred or visible
                       _isRevealed
                           ? Text(
                               _mnemonic!,
@@ -223,7 +215,6 @@ class _ExportRecoveryScreenState extends State<ExportRecoveryScreen> {
                       const Divider(color: Colors.white10, height: 1),
                       const SizedBox(height: 12),
 
-                      // Copy button
                       GestureDetector(
                         onTap: _isRevealed
                             ? () {
@@ -251,7 +242,6 @@ class _ExportRecoveryScreenState extends State<ExportRecoveryScreen> {
 
             const Spacer(),
 
-            // Warning banner
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Container(

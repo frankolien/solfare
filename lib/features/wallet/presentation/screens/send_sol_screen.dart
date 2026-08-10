@@ -22,8 +22,7 @@ class SendSolScreen extends StatefulWidget {
   final double balanceInSol;
   final double solPriceUsd;
 
-  /// Null sends native SOL. Set to send that SPL token instead — the screen
-  /// is the same, only the asset it moves changes.
+  /// Null sends native SOL.
   final SplToken? token;
 
   const SendSolScreen({
@@ -41,16 +40,15 @@ class SendSolScreen extends StatefulWidget {
 class _SendSolScreenState extends State<SendSolScreen> {
   _SendStage _stage = _SendStage.recipient;
 
-  // The screen reads these instead of the SOL-specific fields, so the same
-  // flow works for a token without branching through the whole widget tree.
+  // The screen reads these instead of the SOL-specific fields, so the same flow
+  // works for a token without branching through the whole widget tree.
   SplToken? get _token => widget.token;
 
   String get _symbol {
     final token = _token;
     if (token == null) return 'SOL';
     if (token.symbol.isNotEmpty) return token.symbol;
-    // A mint with no metadata has no ticker. Showing nothing beside the
-    // amount reads as broken, so fall back to the mint itself.
+    // A mint with no metadata has no ticker.
     final mint = token.mint;
     return mint.length <= 8
         ? mint
@@ -62,8 +60,7 @@ class _SendSolScreenState extends State<SendSolScreen> {
   final TextEditingController _addressController = TextEditingController();
 
   // WalletBloc is app-wide, so this screen sees states belonging to balance
-  // refreshes, price ticks and history fetches. Only a send this screen
-  // started may drive its status sheet.
+  // refreshes, price ticks and history fetches.
   bool _sendInFlight = false;
   String _amount = '0';
   String _recipientName = '';
@@ -122,10 +119,6 @@ class _SendSolScreenState extends State<SendSolScreen> {
     final text = data?.text?.trim();
     if (text == null || text.isEmpty || !mounted) return;
 
-    // A solana: URL is a normal thing to be sent over chat, and pasting one
-    // used to drop it into the address field verbatim — where it passed the
-    // length check and then died inside fromBase58 with a raw exception.
-    // Same handling as the scanner: it is the same payload either way.
     if (PayResolver.parse(text) != null) {
       _handleScanned(text);
       return;
@@ -155,7 +148,6 @@ class _SendSolScreenState extends State<SendSolScreen> {
       } else if (digit == '.' && _amount.contains('.')) {
         return;
       } else {
-        // Limit decimals to 9 (lamport precision)
         if (_amount.contains('.')) {
           final decimals = _amount.split('.')[1];
           if (decimals.length >= 9) return;
@@ -188,8 +180,8 @@ class _SendSolScreenState extends State<SendSolScreen> {
   void _showConfirmSheet() {
     if (_amountInSol <= 0 || _amountInSol > _balance) return;
 
-    // Kick the simulation off as the sheet opens rather than before it, so
-    // the sheet is on screen for the whole wait instead of after it.
+    // Kick the simulation off as the sheet opens rather than before it, so the
+    // sheet is on screen for the whole wait instead of after it.
     final token = _token;
     context.read<WalletBloc>().add(token == null
         ? PreviewSendEvent(
@@ -223,14 +215,6 @@ class _SendSolScreenState extends State<SendSolScreen> {
   }
 
   // A scanned code is either a Solana Pay request or a plain address.
-  //
-  // A pay request goes to the pay sheet rather than being unpacked into this
-  // screen's fields. This screen sends one asset — whichever it was opened
-  // for — and it used to read only `recipient` and `amount` off the request,
-  // dropping `spl-token` entirely: a 25 USDC merchant code scanned here
-  // prefilled "25" and sent 25 SOL. It also dropped the reference keys the
-  // merchant needs to reconcile the payment, so even the native-SOL case was
-  // only accidentally right.
   void _handleScanned(String scanned) {
     if (PayResolver.parse(scanned) == null) {
       _selectRecipient(address: scanned);
@@ -266,11 +250,11 @@ class _SendSolScreenState extends State<SendSolScreen> {
   Widget build(BuildContext context) {
     return BlocListener<WalletBloc, WalletState>(
       listener: (context, state) {
-        // WalletBloc is app-wide and this screen shares it with the balance
-        // and history fetches — which _onSendSol itself kicks off the moment
-        // a send confirms. Without this gate a 429 on that follow-up fetch
-        // replaced the success sheet with "Failed", telling the user their
-        // money did not move when it had.
+        // WalletBloc is app-wide and this screen shares it with the balance and
+        // history fetches — which _onSendSol itself kicks off the moment a send
+        // confirms. Without this gate a 429 on that follow-up fetch replaced
+        // the success sheet with "Failed", telling the user their money did not
+        // move when it had.
         if (!_sendInFlight) return;
 
         if (state is SendingSol) {
@@ -385,15 +369,11 @@ class _SendSolScreenState extends State<SendSolScreen> {
     );
   }
 
-  // ─────────────────────────────────────────────
-  // STAGE 1: Select recipient
-  // ─────────────────────────────────────────────
   Widget _buildRecipientStage() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 8),
-        // Address input
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Container(
@@ -450,14 +430,12 @@ class _SendSolScreenState extends State<SendSolScreen> {
           ),
         ),
 
-        // Contact lists
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Recents
                 if (_recents.isNotEmpty) ...[
                   const SizedBox(height: 20),
                   Text(
@@ -474,7 +452,6 @@ class _SendSolScreenState extends State<SendSolScreen> {
                   ..._recents.map((c) => _buildContactRow(c)),
                 ],
 
-                // Address book
                 if (_contacts.isNotEmpty) ...[
                   const SizedBox(height: 24),
                   Text(
@@ -581,9 +558,6 @@ class _SendSolScreenState extends State<SendSolScreen> {
     );
   }
 
-  // ─────────────────────────────────────────────
-  // STAGE 2: Enter amount
-  // ─────────────────────────────────────────────
   Widget _buildAmountStage() {
     final isValidAmount = _amountInSol > 0 && _amountInSol <= _balance;
 
@@ -591,7 +565,6 @@ class _SendSolScreenState extends State<SendSolScreen> {
       children: [
         const Spacer(flex: 2),
 
-        // Amount display
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 30),
           child: Row(
@@ -622,7 +595,6 @@ class _SendSolScreenState extends State<SendSolScreen> {
           ),
         ),
 
-        // USD value
         if (_amountInSol > 0)
           Padding(
             padding: const EdgeInsets.only(top: 4),
@@ -639,7 +611,6 @@ class _SendSolScreenState extends State<SendSolScreen> {
 
         const Spacer(flex: 3),
 
-        // Balance + Priority row
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Row(
@@ -718,7 +689,6 @@ class _SendSolScreenState extends State<SendSolScreen> {
         const Divider(color: Colors.white10, height: 1, indent: 24, endIndent: 24),
         const SizedBox(height: 12),
 
-        // Percentage buttons
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Row(
@@ -738,12 +708,10 @@ class _SendSolScreenState extends State<SendSolScreen> {
         const Divider(color: Colors.white10, height: 1, indent: 24, endIndent: 24),
         const SizedBox(height: 8),
 
-        // Keypad
         _buildKeypad(),
 
         const SizedBox(height: 18),
 
-        // Continue button
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: SizedBox(
@@ -860,10 +828,7 @@ class _SendSolScreenState extends State<SendSolScreen> {
   }
 
   // The route the status sheet is sitting on, so it can be dismissed by
-  // identity. The old code popped by predicate — one of them
-  // (`route.isFirst == false && route.settings.name == null`) matched the
-  // sheet itself and so popped nothing, leaving the spinner alive underneath
-  // the success sheet; the others popped whatever happened to be on top.
+  // identity.
   ModalRoute<void>? _statusRoute;
 
   void _dismissStatusSheet() {
@@ -932,7 +897,6 @@ class _SendSolScreenState extends State<SendSolScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 8, 0),
                     child: Row(
@@ -963,7 +927,6 @@ class _SendSolScreenState extends State<SendSolScreen> {
                       children: [
                         const SizedBox(height: 16),
 
-                        // NAME label
                         Text(
                           'NAME',
                           style: TextStyle(
@@ -976,7 +939,6 @@ class _SendSolScreenState extends State<SendSolScreen> {
                         ),
                         const SizedBox(height: 8),
 
-                        // Name input
                         TextField(
                           controller: nameController,
                           style: const TextStyle(
@@ -1001,7 +963,6 @@ class _SendSolScreenState extends State<SendSolScreen> {
 
                         const SizedBox(height: 20),
 
-                        // ADDRESS label
                         Text(
                           'ADDRESS',
                           style: TextStyle(
@@ -1014,7 +975,6 @@ class _SendSolScreenState extends State<SendSolScreen> {
                         ),
                         const SizedBox(height: 8),
 
-                        // Address display
                         Row(
                           children: [
                             Container(
@@ -1066,10 +1026,6 @@ class _SendSolScreenState extends State<SendSolScreen> {
                             ),
                             onPressed: nameController.text.trim().isNotEmpty
                                 ? () async {
-                                    // Both captured before the awaits: the
-                                    // guard below was this screen's `mounted`
-                                    // while the two calls belonged to the
-                                    // sheet and the router.
                                     final navigator = Navigator.of(sheetContext);
                                     final router = GoRouter.of(context);
                                     await _contactsDS.saveContact(Contact(

@@ -9,10 +9,6 @@ import 'package:solfare/features/market/domain/entities/market_feed_result.dart'
 import 'package:solfare/features/market/domain/entities/market_window.dart';
 
 /// Reads the market from Jupiter's token API.
-///
-/// Every row it returns carries a mint, its decimals and its token program,
-/// which is what separates a list you can look at from a list you can buy
-/// from.
 class JupiterTokenDataSource {
   static const _base = 'https://lite-api.jup.ag/tokens/v2';
 
@@ -37,20 +33,10 @@ class JupiterTokenDataSource {
   }
 
   /// Hydrates a registry shelf.
-  ///
-  /// Returns what came back and what did not: a mint the API no longer serves,
-  /// no longer tags as a real-world asset, or no longer has any liquidity, is
-  /// dropped here rather than shown under a heading it has stopped belonging
-  /// to. The caller is told how many so the shelf can say so instead of
-  /// quietly looking short.
   Future<MarketFeedResult> shelf(MarketCategory category) =>
       _hydrate(TokenizedAssetRegistry.mintsFor(category), category: category);
 
   /// Hydrates an arbitrary set of mints — the watchlist, mostly.
-  ///
-  /// No shelf guard: somebody who starred a token gets to keep seeing it,
-  /// whatever Jupiter has since decided about its tags. A mint the API no
-  /// longer serves at all is still dropped, because there is nothing to draw.
   Future<MarketFeedResult> hydrate(List<String> mints) =>
       _hydrate(mints, category: null);
 
@@ -111,8 +97,7 @@ class JupiterTokenDataSource {
     }
     final price = (row['usdPrice'] as num?)?.toDouble();
     if (price == null || price <= 0) return false;
-    // No liquidity means no route. A card that cannot be bought is worse
-    // than a shelf that is one shorter.
+    // No liquidity means no route.
     final liquidity = (row['liquidity'] as num?)?.toDouble();
     return liquidity != null && liquidity > 0;
   }

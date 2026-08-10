@@ -65,7 +65,6 @@ class _GeneralScreenState extends State<GeneralScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const LanguageScreen()),
     );
-    // Reload when coming back
     unawaited(_loadLanguage());
   }
 

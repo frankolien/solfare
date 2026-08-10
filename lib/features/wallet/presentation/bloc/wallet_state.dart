@@ -9,8 +9,8 @@ import 'package:solfare/features/wallet/domain/entities/transactions.dart';
 import 'package:solfare/features/wallet/domain/entities/wallet.dart';
 import 'package:solfare/features/wallet/domain/entities/wallet_account.dart';
 
-/// States that WalletBloc can emit
-/// States represent the current condition of the wallet feature
+/// States that WalletBloc can emit States represent the current condition of
+/// the wallet feature
 abstract class WalletState extends Equatable {
   const WalletState();
 
@@ -23,12 +23,10 @@ class WalletInitial extends WalletState {
   const WalletInitial();
 }
 
-/// Loading state - wallet operation is in progress
 class WalletLoading extends WalletState {
   const WalletLoading();
 }
 
-/// Wallet created successfully
 class WalletCreated extends WalletState {
   final Wallet wallet;
   final bool isImported;
@@ -39,12 +37,10 @@ class WalletCreated extends WalletState {
   List<Object?> get props => [wallet, isImported];
 }
 
-/// Wallet saved successfully
 class WalletSaved extends WalletState {
   const WalletSaved();
 }
 
-/// Wallet exists check completed
 class WalletExistsChecked extends WalletState {
   final bool exists;
 
@@ -55,10 +51,6 @@ class WalletExistsChecked extends WalletState {
 }
 
 /// The check could not be completed — storage is present but unreadable.
-///
-/// Deliberately not `WalletExistsChecked(false)`. That answer is acted on by
-/// offering to create a wallet, and creating one overwrites the blob that
-/// could not be read. "I don't know" has to survive as far as the screen.
 class WalletStoreUnreadable extends WalletState {
   final String message;
 
@@ -68,7 +60,6 @@ class WalletStoreUnreadable extends WalletState {
   List<Object?> get props => [message];
 }
 
-/// Balance fetched successfully
 class BalanceFetched extends WalletState {
   final int balance; // Balance in lamports
   final String address;
@@ -81,11 +72,9 @@ class BalanceFetched extends WalletState {
   @override
   List<Object?> get props => [balance, address];
 
-  /// Convert lamports to SOL
   double get balanceInSol => Lamports.toSol(balance);
 }
 
-/// Airdrop requested successfully
 class AirdropRequested extends WalletState {
   final String transactionSignature;
   final String address;
@@ -99,12 +88,10 @@ class AirdropRequested extends WalletState {
   List<Object?> get props => [transactionSignature, address];
 }
 
-/// Wallet cleared successfully
 class WalletCleared extends WalletState {
   const WalletCleared();
 }
 
-/// SOL price fetched successfully
 class SolPriceFetched extends WalletState {
   final double priceUsd;
   final double priceChange24h;
@@ -146,7 +133,6 @@ class TransactionsFetched extends WalletState {
   List<Object?> get props => [transactions];
 }
 
-/// NFTs fetched successfully
 class NftsFetched extends WalletState {
   final List<Nft> nfts;
   const NftsFetched(this.nfts);
@@ -185,14 +171,13 @@ class WalletCustomizationLoaded extends WalletState {
   List<Object?> get props => [walletName, cardBackground];
 }
 
-/// A scanned payment is being resolved: parsed, fetched from the merchant
-/// where applicable, and simulated.
+/// A scanned payment is being resolved: parsed, fetched from the merchant where
+/// applicable, and simulated.
 class PayResolving extends WalletState {
   const PayResolving();
 }
 
-/// A payment is ready to approve. [merchant] is only set for transaction
-/// requests, where the endpoint tells us what it calls itself.
+/// A payment is ready to approve.
 class PayReady extends WalletState {
   final PayRequest request;
   final PayMerchant? merchant;
@@ -215,14 +200,12 @@ class PayFailed extends WalletState {
   List<Object?> get props => [message];
 }
 
-/// The pending send is being simulated. The sheet is already open, showing
-/// a skeleton, so a slow RPC never blocks the user behind a spinner.
+/// The pending send is being simulated.
 class SendPreviewLoading extends WalletState {
   const SendPreviewLoading();
 }
 
-/// Simulation finished. [preview] carries the balance changes and risk
-/// flags, or an unverified result when the network could not be reached.
+/// Simulation finished.
 class SendPreviewReady extends WalletState {
   final TxPreview preview;
 
@@ -232,8 +215,7 @@ class SendPreviewReady extends WalletState {
   List<Object?> get props => [preview];
 }
 
-/// SOL is being sent. [phase] lets the status sheet tell "simulating"
-/// apart from "waiting for confirmation".
+/// SOL is being sent.
 class SendingSol extends WalletState {
   final TxPhase phase;
 
@@ -243,12 +225,7 @@ class SendingSol extends WalletState {
   List<Object?> get props => [phase];
 }
 
-/// Broadcast but never confirmed. [WalletError] covers the earlier failures.
-///
-/// [expired] means the cluster proved it can never be included: it did not
-/// execute and cost nothing, so retrying is safe. It is deliberately false
-/// for a transaction that is merely unresolved — that one may still land,
-/// and telling the user it did not is how they end up sending twice.
+/// Broadcast but never confirmed.
 class SolSendFailed extends WalletState {
   final String message;
   final String signature;
@@ -264,8 +241,7 @@ class SolSendFailed extends WalletState {
   List<Object?> get props => [message, signature, expired];
 }
 
-/// A transfer confirmed on chain. [symbol] is SOL for native sends and the
-/// token's ticker otherwise.
+/// A transfer confirmed on chain.
 class SolSent extends WalletState {
   final String signature;
   final double amountInSol;

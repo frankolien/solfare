@@ -68,7 +68,6 @@ class _BottomNavBarState extends State<BottomNavBar> with TickerProviderStateMix
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // Nav bar background
         Container(
           decoration: const BoxDecoration(
             color: Color(0xFF0E1014),
@@ -88,7 +87,6 @@ class _BottomNavBarState extends State<BottomNavBar> with TickerProviderStateMix
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Lottie icon
                     SizedBox(
                       width: 26,
                       height: 26,
@@ -115,7 +113,6 @@ class _BottomNavBarState extends State<BottomNavBar> with TickerProviderStateMix
                       ),
                     ),
                     const SizedBox(height: 4),
-                    // Label
                     Text(
                       labels[index],
                       style: TextStyle(

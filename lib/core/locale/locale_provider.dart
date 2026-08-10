@@ -8,7 +8,6 @@ class LocaleProvider extends ChangeNotifier {
   Locale _locale = const Locale('en');
   Locale get locale => _locale;
 
-  // Map language codes from LanguageScreen to proper locale codes
   static const Map<String, String> _codeToLocale = {
     'EN': 'en',
     'FR': 'fr',
@@ -17,7 +16,6 @@ class LocaleProvider extends ChangeNotifier {
     // Others fall back to English until ARB files are added
   };
 
-  // Supported locales — must match ARB files
   static const List<Locale> supportedLocales = [
     Locale('en'),
     Locale('fr'),

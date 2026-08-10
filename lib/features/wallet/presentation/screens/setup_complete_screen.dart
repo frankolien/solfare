@@ -37,7 +37,6 @@ class _SetupCompleteScreenState extends State<SetupCompleteScreen> {
         unawaited(_controller!.play());
       }
     } catch (e) {
-      // If video fails to load, just show the static UI
       if (mounted) {
         setState(() {
           _isInitialized = false;
@@ -65,7 +64,6 @@ class _SetupCompleteScreenState extends State<SetupCompleteScreen> {
             children: [
               const Spacer(flex: 1),
 
-              // Flag video at top
               Container(
                 width: double.infinity,
                 height: screenHeight * 0.4,
@@ -100,7 +98,6 @@ class _SetupCompleteScreenState extends State<SetupCompleteScreen> {
 
               const Spacer(flex: 2),
 
-              // Title
               const Text(
                 'You\'re All Set',
                 style: TextStyle(
@@ -113,7 +110,6 @@ class _SetupCompleteScreenState extends State<SetupCompleteScreen> {
 
               const SizedBox(height: 16),
 
-              // Description
               Text(
                 'Your wallet is secured, and only you hold the keys. Start exploring your kingdom!',
                 style: TextStyle(
@@ -126,7 +122,6 @@ class _SetupCompleteScreenState extends State<SetupCompleteScreen> {
 
               const Spacer(flex: 3),
 
-              // Explore button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(

@@ -33,8 +33,8 @@ class MarketTokenModel extends MarketToken {
     final symbol = json['symbol'] as String? ?? '';
     return MarketTokenModel(
       id: json['id'] as String? ?? '',
-      // An empty name would render as a blank row, and the mint alone reads
-      // as nothing at all, so the ticker is the better fallback.
+      // An empty name would render as a blank row, and the mint alone reads as
+      // nothing at all, so the ticker is the better fallback.
       name: _nonEmpty(json['name']) ?? symbol,
       symbol: symbol,
       displayName: TokenizedAssetRegistry.displayName(
@@ -50,8 +50,8 @@ class MarketTokenModel extends MarketToken {
       liquidity: _num(json['liquidity']),
       holderCount: (json['holderCount'] as num?)?.toInt(),
       organicScore: _num(json['organicScore']),
-      // The first pool is when the token became tradeable; the mint can
-      // predate it. Trading age is the one being asked about.
+      // The first pool is when the token became tradeable; the mint can predate
+      // it.
       createdAt: _time((json['firstPool'] as Map<String, dynamic>?)?['createdAt']) ??
           _time(json['createdAt']),
       category: category,
@@ -84,7 +84,7 @@ class MarketTokenModel extends MarketToken {
         numTraders: (json['numTraders'] as num?)?.toInt() ?? 0,
       );
 
-  // Null stays null. A market cap the API declined to report is not zero.
+  // Null stays null.
   static double? _num(dynamic value) => (value as num?)?.toDouble();
 
   static DateTime? _time(dynamic value) =>

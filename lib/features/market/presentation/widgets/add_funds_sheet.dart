@@ -3,16 +3,12 @@ import 'package:solfare/features/explore/presentation/screens/dapp_browser_scree
 import 'package:solfare/features/wallet/presentation/screens/receive_screen.dart';
 
 /// The two ways money gets into the wallet from outside it.
-///
-/// Receiving is ours. Bridging is not — Solfare has no bridge integration, so
-/// that row opens Wormhole's own front end in the in-app browser rather than
-/// pretending to a capability the wallet does not have.
 class AddFundsSheet extends StatelessWidget {
   final String walletAddress;
 
   const AddFundsSheet({super.key, required this.walletAddress});
 
-  /// Wormhole's Portal. `jup.ag/bridge` is a 404; this answers.
+  /// Wormhole's Portal.
   static const bridgeUrl = 'https://portalbridge.com/';
 
   static Future<void> show(BuildContext context, {required String walletAddress}) {

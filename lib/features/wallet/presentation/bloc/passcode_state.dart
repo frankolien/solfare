@@ -1,6 +1,5 @@
 import 'package:equatable/equatable.dart';
 
-/// States for PasscodeBloc
 abstract class PasscodeState extends Equatable {
   const PasscodeState();
 
@@ -35,17 +34,14 @@ class PasscodeVerified extends PasscodeState {
   const PasscodeVerified();
 }
 
-/// Passcode saved successfully
 class PasscodeSaved extends PasscodeState {
   const PasscodeSaved();
 }
 
-/// Passcode verification failed
 class PasscodeVerificationFailed extends PasscodeState {
   const PasscodeVerificationFailed();
 }
 
-/// Error state
 class PasscodeError extends PasscodeState {
   final String message;
 

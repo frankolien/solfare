@@ -22,8 +22,7 @@ class _SplashScreenState extends State<SplashScreen>
   late final Animation<double> _svgFadeOut;
   late final Animation<Offset> _lottieSlideIn;
 
-  // Storage answered with an error rather than an answer. Held here so the
-  // screen can stay put and offer a retry instead of navigating onward.
+  // Storage answered with an error rather than an answer.
   bool _unreadable = false;
 
   @override
@@ -69,13 +68,11 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return BlocListener<WalletBloc, WalletState>(
-      // Listen to wallet state changes for navigation
       listener: (context, state) async {
         if (state is WalletExistsChecked) {
           // iOS Keychain persists across uninstalls, so a wallet can exist
           // without its paired passcode (e.g. manual Keychain reset, old
-          // install). In that case sending the user to unlock traps them —
-          // bounce to onboarding instead.
+          // install).
           if (state.exists) {
             // AppLock already read this before the first frame, and owns it
             // from here on — it is the same fact the router's redirect gates
@@ -89,9 +86,7 @@ class _SplashScreenState extends State<SplashScreen>
             context.go(AppRoutes.onboarding);
           }
         } else if (state is WalletStoreUnreadable || state is WalletError) {
-          // Emphatically not onboarding. Storage said something went wrong,
-          // not that the device is empty, and onboarding's first act is to
-          // write a new wallet over whatever is there. Stop and say so.
+          // Emphatically not onboarding.
           setState(() => _unreadable = true);
         }
       },
@@ -130,8 +125,7 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  // Offers a retry and nothing else. Every other affordance here — create a
-  // wallet, import a wallet — writes to the store we just failed to read.
+  // Offers a retry and nothing else.
   Widget _storeUnreadable() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 40),

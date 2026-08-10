@@ -10,10 +10,6 @@ import 'package:solfare/features/market/presentation/market_format.dart';
 import 'package:solfare/features/market/presentation/widgets/market_token_icon.dart';
 
 /// Search across every mint Jupiter indexes, not just the page on screen.
-///
-/// The old sheet filtered the fifty rows already loaded, which meant anything
-/// outside the current list could not be found — including a mint pasted in
-/// whole, which is the one search people most need to work.
 class MarketSearchSheet extends StatefulWidget {
   final void Function(MarketToken token) onSelected;
   final JupiterTokenDataSource? source;
@@ -35,8 +31,8 @@ class _MarketSearchSheetState extends State<MarketSearchSheet> {
   bool _searching = false;
   String? _error;
 
-  // Bumped per query so a slow response for an earlier keystroke cannot land
-  // on top of a later one.
+  // Bumped per query so a slow response for an earlier keystroke cannot land on
+  // top of a later one.
   int _queryId = 0;
 
   @override

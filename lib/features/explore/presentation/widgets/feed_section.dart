@@ -78,7 +78,6 @@ class FeedSection extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Source icon placeholder
             Container(
               width: 36,
               height: 36,
@@ -100,12 +99,10 @@ class FeedSection extends StatelessWidget {
             ),
             const SizedBox(width: 12),
 
-            // Content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Source + time
                   Row(
                     children: [
                       Text(
@@ -129,7 +126,6 @@ class FeedSection extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
 
-                  // Title
                   Text(
                     item.title,
                     style: const TextStyle(

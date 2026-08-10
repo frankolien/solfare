@@ -1,8 +1,6 @@
 import 'package:solfare/core/constant/network.dart';
 
-/// Which clusters an entry is valid on. Runtime programs share one address
-/// everywhere; a third-party protocol's mainnet address means nothing on
-/// devnet, and naming it there would be a lie.
+/// Which clusters an entry is valid on.
 enum ProgramScope { anyCluster, mainnetOnly }
 
 class KnownProgram {
@@ -10,27 +8,17 @@ class KnownProgram {
   final String name;
   final ProgramScope scope;
 
-  /// Ships with the runtime. Naming these is never risky — nobody can deploy
-  /// a different program at the System Program's address.
+  /// Ships with the runtime.
   final bool isCore;
 
   const KnownProgram(this.id, this.name, {this.scope = ProgramScope.anyCluster, this.isCore = false});
 }
 
 /// Address to human name, bundled rather than fetched.
-///
-/// A stale registry fails safe: the worst outcome is an unnecessary "unknown
-/// program" caution. A fetched registry fails dangerous — whoever serves it
-/// can relabel a drainer as something trusted, turning the warning into
-/// reassurance. Any refresh must stay off the approval path.
-///
-/// Adding an entry means someone verified the address. A wrong name here is
-/// worse than no name at all.
 class ProgramRegistry {
   const ProgramRegistry._();
 
   static const List<KnownProgram> entries = [
-    // ── Runtime, identical on every cluster ──
     KnownProgram('11111111111111111111111111111111', 'System Program', isCore: true),
     KnownProgram('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'Token Program', isCore: true),
     KnownProgram('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb', 'Token-2022', isCore: true),
@@ -42,7 +30,6 @@ class ProgramRegistry {
     KnownProgram('Memo1UhkJRfHyvLMcVucJwxXeuD728EqVDDwQDxFMNo', 'Memo (v1)', isCore: true),
     KnownProgram('BPFLoaderUpgradeab1e11111111111111111111111', 'Upgradeable Loader', isCore: true),
 
-    // ── Third-party, mainnet deployments ──
     KnownProgram('JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4', 'Jupiter Aggregator',
         scope: ProgramScope.mainnetOnly),
     KnownProgram('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s', 'Metaplex Token Metadata',

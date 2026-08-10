@@ -20,8 +20,6 @@ class _TokenSelectorSheetState extends State<TokenSelectorSheet> {
 
   @override
   void dispose() {
-    // The class had no dispose at all, so one controller leaked on every
-    // open of the token picker.
     _searchController.dispose();
     super.dispose();
   }
@@ -57,7 +55,6 @@ class _TokenSelectorSheetState extends State<TokenSelectorSheet> {
       ),
       child: Column(
         children: [
-          // Drag handle
           Center(
             child: Container(
               margin: const EdgeInsets.only(top: 10, bottom: 12),
@@ -70,7 +67,6 @@ class _TokenSelectorSheetState extends State<TokenSelectorSheet> {
             ),
           ),
 
-          // Title
           const Text(
             'Select token',
             style: TextStyle(
@@ -82,7 +78,6 @@ class _TokenSelectorSheetState extends State<TokenSelectorSheet> {
           ),
           const SizedBox(height: 12),
 
-          // Search bar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Container(
@@ -115,7 +110,6 @@ class _TokenSelectorSheetState extends State<TokenSelectorSheet> {
 
           const SizedBox(height: 8),
 
-          // Token list
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -131,7 +125,6 @@ class _TokenSelectorSheetState extends State<TokenSelectorSheet> {
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     child: Row(
                       children: [
-                        // Logo
                         ClipOval(
                           child: token.logoUrl != null
                               ? Image.network(
@@ -145,7 +138,6 @@ class _TokenSelectorSheetState extends State<TokenSelectorSheet> {
                         ),
                         const SizedBox(width: 12),
 
-                        // Name + symbol
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,

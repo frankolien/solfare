@@ -49,7 +49,6 @@ class _ConfirmRecoveryPhraseScreenState
     super.dispose();
   }
 
-  // Pick [count] unique random indices from 0..[total-1].
   List<int> _pickRandomIndices(int total, int count) {
     final rng = Random.secure();
     final indices = <int>{};
@@ -59,7 +58,6 @@ class _ConfirmRecoveryPhraseScreenState
     return indices.toList()..sort();
   }
 
-  // Build 6 shuffled options for the word at [correctIndex].
   List<String> _buildOptions(int correctIndex) {
     final rng = Random.secure();
     final correct = _words[correctIndex];
@@ -90,7 +88,6 @@ class _ConfirmRecoveryPhraseScreenState
     });
 
     if (isCorrect) {
-      // Hide toast after showing success message
       Future.delayed(const Duration(milliseconds: 2000), () {
         if (!mounted) return;
         setState(() {
@@ -111,7 +108,6 @@ class _ConfirmRecoveryPhraseScreenState
         }
       });
     } else {
-      // Wrong answer — hide toast and reset after delay
       Future.delayed(const Duration(milliseconds: 2000), () {
         if (!mounted) return;
         setState(() {
@@ -124,7 +120,6 @@ class _ConfirmRecoveryPhraseScreenState
   }
 
   void _saveAndProceed() {
-    // Dispatch event to save wallet using BLoC
     context.read<WalletBloc>().add(SaveWalletEvent(widget.wallet));
   }
 
@@ -133,10 +128,8 @@ class _ConfirmRecoveryPhraseScreenState
     final wordNumber = _challengeIndices[_currentStep] + 1;
 
     return BlocListener<WalletBloc, WalletState>(
-      // Listen for wallet saved state to navigate
       listener: (context, state) {
         if (state is WalletSaved) {
-          // Navigate to passcode screen
           context.push(AppRoutes.enterPasscode);
         } else if (state is WalletError) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -182,7 +175,6 @@ class _ConfirmRecoveryPhraseScreenState
         
               const SizedBox(height: 20),
 
-              // Question
               Text(
                 'What is the ${_getOrdinal(wordNumber)} word in your recovery phrase?',
                 style: const TextStyle(
@@ -195,15 +187,12 @@ class _ConfirmRecoveryPhraseScreenState
 
               const SizedBox(height: 12),
 
-              // Options — vertical list with radio buttons
               _buildOptionsList(),
 
               const Spacer(),
 
-              // Toast message
               if (_showToast) _buildToast(),
 
-             
             ],
           ),
         ),
@@ -248,11 +237,9 @@ class _ConfirmRecoveryPhraseScreenState
     Color radioColor = Colors.white38;
 
     if (isSelected && !_isWrong) {
-      // Correct selection
       textColor = Colors.white;
       radioColor = Colors.yellow;
     } else if (isSelected && _isWrong) {
-      // Wrong selection
       textColor = Colors.red;
       radioColor = Colors.red;
     }
@@ -325,7 +312,6 @@ class _ConfirmRecoveryPhraseScreenState
                 ),
                 child: Row(
                   children: [
-                    // Icon
                     Container(
                       width: 24,
                       height: 24,
@@ -342,7 +328,6 @@ class _ConfirmRecoveryPhraseScreenState
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Text
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

@@ -16,9 +16,7 @@ class SwapQuote {
   const SwapQuote({required this.outAmountRaw, this.priceImpactPct = 0});
 }
 
-/// A route Jupiter built and we have signed. Nothing has been broadcast: the
-/// signature is a local operation, and [send] is the step that leaves the
-/// device.
+/// A route Jupiter built and we have signed.
 class PreparedSwap {
   final String signedTransaction;
   final String requestId;
@@ -52,12 +50,6 @@ class SwapUnavailableException implements Exception {
 }
 
 /// Orders a Jupiter route, signs it, and hands it back for execution.
-///
-/// The swap screen and the market's buy sheet are the same three steps with
-/// different chrome, and two of the steps are easy to get subtly wrong:
-/// patching a signature into a v0 transaction that arrives with an empty
-/// slot, and not reporting a swap as failed when Jupiter has merely stopped
-/// waiting for it. Both live here once.
 class SwapExecutor {
   static const int defaultSlippageBps = 50;
 
@@ -68,8 +60,7 @@ class SwapExecutor {
       : _jupiter = jupiter ?? JupiterDataSource(),
         _tx = TransactionService(rpc ?? SolanaRpcDataSourceImpl());
 
-  /// Price only. Without a taker Jupiter returns no transaction, so this
-  /// cannot be executed and cannot be mistaken for something that can.
+  /// Price only.
   Future<SwapQuote> quote({
     required String inputMint,
     required String outputMint,
@@ -89,10 +80,6 @@ class SwapExecutor {
   }
 
   /// Re-orders with the wallet attached and signs the result.
-  ///
-  /// A displayed quote carries no transaction, so the route that gets signed
-  /// is always freshly built — which is also why the amount is re-checked
-  /// here rather than assumed from the quote.
   Future<PreparedSwap> prepare({
     required String inputMint,
     required String outputMint,
@@ -126,8 +113,8 @@ class SwapExecutor {
     );
   }
 
-  /// Hands the signed route back to Jupiter, which broadcasts and polls on
-  /// its own infrastructure.
+  /// Hands the signed route back to Jupiter, which broadcasts and polls on its
+  /// own infrastructure.
   Future<SwapResult> send(PreparedSwap prepared) async {
     final result = await _jupiter.execute(
       signedTransaction: prepared.signedTransaction,
@@ -141,8 +128,7 @@ class SwapExecutor {
 
     if (status == 'Success' && signature != null) return SwapResult.landed(signature);
 
-    // Jupiter giving up on its own polling is not the same as the swap
-    // failing. If there is a signature, the chain is the authority on it.
+    // Jupiter giving up on its own polling is not the same as the swap failing.
     if (signature != null) {
       final outcome = await _tx.confirmSigned(
         signature: signature,
@@ -156,8 +142,7 @@ class SwapExecutor {
   }
 
   // Jupiter returns a v0 VersionedTransaction with a placeholder signature
-  // slot. Layout: [compact-u16 sig count][sigs * 64 bytes][message]. We sign
-  // the message and patch our signature into the first slot.
+  // slot.
   Future<Uint8List> _sign(Uint8List txBytes, solana.Ed25519HDKeyPair keyPair) async {
     var offset = 0;
     var sigCount = txBytes[offset++];

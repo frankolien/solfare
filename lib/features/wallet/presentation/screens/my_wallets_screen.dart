@@ -56,7 +56,6 @@ class _MyWalletsScreenState extends State<MyWalletsScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Drag handle
             Container(
               width: 36, height: 4,
               margin: const EdgeInsets.only(bottom: 24),
@@ -146,7 +145,6 @@ class _MyWalletsScreenState extends State<MyWalletsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
               child: Row(
@@ -170,7 +168,6 @@ class _MyWalletsScreenState extends State<MyWalletsScreen> {
 
             const SizedBox(height: 20),
 
-            // NET WORTH
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
@@ -203,7 +200,6 @@ class _MyWalletsScreenState extends State<MyWalletsScreen> {
 
             const SizedBox(height: 24),
 
-            // RECOVERY PHRASE section
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Text('RECOVERY PHRASE', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500, letterSpacing: 1)),
@@ -224,7 +220,6 @@ class _MyWalletsScreenState extends State<MyWalletsScreen> {
                   ),
                   child: Row(
                     children: [
-                      // MW avatar
                       Container(
                         width: 38, height: 38,
                         decoration: BoxDecoration(color: Colors.grey[700], shape: BoxShape.circle),
@@ -234,7 +229,6 @@ class _MyWalletsScreenState extends State<MyWalletsScreen> {
                       ),
                       const SizedBox(width: 12),
 
-                      // Name + address
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -246,7 +240,6 @@ class _MyWalletsScreenState extends State<MyWalletsScreen> {
                         ),
                       ),
 
-                      // Balance
                       Text(
                         '\$${widget.balanceUsd.toStringAsFixed(2)}',
                         style: TextStyle(color: Colors.grey[400], fontSize: 12, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w500),

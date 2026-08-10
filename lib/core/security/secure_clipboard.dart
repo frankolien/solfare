@@ -3,10 +3,6 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 
 /// Clipboard helpers for sensitive payloads (private keys, mnemonics).
-///
-/// Copies the value, then schedules a best-effort clear after [ttl]. Clearing
-/// only overwrites if the clipboard still holds the same value — so if the
-/// user has copied something else in the meantime we leave it alone.
 class SecureClipboard {
   static const Duration ttl = Duration(seconds: 30);
 

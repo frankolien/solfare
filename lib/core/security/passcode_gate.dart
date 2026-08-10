@@ -32,12 +32,6 @@ class PasscodeUnset extends PasscodeAttempt {
 }
 
 /// The one place a passcode is checked.
-///
-/// The rate limit lived inside PasscodeBloc, so it only applied to the unlock
-/// screen. The recovery-phrase and private-key export dialogs read the stored
-/// hash and called PasscodeCrypto.verify themselves — unlimited guesses
-/// against a six-digit space, on the two screens that reveal the seed and the
-/// private key. Both go through here now.
 class PasscodeGate {
   const PasscodeGate._();
 
@@ -47,10 +41,6 @@ class PasscodeGate {
   static const _lockoutUntilKey = 'passcode_lockout_until';
 
   /// How long the nth lockout lasts: 30s, 2m, 10m, then an hour thereafter.
-  ///
-  /// Escalating rather than flat. A fixed window is a fixed guess rate, and a
-  /// fixed guess rate exhausts a six-digit passcode eventually — the old
-  /// three-per-30-seconds worked out at roughly six a minute, forever.
   static Duration lockoutFor(int lockoutNumber) => switch (lockoutNumber) {
         <= 1 => const Duration(seconds: 30),
         2 => const Duration(minutes: 2),
@@ -74,10 +64,7 @@ class PasscodeGate {
     final keys = await PasscodeCrypto.verifyAndDerive(passcode, stored);
     if (keys != null) {
       // The digest is written before anything is wrapped, so the salt is
-      // durable and the key is reproducible from this point on. Dying
-      // between the two steps leaves a v2 digest over plaintext mnemonics,
-      // which is the state every install is in today — recoverable, because
-      // the wrap below runs on every unlock rather than only on upgrade.
+      // durable and the key is reproducible from this point on.
       if (PasscodeCrypto.needsUpgrade(stored)) {
         await storage.write(key: AppLock.passcodeKey, value: keys.stored);
       }
@@ -87,9 +74,7 @@ class PasscodeGate {
         final wrapped = await WalletAccountsStore().wrapPlaintextMnemonics(keys.wrapKey);
         if (wrapped > 0) debugLog('[Passcode] wrapped $wrapped mnemonic(s)');
       } catch (e) {
-        // Not fatal to the unlock. The mnemonics stay plaintext and readable,
-        // which is where every install is today, and the next unlock derives
-        // the same key from the now-durable salt and tries again.
+        // Not fatal to the unlock.
         debugLog('[Passcode] could not wrap mnemonics: $e');
       }
 
@@ -98,7 +83,7 @@ class PasscodeGate {
       return const PasscodeAccepted();
     }
 
-    // Not reset on lockout. Resetting is what made the limit flat.
+    // Not reset on lockout.
     final attempts =
         (int.tryParse(await storage.read(key: _attemptsKey) ?? '') ?? 0) + 1;
     await storage.write(key: _attemptsKey, value: '$attempts');

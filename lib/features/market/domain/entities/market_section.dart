@@ -5,16 +5,12 @@ enum MarketSectionStyle {
   /// A horizontal run of cards — a few things, seen at a glance.
   cards,
 
-  /// Full-width rows with price and volume, for the sections people read
-  /// rather than glance at.
+  /// Full-width rows with price and volume, for the sections people read rather
+  /// than glance at.
   rows,
 }
 
 /// One band of the market home.
-///
-/// A section names a source and a shape. Tapping its chevron opens the same
-/// source as a sortable list, so nothing here duplicates the list screen; it
-/// is the same data one level up.
 enum MarketSection {
   watchlist('Watchlist', MarketSectionStyle.rows),
   trending('Trending', MarketSectionStyle.rows),
@@ -29,8 +25,8 @@ enum MarketSection {
   final String title;
   final MarketSectionStyle style;
 
-  /// The registry shelf behind this section, or null when it comes from a
-  /// live feed or from the user's own list.
+  /// The registry shelf behind this section, or null when it comes from a live
+  /// feed or from the user's own list.
   MarketCategory? get shelf => switch (this) {
         MarketSection.majorCrypto => MarketCategory.majorCrypto,
         MarketSection.stocks => MarketCategory.stocks,
@@ -47,8 +43,8 @@ enum MarketSection {
         _ => null,
       };
 
-  /// True when the section is assembled from mints the user starred rather
-  /// than from anything the API ranks.
+  /// True when the section is assembled from mints the user starred rather than
+  /// from anything the API ranks.
   bool get isWatchlist => this == MarketSection.watchlist;
 
   /// How many rows the home shows before the chevron.

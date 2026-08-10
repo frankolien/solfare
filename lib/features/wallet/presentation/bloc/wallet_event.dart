@@ -2,8 +2,6 @@ import 'package:solfare/core/solana/lamports.dart';
 import 'package:equatable/equatable.dart';
 import 'package:solfare/features/wallet/domain/entities/wallet.dart';
 
-/// Events that can be dispatched to WalletBloc
-/// Events represent user actions or system triggers
 abstract class WalletEvent extends Equatable {
   const WalletEvent();
 
@@ -11,20 +9,15 @@ abstract class WalletEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Event to create a new wallet
 class CreateWalletEvent extends WalletEvent {
   const CreateWalletEvent();
 }
 
 /// Internal event dispatched when the active Solana cluster changes.
-/// The handler clears cluster-scoped caches (tokens, NFTs) so the UI
-/// doesn't flash stale holdings from the previous network, then
-/// triggers a refetch.
 class NetworkChangedEvent extends WalletEvent {
   const NetworkChangedEvent();
 }
 
-/// Event to save a wallet to secure storage
 class SaveWalletEvent extends WalletEvent {
   final Wallet wallet;
 
@@ -34,7 +27,6 @@ class SaveWalletEvent extends WalletEvent {
   List<Object?> get props => [wallet];
 }
 
-/// Event to check if a wallet exists
 class CheckWalletExistsEvent extends WalletEvent {
   const CheckWalletExistsEvent();
 }
@@ -53,7 +45,6 @@ class RequestAirdropEvent extends WalletEvent {
   List<Object?> get props => [address, lamports];
 }
 
-/// Event to fetch wallet balance
 class FetchBalanceEvent extends WalletEvent {
   final String address;
 
@@ -63,7 +54,6 @@ class FetchBalanceEvent extends WalletEvent {
   List<Object?> get props => [address];
 }
 
-/// Event to reset wallet state
 class ResetWalletEvent extends WalletEvent {
   const ResetWalletEvent();
 }
@@ -73,13 +63,11 @@ class ClearWalletEvent extends WalletEvent {
   const ClearWalletEvent();
 }
 
-/// Event to fetch SOL price
 class FetchSolPriceEvent extends WalletEvent {
   const FetchSolPriceEvent();
 }
 
-/// Live ticker push from BinancePriceWsService. Carries already-parsed
-/// values so the bloc handler is pure state mutation.
+/// Live ticker push from BinancePriceWsService.
 class LivePriceTickEvent extends WalletEvent {
   final double priceUsd;
   final double percentChange24h;
@@ -102,7 +90,6 @@ class ImportWalletEvent extends WalletEvent {
   List<Object?> get props => [mnemonic];
 }
 
-/// Event to fetch transaction history
 class FetchTransactionsEvent extends WalletEvent {
   final String address;
 
@@ -112,7 +99,6 @@ class FetchTransactionsEvent extends WalletEvent {
   List<Object?> get props => [address];
 }
 
-/// Event to fetch NFTs for a wallet address
 class FetchNftsEvent extends WalletEvent {
   final String address;
   const FetchNftsEvent(this.address);
@@ -120,7 +106,6 @@ class FetchNftsEvent extends WalletEvent {
   List<Object?> get props => [address];
 }
 
-/// Event to fetch SPL tokens for a wallet address
 class FetchTokensEvent extends WalletEvent {
   final String address;
   const FetchTokensEvent(this.address);
@@ -128,16 +113,13 @@ class FetchTokensEvent extends WalletEvent {
   List<Object?> get props => [address];
 }
 
-// ── Multi-wallet events ────────────────────────────────────────────────────
-
-/// Load every wallet stored on device — UI uses this to render the
-/// swipeable card list.
+/// Load every wallet stored on device — UI uses this to render the swipeable
+/// card list.
 class LoadAllWalletsEvent extends WalletEvent {
   const LoadAllWalletsEvent();
 }
 
-/// Switch the app's active wallet. Emits [WalletAddressLoaded] with the new
-/// address so every subscriber refetches against it.
+/// Switch the app's active wallet.
 class SwitchWalletEvent extends WalletEvent {
   final String walletId;
   const SwitchWalletEvent(this.walletId);
@@ -145,8 +127,6 @@ class SwitchWalletEvent extends WalletEvent {
   List<Object?> get props => [walletId];
 }
 
-/// Add a wallet from a mnemonic. Used by the Import flow and by creating a
-/// second wallet from inside the app.
 class AddWalletEvent extends WalletEvent {
   final String mnemonic;
   final String? name;
@@ -155,8 +135,6 @@ class AddWalletEvent extends WalletEvent {
   List<Object?> get props => [mnemonic, name];
 }
 
-/// Remove a wallet by id. Active selection automatically falls back to the
-/// first remaining wallet.
 class RemoveWalletEvent extends WalletEvent {
   final String walletId;
   const RemoveWalletEvent(this.walletId);
@@ -164,7 +142,6 @@ class RemoveWalletEvent extends WalletEvent {
   List<Object?> get props => [walletId];
 }
 
-/// Event to update wallet display name
 class UpdateWalletNameEvent extends WalletEvent {
   final String name;
   const UpdateWalletNameEvent(this.name);
@@ -172,7 +149,6 @@ class UpdateWalletNameEvent extends WalletEvent {
   List<Object?> get props => [name];
 }
 
-/// Event to update wallet card background
 class UpdateCardBackgroundEvent extends WalletEvent {
   final String cardFileName;
   const UpdateCardBackgroundEvent(this.cardFileName);
@@ -185,9 +161,7 @@ class LoadWalletCustomizationEvent extends WalletEvent {
   const LoadWalletCustomizationEvent();
 }
 
-/// Event to send SOL to another address
-/// A Solana Pay URL was scanned. Resolves it, asks the merchant who they
-/// are when it is a transaction request, and previews the result.
+/// Event to send SOL to another address A Solana Pay URL was scanned.
 class ResolvePayEvent extends WalletEvent {
   final String url;
 
@@ -202,8 +176,7 @@ class ExecutePayEvent extends WalletEvent {
   const ExecutePayEvent();
 }
 
-/// Simulate a pending SPL token send. [amount] is in display units; the
-/// mint's decimals turn it into base units.
+/// Simulate a pending SPL token send.
 class PreviewTokenSendEvent extends WalletEvent {
   final String mint;
   final String recipientAddress;
@@ -237,7 +210,6 @@ class SendTokenEvent extends WalletEvent {
 }
 
 /// Simulate a pending send so the approval sheet can show what it does.
-/// Read-only — nothing is signed or broadcast.
 class PreviewSendEvent extends WalletEvent {
   final String recipientAddress;
   final double amountInSol;

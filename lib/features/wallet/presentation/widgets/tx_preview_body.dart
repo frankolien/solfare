@@ -4,9 +4,6 @@ import 'package:solfare/core/solana/preview/tx_preview.dart';
 
 /// The part of an approval sheet that is the same everywhere: what the
 /// transaction moves, what is worth worrying about, and what it costs.
-///
-/// Send, Solana Pay and dApp requests each supply their own header and then
-/// show this. One body means one place to get the safety wording right.
 class TxPreviewBody extends StatelessWidget {
   /// Null while the simulation is still running.
   final TxPreview? preview;
@@ -30,13 +27,7 @@ class TxPreviewBody extends StatelessWidget {
         if (p.willFail) _willFail(p.failureReason),
         for (final flag in p.flags) _flagTile(flag),
         if (p.ownDeltas.isNotEmpty) _deltas(p.ownDeltas),
-        // The decoded steps. These were computed and then never rendered:
-        // visibleInstructions had no call sites anywhere in the app, and
-        // RiskFlag.instructionIndex was never read either. So an instruction
-        // reached the user only if a risk rule happened to fire on it, or it
-        // moved a balance on an account whose address equalled the wallet's.
-        // A Stake::Withdraw draining a stake account to somebody else clears
-        // both of those and used to render as a fee and nothing else.
+        // The decoded steps.
         if (p.visibleInstructions.isNotEmpty) _steps(p.visibleInstructions),
         _feeRow(p),
       ],
@@ -251,8 +242,7 @@ class TxPreviewBody extends StatelessWidget {
   }
 }
 
-// Shown while the simulation runs. The sheet opens straight away so a slow
-// RPC never leaves the user staring at a spinner with nothing to read.
+// Shown while the simulation runs.
 class _PreviewSkeleton extends StatefulWidget {
   const _PreviewSkeleton();
 

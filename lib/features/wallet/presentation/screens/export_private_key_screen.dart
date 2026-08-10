@@ -128,10 +128,8 @@ class _ExportPrivateKeyScreenState extends State<ExportPrivateKeyScreen> {
               _buildMiniKeypad(entered, (val) async {
                 setDialogState(() => entered = val);
                 if (val.length == 6) {
-                  // Through the shared gate, which owns the attempt counter
-                  // and the lockout. This dialog used to read the hash and
-                  // verify it here — unlimited guesses on the screen that
-                  // reveals the seed.
+                  // Through the shared gate, which owns the attempt counter and
+                  // the lockout.
                   final attempt = await PasscodeGate.verify(val);
                   if (!mounted || !context.mounted) return;
                   if (attempt is PasscodeLocked) {
@@ -263,7 +261,6 @@ class _ExportPrivateKeyScreenState extends State<ExportPrivateKeyScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
               child: Row(
@@ -287,7 +284,6 @@ class _ExportPrivateKeyScreenState extends State<ExportPrivateKeyScreen> {
 
             const SizedBox(height: 16),
 
-            // Format selector
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
@@ -319,13 +315,11 @@ class _ExportPrivateKeyScreenState extends State<ExportPrivateKeyScreen> {
               ),
             ),
 
-            // Divider
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Divider(color: Colors.white.withValues(alpha: 0.08), height: 24),
             ),
 
-            // Format description
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Text(
@@ -336,7 +330,6 @@ class _ExportPrivateKeyScreenState extends State<ExportPrivateKeyScreen> {
 
             const SizedBox(height: 20),
 
-            // Key display
             if (_isLoading)
               const Center(child: CircularProgressIndicator(color: Colors.yellow, strokeWidth: 2))
             else
@@ -390,7 +383,6 @@ class _ExportPrivateKeyScreenState extends State<ExportPrivateKeyScreen> {
 
             const Spacer(),
 
-            // Warning banner
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Container(

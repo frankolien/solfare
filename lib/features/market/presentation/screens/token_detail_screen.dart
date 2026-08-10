@@ -29,15 +29,10 @@ import 'package:solfare/features/wallet/presentation/screens/send_sol_screen.dar
 class TokenDetailScreen extends StatefulWidget {
   final MarketToken token;
 
-  /// The wallet's holding of this token, when it has one. Sending needs the
-  /// mint's decimals and the balance, which a market listing does not carry.
+  /// The wallet's holding of this token, when it has one.
   final SplToken? holding;
 
   /// Native SOL balance, needed when this screen is showing SOL itself.
-  ///
-  /// SOL has no [holding] — it is not an SPL token — so the send screen was
-  /// handed a hardcoded 0 and its "amount <= balance" check could never pass.
-  /// Send was a dead button on the app's most-visited asset.
   final double solBalance;
 
   const TokenDetailScreen({
@@ -59,8 +54,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   bool _isLineChart = true;
 
   // CoinGecko fixes granularity by range: five-minute points up to a day,
-  // hourly to ninety days. So these are the shortest windows the chart can
-  // draw without the label describing something the data is not.
+  // hourly to ninety days.
   final _timeframes = ['1H', '4H', '1D', '1W', '1M'];
   final _timeframeDays = ['0.04', '0.17', '1', '7', '30'];
 
@@ -71,7 +65,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   String? _twitterHandle;
 
   // Taken from the token's own logo, so the chart says which asset this is
-  // before the name has been read. Null when the logo has no hue to give.
+  // before the name has been read.
   Color? _brandColor;
   String? _mintAddress;
   String? _description;
@@ -80,23 +74,19 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   double? _touchedPrice;
   int? _touchedIndex;
 
-  // Live values pushed in by WalletBloc when SolPriceFetched arrives — both
-  // the 5-min CoinGecko poll and the ~1Hz Binance WS tick land here. Used
-  // ONLY for native SOL; other tokens fall back to widget.token
-  // values frozen at navigation time.
+  // Live values pushed in by WalletBloc when SolPriceFetched arrives — both the
+  // 5-min CoinGecko poll and the ~1Hz Binance WS tick land here.
   double? _liveSolPrice;
   double? _liveSolChange;
 
-  // Live mode appends each WS tick to _chartData ring-buffer style, but only
-  // on the short timeframes (1m/1H) where a 1Hz tick is visually meaningful.
-  // Longer timeframes would dilute their CoinGecko history with sub-second
-  // noise, so we leave their chart alone and only update the header.
+  // Live mode appends each WS tick to _chartData ring-buffer style, but only on
+  // the short timeframes (1m/1H) where a 1Hz tick is visually meaningful.
   static const _liveChartMaxPoints = 240;
 
   // Bumped before every CoinGecko fetch; the in-flight call's snapshot is
-  // compared on completion so a late response from a previous timeframe
-  // can't clobber the now-selected one (and can't erase live appends that
-  // landed between dispatch and completion).
+  // compared on completion so a late response from a previous timeframe can't
+  // clobber the now-selected one (and can't erase live appends that landed
+  // between dispatch and completion).
   int _chartFetchId = 0;
 
   // Static caches shared across all instances — CoinGeckoClient handles the
@@ -108,15 +98,14 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   void initState() {
     super.initState();
     _chartData = widget.token.sparklineData;
-    // Already measured for this logo on a previous visit, so the chart opens
-    // in the right colour instead of flashing the fallback.
+    // Already measured for this logo on a previous visit, so the chart opens in
+    // the right colour instead of flashing the fallback.
     _brandColor = BrandColors.cached(widget.token.imageUrl);
     _loadBrandColor();
     _fetchMintAddress();
     _fetchChartData();
     // SOL header should start with a real price even if WalletBloc hasn't
-    // activated a wallet yet (so the Binance WS hasn't started). One CoinGecko
-    // poll fills the header until the WS comes online; no-op for non-SOL.
+    // activated a wallet yet (so the Binance WS hasn't started).
     if (_isSol) {
       context.read<WalletBloc>().add(const FetchSolPriceEvent());
     }
@@ -136,8 +125,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
       widget.token.id == 'solana' || widget.token.id == SwapToken.sol.mint;
 
   // True when [widget.token.id] is a Solana mint (e.g. portfolio SPL tokens)
-  // rather than a CoinGecko slug like `solana`/`usd-coin`. Used to route the
-  // chart/description requests to CoinGecko's contract endpoints.
+  // rather than a CoinGecko slug like `solana`/`usd-coin`.
   bool get _isMintId {
     final id = widget.token.id;
     if (id.length < 32 || id.length > 44) return false;
@@ -170,8 +158,8 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
       ];
       // Drop the result if another fetch was kicked off after us (timeframe
       // changed) — without this, a slow response can clobber a freshly-
-      // selected timeframe's data, or erase live-tick appends that landed
-      // while this request was in flight.
+      // selected timeframe's data, or erase live-tick appends that landed while
+      // this request was in flight.
       if (!mounted || fetchId != _chartFetchId) return;
       setState(() {
         _chartData = chartData;
@@ -214,8 +202,8 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
       if (data == null) return;
       final platforms = data['platforms'] as Map<String, dynamic>?;
       final desc = (data['description'] as Map<String, dynamic>?)?['en'] as String?;
-      // Links come from the same response as the description, so the chips
-      // cost nothing extra and only appear when they point somewhere.
+      // Links come from the same response as the description, so the chips cost
+      // nothing extra and only appear when they point somewhere.
       final links = data['links'] as Map<String, dynamic>?;
       final homepage = ((links?['homepage'] as List?) ?? const [])
           .whereType<String>()
@@ -249,9 +237,6 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   }
 
   // Why the Buy button is off, in a sentence, or null when it is on.
-  //
-  // A greyed-out control with no explanation is the same dead end the
-  // Deposit, Swap and Limit buttons used to be.
   String? get _buyUnavailable {
     if (NetworkConstants.current != SolanaNetwork.mainnet) {
       return 'Buying needs mainnet. Nothing routes on '
@@ -260,13 +245,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     if (!_isMintId || widget.token.decimals == 0) {
       return 'This listing does not carry a mint to route to.';
     }
-    // Listed and priced, but no market maker is standing behind it. Better
-    // said here than after the user has typed an amount and waited.
-    // `?? 0`, because null is the shape a payload with no liquidity field
-    // produces — and every portfolio holding produces one. `== 0` was false
-    // for those, so Buy was offered and the swap failed with "no route"
-    // after the user had typed an amount, which is exactly the outcome the
-    // comment above says this prevents.
+    // Listed and priced, but no market maker is standing behind it.
     if ((widget.token.liquidity ?? 0) <= 0) {
       return 'Nothing is quoting ${widget.token.symbol} right now.';
     }
@@ -274,10 +253,6 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   }
 
   // Opens the swap, already pointed at this token.
-  //
-  // Not a second buying surface: the swap screen is the one with the balance
-  // handling, the SOL reserve and the Jupiter execute path already tested on
-  // device. Presetting its output is the whole change.
   Future<void> _openBuy() async {
     final token = widget.token;
     await showModalBottomSheet<void>(
@@ -318,8 +293,8 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     );
   }
 
-  // Add funds, and sending — the two things that were behind action circles
-  // and still need somewhere to live.
+  // Add funds, and sending — the two things that were behind action circles and
+  // still need somewhere to live.
   Future<void> _openMoreMenu() async {
     final box = _moreKey.currentContext?.findRenderObject() as RenderBox?;
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
@@ -393,16 +368,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     return '${address.substring(0, 4)}...${address.substring(address.length - 4)}';
   }
 
-  // Called by BlocListener when WalletBloc emits SolPriceFetched. Updates
-  // the header price/change for the SOL detail screen and appends a chart
-  // point only on the short timeframes (1m / 1H) where 1Hz ticks are useful.
-  //
-  // Skipped while the candlestick view is visible: it has its own live
-  // Binance feed, so there is nothing to add. (This used to be load-bearing
-  // for a different reason — the WebViewController was constructed inside
-  // build(), so a 1Hz setState tore down and reloaded the whole webview
-  // every second. The controller is built once now, so this is a preference
-  // rather than a workaround.)
+  // Called by BlocListener when WalletBloc emits SolPriceFetched.
   void _onLivePriceTick(double priceUsd, double changePct) {
     if (!_isSol) return;
     if (!mounted) return;
@@ -410,9 +376,9 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     setState(() {
       _liveSolPrice = priceUsd;
       _liveSolChange = changePct;
-      // Append to chart only when a short timeframe is visible AND the user
-      // is not currently touching the chart — appending mid-hover shifts
-      // every spot's x-position and the touched dot drifts visibly.
+      // Append to chart only when a short timeframe is visible AND the user is
+      // not currently touching the chart — appending mid-hover shifts every
+      // spot's x-position and the touched dot drifts visibly.
       final shouldAppend = _selectedTimeframe <= 1 && _touchedPrice == null;
       if (shouldAppend) {
         _chartData = [..._chartData, priceUsd];
@@ -426,25 +392,20 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   // Was a private ladder of fixed decimals that stopped at six, so this
   // screen's 28pt headline read "$0.000000" for any token the market list
   // beside it rendered as "$0.0₆420" — and the list is where the user came
-  // from. MarketFormat is the shared one; this screen already used it for
-  // the stats block two hundred lines down.
+  // from.
   String _formatPrice(double price) => MarketFormat.price(price);
 
   @override
   Widget build(BuildContext context) {
     final token = widget.token;
-    // Live values feed the HEADER price + % text only. Chart palette
-    // (chartColor / glow / crosshair) stays bound to the navigation-time
-    // 24h direction so a Binance tick crossing zero doesn't flip the line
-    // purple↔red mid-session — that would be a visible design change, not
-    // a transparent data refresh.
+    // Live values feed the HEADER price + % text only.
     final displayedPrice = _liveSolPrice ?? token.currentPrice;
     final displayedChange = _liveSolChange ?? token.priceChangePercentage24h;
     final headerIsPositive = displayedChange >= 0;
     final changeColor = headerIsPositive ? _up : _down;
     // The brand colour wins over direction: the arrow and the percentage
-    // already say up or down, and saying it a third time in the line costs
-    // the one thing the line could say instead.
+    // already say up or down, and saying it a third time in the line costs the
+    // one thing the line could say instead.
     final isPositive = token.priceChangePercentage24h >= 0;
     final chartColor = _brandColor ?? (isPositive ? const Color(0xFF7B61FF) : _down);
 
@@ -510,8 +471,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
       ),
       centerTitle: false,
       actions: [
-        // Only for a real mint. There is nothing to star about a listing
-        // that arrived without one.
+        // Only for a real mint.
         if (_isMintId) WatchlistStar(mint: widget.token.id, size: 18),
         IconButton(
           icon: const Icon(Icons.ios_share, color: Colors.white, size: 18),
@@ -689,9 +649,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
             child: Row(
               children: [
                 _chartModeButton(Icons.show_chart, isLine: true),
-                // Offered only where candles exist. A greyed-out control
-                // with no explanation is the dead end this file's own
-                // comment warns about, so the button is absent instead.
+                // Offered only where candles exist.
                 if (_hasCandles)
                   _chartModeButton(Icons.candlestick_chart, isLine: false),
               ],
@@ -845,8 +803,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     );
   }
 
-  // Only links we actually hold. A chip that opens nothing is worse than a
-  // row of two.
+  // Only links we actually hold.
   Widget _linkChips(MarketToken token) {
     final mint = _mintAddress;
     return Wrap(
@@ -893,9 +850,6 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   }
 
   // One decision, at the bottom, where a thumb is.
-  //
-  // The four action circles this replaces were three ways of reaching
-  // screens that exist elsewhere and one thing the screen is actually for.
   Widget _buyBar() {
     final reason = _buyUnavailable;
     return Container(
@@ -967,7 +921,6 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
       );
     }
 
-    // Sample data points for performance
     final step = data.length > 100 ? (data.length / 100).ceil() : 1;
     final spots = <FlSpot>[];
     for (int i = 0; i < data.length; i += step) {
@@ -1050,12 +1003,6 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   }
 
   // Binance pairs, keyed by mint rather than by ticker.
-  //
-  // The old code built the symbol from `token.symbol.toUpperCase()`, which
-  // is API-supplied metadata anybody can mint. A token calling itself BTC
-  // rendered Bitcoin's real candles under its own name and logo, with no
-  // error — and a ticker with no Binance pair, which is most of this list,
-  // silently drew nothing.
   static const _binancePairs = {
     'So11111111111111111111111111111111111111112': 'SOLUSDT',
     'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'USDCUSDT',
@@ -1090,10 +1037,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
       );
     }
 
-    // Built once. It used to be constructed inside build(), so every rebuild
-    // tore down the platform webview and refetched 96 klines — which is why
-    // the live price tick had to be suppressed while this view was open
-    // rather than the cause being fixed.
+    // Built once.
     final existing = _candleController;
     if (existing != null) {
       return ClipRRect(
@@ -1162,7 +1106,8 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
         ..setBackgroundColor(Colors.transparent)
         ..setNavigationDelegate(NavigationDelegate(
           onNavigationRequest: (request) {
-            // Only allow the initial about:blank / data load — block all external navigations
+            // Only allow the initial about:blank / data load — block all
+            // external navigations
             if (request.url.startsWith('about:') || request.url.startsWith('data:')) {
               return NavigationDecision.navigate;
             }
@@ -1177,7 +1122,6 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
         child: WebViewWidget(controller: controller),
       );
     } catch (_) {
-      // Fallback for simulator or unsupported platforms
       return Center(
         child: Text(
           'Candlestick chart requires a real device',

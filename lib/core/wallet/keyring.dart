@@ -8,15 +8,11 @@ import 'package:solfare/core/constant/solana_path.dart';
 import 'package:solfare/core/error/exception.dart';
 
 /// Single source of truth for mnemonic → keypair derivation.
-///
-/// Every callsite that needs to sign on behalf of the user (send, swap,
-/// stake, export) must go through here so the BIP-44 path, public-key
-/// shape, and intermediate-buffer scrubbing live in exactly one place.
 class Keyring {
   Keyring._();
 
-  // Do NOT zero `priv` — Ed25519HDKeyPair stores it by reference, so
-  // zeroing here corrupts the signing key and every tx fails verification.
+  // Do NOT zero `priv` — Ed25519HDKeyPair stores it by reference, so zeroing
+  // here corrupts the signing key and every tx fails verification.
   static Future<solana.Ed25519HDKeyPair> keyPairFromMnemonic(
     String mnemonic,
   ) async {
@@ -24,9 +20,6 @@ class Keyring {
     return solana.Ed25519HDKeyPair.fromPrivateKeyBytes(privateKey: priv);
   }
 
-  /// Derive the raw 32-byte private key. The caller owns the buffer and
-  /// is responsible for zeroing it. Used by the export-key screen, which
-  /// holds the bytes for the duration the user has the screen open.
   static Future<Uint8List> privateKeyBytes(String mnemonic) =>
       _privateKeyBytes(mnemonic);
 

@@ -9,21 +9,17 @@ import 'package:solfare/features/market/presentation/bloc/market_event.dart';
 import 'package:solfare/features/market/presentation/bloc/market_state.dart';
 
 /// One section, shown in full: every row, sortable, over any window.
-///
-/// Scoped to the screen that opens it rather than shared, because the list is
-/// somewhere you go rather than somewhere the app keeps state for you.
 class MarketBloc extends Bloc<MarketEvent, MarketState> {
   final JupiterTokenDataSource _source;
   final WatchlistStore _watchlist;
 
-  /// Long enough that a window flick is free, short enough that the prices on
-  /// a market screen are still prices.
+  /// Long enough that a window flick is free, short enough that the prices on a
+  /// market screen are still prices.
   static const Duration cacheTtl = Duration(seconds: 30);
 
   final Map<String, _CachedFeed> _cache = {};
 
-  // Bumped before every load. A response whose id no longer matches lost the
-  // race to a newer selection and is dropped.
+  // Bumped before every load.
   int _loadId = 0;
 
   MarketBloc({
@@ -42,10 +38,7 @@ class MarketBloc extends Bloc<MarketEvent, MarketState> {
     final key = _cacheKey(state);
     final cached = _cache[key];
     if (!event.force && cached != null && cached.isFresh) {
-      // Bumped on the cache path too. Without it, a slow request from a
-      // window the user has already left still passed the staleness check
-      // below: tap 5m, tap 24h before it lands, and the 5m ranking arrived
-      // under the 24h chip with 24h percentages beside it.
+      // Bumped on the cache path too.
       ++_loadId;
       emit(_ordered(state.copyWith(
         status: MarketStatus.ready,
@@ -98,8 +91,7 @@ class MarketBloc extends Bloc<MarketEvent, MarketState> {
     final next = state.copyWith(window: event.window);
 
     // A shelf holds every window's stats already, so the chips only change
-    // which one is read. A feed is a different ranking per window, so that
-    // one has to be asked for again.
+    // which one is read.
     if (state.section.feed == null) {
       emit(_ordered(next));
       return;
@@ -116,8 +108,8 @@ class MarketBloc extends Bloc<MarketEvent, MarketState> {
     )));
   }
 
-  // Always sorts from the feed's own order, never from the last sort's
-  // output — which is what made Rank a one-way door.
+  // Always sorts from the feed's own order, never from the last sort's output —
+  // which is what made Rank a one-way door.
   MarketState _ordered(MarketState next) => next.copyWith(
         tokens: sortMarketTokens(
           next.unsorted.isEmpty ? next.tokens : next.unsorted,
@@ -128,8 +120,7 @@ class MarketBloc extends Bloc<MarketEvent, MarketState> {
       );
 
   // A feed and a watchlist both arrive in an order that means something —
-  // Jupiter's ranking and the user's own. A shelf does not, so it opens on
-  // the measure that means most for an asset rather than on registry order.
+  // Jupiter's ranking and the user's own.
   static MarketSort _defaultSort(MarketSection section) =>
       section.shelf == null ? MarketSort.rank : MarketSort.marketCap;
 

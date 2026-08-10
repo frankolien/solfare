@@ -3,21 +3,15 @@ import 'package:solfare/core/solana/preview/tx_preview.dart';
 
 /// Turns a decoded transaction into the warnings worth interrupting someone
 /// for.
-///
-/// Rules read decoded instructions *and* simulated deltas together, never one
-/// alone. Instructions without deltas miss a transfer hidden inside CPI;
-/// deltas without instructions cannot tell an approval — which moves nothing
-/// today and everything tomorrow — from a transfer.
 class RiskEngine {
   const RiskEngine();
 
   /// Native balance that has to stay behind to keep an account rent-exempt.
-  /// Spending past it does not fail, it closes the account.
   static const int rentExemptMinimum = 890880;
 
-  /// A priority fee this far above the going rate is worth mentioning, since
-  /// it is the one number a malicious payload can inflate without touching
-  /// any balance.
+  /// A priority fee this far above the going rate is worth mentioning, since it
+  /// is the one number a malicious payload can inflate without touching any
+  /// balance.
   static const int highPriorityFeeLamports = 10000000; // 0.01 SOL
 
   List<RiskFlag> evaluate({
@@ -34,11 +28,6 @@ class RiskEngine {
     ];
 
     if (instructionsUnavailable) {
-      // Danger, not caution. Every instruction-level rule below is skipped
-      // when this fires, so an unlimited approval or an ownership transfer
-      // would come back with no flags at all — and an approval moves no
-      // balances either, so the deltas do not cover for it. "We could not
-      // check the dangerous part" has to read as dangerous.
       flags.add(const RiskFlag(
         severity: RiskSeverity.danger,
         title: 'Instructions could not be read',
@@ -77,9 +66,6 @@ class RiskEngine {
           final delegate = _short(ix.fields['delegate']);
           flags.add(RiskFlag(
             severity: unlimited ? RiskSeverity.danger : RiskSeverity.caution,
-            // The detail used to be a constant string, so an approval of
-            // 0.01 USDC and an approval of everything read identically.
-            // Whose approval it is, is the part worth naming.
             detail: unlimited
                 ? '$delegate is being given permission to move this token out '
                     'of your wallet, with no limit and no expiry.'
@@ -139,13 +125,7 @@ class RiskEngine {
           }
       }
 
-      // A recognised program running an instruction we cannot decode. The
-      // check below only catches unrecognised *programs*, so this used to
-      // produce nothing at all: System::AssignWithSeed (tag 10) hands an
-      // account to another program exactly like Assign (tag 1), which is
-      // flagged as danger — and came back silent. Same for the *WithSeed and
-      // *Checked variants of the stake authorize instructions, and for every
-      // Token-2022 extension instruction.
+      // A recognised program running an instruction we cannot decode.
       if (ix.kind == DecodedInstruction.unknownKind &&
           ix.isKnownProgram &&
           !ix.isNoise) {
@@ -185,8 +165,8 @@ class RiskEngine {
     for (final d in deltas.where((d) => d.isOwnAccount && d.isNative && !d.isIncoming)) {
       final left = d.postRaw;
       if (left == null || left >= rentExemptMinimum) continue;
-      // Below the rent-exempt floor the runtime purges the account, so this
-      // is not "sends most of your SOL" — it empties the wallet.
+      // Below the rent-exempt floor the runtime purges the account, so this is
+      // not "sends most of your SOL" — it empties the wallet.
       flags.add(const RiskFlag(
         severity: RiskSeverity.danger,
         title: 'This empties your SOL',
@@ -202,9 +182,7 @@ class RiskEngine {
     final incoming = deltas.where((d) => d.isOwnAccount && d.isIncoming).isNotEmpty;
 
     // Tokens leaving with nothing coming back is the shape of a drain — but
-    // only when somebody else composed the transaction. On a send the user
-    // typed themselves it describes exactly what they asked for, and a
-    // warning on every send is how warnings get ignored.
+    // only when somebody else composed the transaction.
     if (!userInitiated && outgoingMints.isNotEmpty && !incoming) {
       flags.add(RiskFlag(
         severity: RiskSeverity.caution,

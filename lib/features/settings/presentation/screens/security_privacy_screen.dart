@@ -22,7 +22,6 @@ class _SecurityPrivacyScreenState extends State<SecurityPrivacyScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             _buildHeader(),
             const SizedBox(height: 12),
 
@@ -85,7 +84,6 @@ class _SecurityPrivacyScreenState extends State<SecurityPrivacyScreen> {
 
                     const SizedBox(height: 20),
 
-                    // Log out
                     _buildLogoutItem(context),
 
                     const SizedBox(height: 40),

@@ -1,8 +1,4 @@
 /// A single wallet entry in the multi-wallet store.
-///
-/// `id` is a stable random identifier that outlives name/card changes — used
-/// as the key for per-wallet caches and for selecting the active wallet
-/// without relying on mnemonic equality.
 class WalletAccount {
   final String id;
   final String address;
@@ -34,12 +30,6 @@ class WalletAccount {
     );
   }
 
-  /// The same account with a different stored mnemonic.
-  ///
-  /// Separate from [copyWith], which deliberately does not take one — the
-  /// mnemonic is the identity of the wallet and changing it by accident
-  /// would swap which keys an account holds. This exists for exactly one
-  /// caller: wrapping the same secret in a different envelope.
   WalletAccount withMnemonic(String stored) => WalletAccount(
         id: id,
         address: address,

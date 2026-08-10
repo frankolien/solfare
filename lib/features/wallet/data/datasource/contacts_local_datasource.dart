@@ -37,8 +37,6 @@ class ContactsLocalDataSource {
   ContactsLocalDataSource({FlutterSecureStorage? storage})
       : _storage = storage ?? SecureStore.instance;
 
-  // ── Address Book ──
-
   Future<List<Contact>> getContacts() async {
     final raw = await _storage.read(key: _contactsKey);
     if (raw == null || raw.isEmpty) return [];
@@ -48,13 +46,10 @@ class ContactsLocalDataSource {
 
   Future<void> saveContact(Contact contact) async {
     final contacts = await getContacts();
-    // Don't add duplicates by address
     contacts.removeWhere((c) => c.address == contact.address);
     contacts.add(contact);
     await _storage.write(key: _contactsKey, value: jsonEncode(contacts.map((c) => c.toJson()).toList()));
   }
-
-  // ── Recents ──
 
   Future<List<Contact>> getRecents() async {
     final raw = await _storage.read(key: _recentsKey);
@@ -65,10 +60,8 @@ class ContactsLocalDataSource {
 
   Future<void> addRecent(Contact contact) async {
     final recents = await getRecents();
-    // Remove if already exists, then add to top
     recents.removeWhere((c) => c.address == contact.address);
     recents.insert(0, contact);
-    // Keep only last 10
     if (recents.length > 10) recents.removeRange(10, recents.length);
     await _storage.write(key: _recentsKey, value: jsonEncode(recents.map((c) => c.toJson()).toList()));
   }

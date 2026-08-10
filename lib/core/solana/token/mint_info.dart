@@ -4,18 +4,12 @@ import 'package:solfare/core/util/json.dart';
 class TransferFee {
   final int basisPoints;
 
-  /// Cap in base units. A large transfer pays this rather than the full rate.
+  /// Cap in base units.
   final int maximumFee;
 
   const TransferFee({required this.basisPoints, required this.maximumFee});
 
   /// Fee charged on [amount], rounded up as the program does.
-  ///
-  /// BigInt because `amount * basisPoints` overflows signed 64-bit at
-  /// reachable amounts. Measured: 1e16 base units (ten million tokens at nine
-  /// decimals) at 1000 bps returned -844,674,407,370,954, the maximumFee
-  /// clamp did not catch it because the value was negative, and netOf then
-  /// reported the recipient receiving *more* than was sent.
   int feeOn(int amount) {
     if (basisPoints == 0 || amount <= 0) return 0;
     final raw = (BigInt.from(amount) * BigInt.from(basisPoints) + BigInt.from(9999)) ~/
@@ -31,11 +25,6 @@ class TransferFee {
 }
 
 /// What a mint is and what its extensions will do to a transfer.
-///
-/// Token-2022 mints can carry behaviour that plain SPL mints cannot: fees
-/// that shrink the amount in flight, transfers that are forbidden outright,
-/// a delegate that can move balances without the owner. A wallet that treats
-/// them as ordinary tokens tells the user things that are not true.
 class MintInfo {
   final String mint;
 
@@ -68,26 +57,18 @@ class MintInfo {
   static const token2022ProgramId = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
 
   /// Build from a jsonParsed `getAccountInfo` result.
-  ///
-  /// [currentEpoch] picks between the two transfer fee schedules; without it
-  /// the newer one is assumed, which is the common case since most mints
-  /// never schedule a change.
   static MintInfo parse(String mint, Map<String, dynamic> account, {int? currentEpoch}) {
     // No `?? tokenProgramId` fallback: the owner decides which token program
     // the recipient's associated account is derived under, and guessing plain
-    // SPL for a Token-2022 mint derives an address nobody controls. A mint
-    // whose owner we cannot read is a mint we must not transfer.
+    // SPL for a Token-2022 mint derives an address nobody controls.
     final programId = account.stringAt('owner');
     if (programId == null) {
       throw const FormatException('That mint does not say which program owns it.');
     }
 
-    // pathAt rather than a chain of ?[]: getAccountInfo is asked for
-    // jsonParsed and falls back to base64 for anything it cannot parse,
-    // returning `data` as a two-element List. Indexing that with a String
-    // throws a TypeError, and TokenService calls needsEpoch outside its own
-    // try — so a Solana Pay request naming a wallet address as its spl-token
-    // reached the user as a raw type error.
+    // pathAt rather than a chain of ?[]: getAccountInfo is asked for jsonParsed
+    // and falls back to base64 for anything it cannot parse, returning `data`
+    // as a two-element List.
     final parsed = account.pathAt(['data', 'parsed']);
     final info = parsed?.mapAt('info');
     if (info == null) {
@@ -122,8 +103,7 @@ class MintInfo {
       nonTransferable: state('nonTransferable') != null,
       transferFee: _feeFrom(state('transferFeeConfig'), currentEpoch),
       // The extension can be present with no program set — PYUSD ships like
-      // that. Present-but-unset means nothing runs on transfer, so warning
-      // about it would be a warning about nothing.
+      // that.
       hasTransferHook: hook != null && hook['programId'] != null,
       hasPermanentDelegate: state('permanentDelegate')?['delegate'] != null,
       defaultFrozen: state('defaultAccountState')?['accountState'] == 'frozen',
@@ -132,9 +112,6 @@ class MintInfo {
   }
 
   // The schedule in force, or null when there is no fee to speak of.
-  //
-  // A config with a zero rate is not a fee. Reporting one would tell the
-  // user the recipient gets less than they send, which is false.
   static TransferFee? _feeFrom(Map<String, dynamic>? config, int? currentEpoch) {
     if (config == null) return null;
 

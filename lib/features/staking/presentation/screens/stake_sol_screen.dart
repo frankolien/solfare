@@ -30,17 +30,10 @@ class StakeSolScreen extends StatefulWidget {
 class _StakeSolScreenState extends State<StakeSolScreen> {
   final TextEditingController _amountController = TextEditingController();
 
-  // No default. The old one was a hardcoded devnet vote account labelled
-  // "Devnet Validator 1", carrying a made-up 38.7M SOL stake, while the app
-  // defaults to mainnet — so a fresh install's first stake was aimed at an
-  // account that does not exist there and failed every time.
+  // No default.
   ValidatorInfo? _selectedValidator;
 
   // Only a delegation this screen started may drive its status sheet.
-  // StakingBloc is app-wide: the validator picker and the homepage's stake
-  // list both fetch through it, and any error from those used to pop the
-  // picker, show a "Failed" sheet for a stake nobody attempted, and send the
-  // user home.
   bool _stakeInFlight = false;
 
   double get _amountInSol => double.tryParse(_amountController.text) ?? 0.0;
@@ -147,10 +140,7 @@ class _StakeSolScreenState extends State<StakeSolScreen> {
   }
 
   void _setMax() {
-    // Not the whole balance. A delegation funds a brand new 200-byte stake
-    // account past its rent-exempt minimum on top of the amount staked, and
-    // pays two signatures — so "all of it" was an amount that could never
-    // land, and every stake within ~0.0023 SOL of the balance failed too.
+    // Not the whole balance.
     final max = StakeLimits.maxStakeable(widget.balanceInSol)
         .toStringAsFixed(9)
         .replaceAll(RegExp(r'0+$'), '')
@@ -162,8 +152,8 @@ class _StakeSolScreenState extends State<StakeSolScreen> {
   Widget build(BuildContext context) {
     return BlocListener<StakingBloc, StakingState>(
       listener: (context, state) {
-        // Picking up the first validator for this cluster is the one thing
-        // this screen listens for that is not its own delegation.
+        // Picking up the first validator for this cluster is the one thing this
+        // screen listens for that is not its own delegation.
         if (state is ValidatorsFetched &&
             _selectedValidator == null &&
             state.validators.isNotEmpty) {
@@ -349,11 +339,6 @@ class _StakeSolScreenState extends State<StakeSolScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         children: [
-          // "Annual return" used to live here, computed from
-          // ValidatorInfo.apyPercent — which nothing ever populates, so it
-          // always read 0.00000000 SOL. A fabricated zero beside a staking
-          // decision is worse than not answering, and commission is a real
-          // number we actually fetch.
           Row(
             children: [
               Text('Commission', style: TextStyle(color: Colors.grey[500], fontSize: 12, fontFamily: 'FKGrotesk')),
@@ -391,8 +376,8 @@ class _StakeSolScreenState extends State<StakeSolScreen> {
 
   String _formatStake(double sol) => StakeLimits.formatStake(sol);
 
-  // The commission is real and fetched; the APY is not populated anywhere,
-  // so advertising "~0.00% APY" beside a validator was worse than silence.
+  // The commission is real and fetched; the APY is not populated anywhere, so
+  // advertising "~0.00% APY" beside a validator was worse than silence.
   String get _validatorSubtitle {
     final validator = _selectedValidator;
     if (validator == null) return 'Loading validators';

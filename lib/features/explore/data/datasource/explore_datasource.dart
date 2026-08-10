@@ -13,7 +13,6 @@ abstract class ExploreDataSource {
 class ExploreDataSourceImpl implements ExploreDataSource {
   final http.Client client;
 
-  // Cache
   List<CryptoNewsModel>? _cachedNews;
   DateTime? _cacheTimestamp;
   static const Duration _cacheDuration = Duration(minutes: 5);
@@ -30,7 +29,6 @@ class ExploreDataSourceImpl implements ExploreDataSource {
     }
 
     try {
-      // CryptoPanic free API — filter by SOL/Solana
       final url = Uri.parse(
         'https://cryptopanic.com/api/free/v1/posts/'
         '?auth_token=demo'
@@ -76,7 +74,6 @@ class ExploreDataSourceImpl implements ExploreDataSource {
 
   // Real CoinGecko image URLs fetched from their API
   static const List<DappItem> _allDapps = [
-    // Featured
     DappItem(
       name: 'Jupiter',
       description: 'The best swap aggregator on Solana.',
@@ -113,7 +110,6 @@ class ExploreDataSourceImpl implements ExploreDataSource {
       category: 'Featured',
     ),
 
-    // Earn
     DappItem(
       name: 'Marinade',
       description: 'Liquid staking for Solana.',
@@ -136,7 +132,6 @@ class ExploreDataSourceImpl implements ExploreDataSource {
       category: 'Earn',
     ),
 
-    // Ecosystem
     DappItem(
       name: 'Helium',
       description: 'The People\'s Network — decentralized wireless.',
@@ -159,7 +154,6 @@ class ExploreDataSourceImpl implements ExploreDataSource {
       category: 'Ecosystem',
     ),
 
-    // Memes
     DappItem(
       name: 'pump.fun',
       description: 'Launch your own memecoin.',

@@ -18,7 +18,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       backgroundColor: Colors.black,
       body: SafeArea(
         child: Column(
-          //mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
@@ -29,8 +28,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             SizedBox(height: MediaQuery.of(context).size.height * 0.0001),
        
-
-     
         SizedBox(height: 20,),
         Container(
           padding: EdgeInsets.symmetric(horizontal: 1, vertical: 7),

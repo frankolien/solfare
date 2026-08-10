@@ -11,15 +11,15 @@ const _lightCards = {
   'card_8.png', 'card_9.png', 'card_10.png',
 };
 
-// Custom uploads are stored as `custom:<filename>` — we store only the
-// filename (not an absolute path) because the iOS sandbox may rewrite
-// the documents-directory path between launches, which would break any
-// cached absolute path.
+// Custom uploads are stored as `custom:<filename>` — we store only the filename
+// (not an absolute path) because the iOS sandbox may rewrite the documents-
+// directory path between launches, which would break any cached absolute path.
 const _customPrefix = 'custom:';
 bool _isCustomImage(String path) => path.startsWith(_customPrefix);
 String _customFilename(String path) => path.substring(_customPrefix.length);
 
-/// The wallet balance card with background image, balance display, and price change.
+/// The wallet balance card with background image, balance display, and price
+/// change.
 class BalanceCard extends StatelessWidget {
   final double balanceInSol;
   final bool isLoading;
@@ -58,9 +58,9 @@ class BalanceCard extends StatelessWidget {
 
   Widget _buildBackground() {
     if (_isCustomImage(cardBackground)) {
-      // Resolve the documents-dir path at render time because iOS may
-      // rewrite the sandbox path between launches — caching the absolute
-      // path would silently break image loading.
+      // Resolve the documents-dir path at render time because iOS may rewrite
+      // the sandbox path between launches — caching the absolute path would
+      // silently break image loading.
       final filename = _customFilename(cardBackground);
       return FutureBuilder<Directory>(
         future: getApplicationDocumentsDirectory(),
@@ -109,7 +109,8 @@ class BalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Calculate USD value, fallback to approximate price if API hasn't responded
+    // Calculate USD value, fallback to approximate price if API hasn't
+    // responded
     final price = solPriceUsd > 0 ? solPriceUsd : 86.29;
     final usdValue = balanceInSol * price;
     final textColor = _isLightCard ? Colors.black : Colors.white;
@@ -126,15 +127,14 @@ class BalanceCard extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          // Card background — either a bundled preset or a user-uploaded
-          // image (detected by absolute path prefix).
+          // Card background — either a bundled preset or a user-uploaded image
+          // (detected by absolute path prefix).
           Positioned.fill(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: _buildBackground(),
             ),
           ),
-          // Content
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
             child: Column(
@@ -225,7 +225,6 @@ class BalanceCard extends StatelessWidget {
     );
   }
 
-
   Widget _buildPriceChange(Color subtextColor) {
     final price = solPriceUsd > 0 ? solPriceUsd : 86.29;
     final dollarChange = balanceInSol * price * (solPriceChange24h / 100);
@@ -248,11 +247,6 @@ class BalanceCard extends StatelessWidget {
 }
 
 // Renders a USD amount like `$30.40` and animates smoothly between values.
-//
-// Uses a [TweenAnimationBuilder] to interpolate the numeric value over
-// ~450ms. Each character is then rendered through [_RollingDigit], which
-// slides vertically as its digit changes — like an odometer / iOS date
-// picker / Jupiter's balance card.
 class _AnimatedMoney extends StatefulWidget {
   const _AnimatedMoney({
     required this.value,
@@ -269,8 +263,6 @@ class _AnimatedMoney extends StatefulWidget {
 }
 
 class _AnimatedMoneyState extends State<_AnimatedMoney> {
-  // Previous value we animate from. Initialised to the first value we see so
-  // the initial render is static (no scroll-on-mount).
   late double _previous = widget.value;
 
   @override
@@ -307,8 +299,7 @@ class _AnimatedMoneyState extends State<_AnimatedMoney> {
   }
 }
 
-// A single glyph that slides vertically when its value changes. When the
-// incoming [char] isn't a digit (e.g. `.` or `$`) it renders statically.
+// A single glyph that slides vertically when its value changes.
 class _RollingDigit extends StatelessWidget {
   const _RollingDigit({required this.char, required this.color});
 
@@ -325,7 +316,7 @@ class _RollingDigit extends StatelessWidget {
   Widget build(BuildContext context) {
     final styled = Text(char, style: _style.copyWith(color: color));
 
-    // Non-digits don't need to animate; keeps the $ and . visually anchored.
+    // Non-digits don't need to animate; keeps the $ and .
     if (char.length != 1 || !RegExp(r'[0-9]').hasMatch(char)) {
       return styled;
     }

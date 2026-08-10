@@ -11,8 +11,8 @@ class MarketRow extends StatelessWidget {
   final MarketWindow window;
   final VoidCallback? onTap;
 
-  /// Shown on the full list, left off the home's preview rows where the
-  /// point is to read five things quickly.
+  /// Shown on the full list, left off the home's preview rows where the point
+  /// is to read five things quickly.
   final bool showStar;
 
   const MarketRow({
@@ -117,9 +117,6 @@ class MarketRow extends StatelessWidget {
 }
 
 /// Rows in the shape of the ones about to arrive.
-///
-/// A spinner says "wait"; this says "here is what is coming", which is the
-/// difference between a screen that feels slow and one that feels busy.
 class MarketRowSkeleton extends StatelessWidget {
   final int rows;
   final bool shrinkWrap;

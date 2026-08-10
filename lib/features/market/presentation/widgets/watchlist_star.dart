@@ -2,10 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:solfare/features/market/data/watchlist_store.dart';
 
 /// The star that puts an asset on the watchlist.
-///
-/// Reads the store's notifier rather than local state, so every copy of the
-/// star for a given mint flips together — the list row, the detail header and
-/// the home section are three views of one fact.
 class WatchlistStar extends StatelessWidget {
   final String mint;
   final double size;

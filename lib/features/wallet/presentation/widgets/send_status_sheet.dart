@@ -10,7 +10,6 @@ import 'package:solfare/features/wallet/presentation/bloc/wallet_state.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Bottom sheet showing send transaction status: sending, success, or error.
-/// Uses lottie animations for each state.
 class SendStatusSheet extends StatelessWidget {
   final String status; // 'sending', 'success', 'error'
   final String? signature;
@@ -61,7 +60,6 @@ class SendStatusSheet extends StatelessWidget {
           ),
           const SizedBox(height: 8),
 
-          // Lottie animation
           SizedBox(
             width: 100,
             height: 100,
@@ -73,7 +71,6 @@ class SendStatusSheet extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Status text
           Text(
             status == 'sending' ? 'Sending' : status == 'success' ? 'Success' : 'Failed',
             style: const TextStyle(color: Colors.white, fontSize: 18, fontFamily: 'FKGrotesk', fontWeight: FontWeight.bold),
@@ -101,7 +98,6 @@ class SendStatusSheet extends StatelessWidget {
               child: Text(error!, style: TextStyle(color: Colors.grey[500], fontSize: 11, fontFamily: 'FKGrotesk'), textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis),
             ),
 
-          // Success actions
           if (status == 'success' && signature != null) ...[
             const SizedBox(height: 24),
             _buildActionRow(context, 'Transaction ID', Icons.copy, () {
@@ -144,7 +140,6 @@ class SendStatusSheet extends StatelessWidget {
 
             const SizedBox(height: 10),
 
-            // Close button
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: SizedBox(

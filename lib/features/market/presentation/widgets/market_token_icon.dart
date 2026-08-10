@@ -2,16 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:solfare/features/market/domain/entities/market_token.dart';
 
 /// A token's logo, falling back to its initials.
-///
-/// Token icons are third-party URLs that go missing often enough that the
-/// fallback is the common case, not the edge one.
 class MarketTokenIcon extends StatelessWidget {
   final MarketToken token;
   final double size;
 
-  /// Marks the icon when nobody has verified the mint. Trending is where a
-  /// wallet meets tokens nobody has checked, and that is the one place the
-  /// distinction has to be visible without tapping through.
+  /// Marks the icon when nobody has verified the mint.
   final bool warn;
 
   const MarketTokenIcon({
@@ -33,11 +28,7 @@ class MarketTokenIcon extends StatelessWidget {
               width: size,
               height: size,
               fit: BoxFit.cover,
-              // Decoded at the size actually drawn. Jupiter icons are
-              // commonly 512x512 or larger, and each one decoded full-size
-              // is ~1 MB of RGBA held in the image cache — a hundred-row
-              // list plus the ticker strip pushed it past its budget and
-              // scrolling turned into evict-and-re-decode churn.
+              // Decoded at the size actually drawn.
               cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
               cacheHeight: (size * MediaQuery.devicePixelRatioOf(context)).round(),
               errorBuilder: (_, __, ___) => _initials(),

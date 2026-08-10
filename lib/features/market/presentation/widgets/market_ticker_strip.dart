@@ -6,10 +6,6 @@ import 'package:solfare/features/market/presentation/widgets/market_row.dart';
 import 'package:solfare/features/market/presentation/widgets/market_token_icon.dart';
 
 /// The strip of movers across the top of the market.
-///
-/// It re-reads what the home already loaded rather than opening a price
-/// stream of its own. A second source feeding a decoration is a second thing
-/// to keep in sync, and the moment it drifts it is a decoration that lies.
 class MarketTickerStrip extends StatefulWidget {
   final List<MarketToken> tokens;
   final void Function(MarketToken token)? onTap;
@@ -24,7 +20,7 @@ class MarketTickerStrip extends StatefulWidget {
 
 class _MarketTickerStripState extends State<MarketTickerStrip>
     with SingleTickerProviderStateMixin {
-  // Pixels per second. Slow enough to read, fast enough to look alive.
+  // Pixels per second.
   static const double _speed = 22;
 
   final ScrollController _scroll = ScrollController();

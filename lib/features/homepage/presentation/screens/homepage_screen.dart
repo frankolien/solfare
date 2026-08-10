@@ -65,7 +65,6 @@ class _HomepageScreenState extends State<HomepageScreen> {
   List<StakeAccount> _cachedStakeAccounts = [];
   bool _hasFetchedStakes = false;
 
-  // Wallet customization
   String _walletName = 'Main Wallet';
   String _cardBackground = 'card_1.png';
 
@@ -77,17 +76,13 @@ class _HomepageScreenState extends State<HomepageScreen> {
   }
 
   void _loadCustomization() {
-    // Bloc resolves the active wallet's name + card from the multi-wallet
-    // store and fires WalletCustomizationLoaded back, which _handleWalletState
-    // captures into _walletName / _cardBackground.
     if (mounted) {
       context.read<WalletBloc>().add(const LoadWalletCustomizationEvent());
     }
   }
 
-  // CupertinoSliverRefreshControl keeps the indicator slot open for as
-  // long as this Future is pending. ~1.2s matches Solflare's deliberate
-  // "we're working" feel even when data lands sooner.
+  // CupertinoSliverRefreshControl keeps the indicator slot open for as long as
+  // this Future is pending.
   Future<void> _onRefresh(String? address) async {
     final bloc = context.read<WalletBloc>();
     if (address != null) {
@@ -100,15 +95,15 @@ class _HomepageScreenState extends State<HomepageScreen> {
   }
 
   void _requestAirdrop() {
-    // The faucet only funds devnet/testnet; on mainnet there is nothing to ask for.
+    // The faucet only funds devnet/testnet; on mainnet there is nothing to ask
+    // for.
     if (NetworkConstants.current == SolanaNetwork.mainnet) return;
     if (_walletAddress != null) {
       context.read<WalletBloc>().add(RequestAirdropEvent(address: _walletAddress!));
     }
   }
 
-  // A scanned code is either a payment request or an address. The scan
-  // action used to discard its result entirely.
+  // A scanned code is either a payment request or an address.
   void _handleScan(String? scanned) {
     if (scanned == null || !mounted) return;
 
@@ -145,14 +140,12 @@ class _HomepageScreenState extends State<HomepageScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Drag handle
             Container(
               width: 36, height: 4,
               margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(color: Colors.grey[700], borderRadius: BorderRadius.circular(2)),
             ),
 
-            // Receive crypto option
             GestureDetector(
               onTap: () {
                 Navigator.pop(context);
@@ -228,11 +221,9 @@ class _HomepageScreenState extends State<HomepageScreen> {
         if (stakingState is StakeAccountsFetched) {
           setState(() => _cachedStakeAccounts = stakingState.accounts);
         } else if (stakingState is StakeDeactivated || stakingState is StakeWithdrawn) {
-          // Re-fetch stake accounts after unstake/withdraw
           if (_walletAddress != null) {
             context.read<StakingBloc>().add(FetchStakeAccountsEvent(_walletAddress!));
           }
-          // Also refresh balance
           if (_walletAddress != null) {
             context.read<WalletBloc>().add(FetchBalanceEvent(_walletAddress!));
           }
@@ -241,7 +232,6 @@ class _HomepageScreenState extends State<HomepageScreen> {
       child: BlocConsumer<WalletBloc, WalletState>(
         listener: _handleWalletState,
         builder: (context, walletState) {
-        // Resolve current values from state + cache
         final data = _resolveData(walletState);
 
         return BlocBuilder<HomepageBloc, HomepageState>(
@@ -275,14 +265,12 @@ class _HomepageScreenState extends State<HomepageScreen> {
     );
   }
 
-  // ── State Handling ──
-
   void _handleWalletState(BuildContext context, WalletState state) {
     if (state is WalletCleared) {
       Future.microtask(() {
         // context.mounted, not State.mounted: the context here is the
-        // listener's, and a still-mounted State does not mean that element
-        // is still in the tree.
+        // listener's, and a still-mounted State does not mean that element is
+        // still in the tree.
         if (context.mounted) context.go(AppRoutes.onboarding);
       });
     } else if (state is AirdropRequested) {
@@ -297,17 +285,14 @@ class _HomepageScreenState extends State<HomepageScreen> {
     } else if (state is WalletAddressLoaded) {
       setState(() => _walletAddress = state.address);
       context.read<WalletBloc>().add(FetchBalanceEvent(state.address));
-      // Fetch NFTs once
       if (!_hasFetchedNfts) {
         _hasFetchedNfts = true;
         context.read<WalletBloc>().add(FetchNftsEvent(state.address));
       }
-      // Fetch SPL tokens once
       if (!_hasFetchedTokens) {
         _hasFetchedTokens = true;
         context.read<WalletBloc>().add(FetchTokensEvent(state.address));
       }
-      // Fetch stake accounts once
       if (!_hasFetchedStakes) {
         _hasFetchedStakes = true;
         context.read<StakingBloc>().add(FetchStakeAccountsEvent(state.address));
@@ -333,7 +318,6 @@ class _HomepageScreenState extends State<HomepageScreen> {
     }
   }
 
-  // Extracts current display values from BLoC state, falling back to cached values.
   _HomeData _resolveData(WalletState walletState) {
     double balanceInSol = _cachedBalanceInSol;
     bool isLoadingBalance = false;
@@ -351,11 +335,8 @@ class _HomepageScreenState extends State<HomepageScreen> {
     }
 
     if (walletState is BalanceFetched) {
-      // Defense in depth: ignore balance updates whose address doesn't
-      // match the wallet we're displaying. The bloc already drops these
-      // for the active wallet, but switching wallets in quick succession
-      // can still race. Better to keep the previous (stale) balance for
-      // a few frames than briefly flash the wrong wallet's number.
+      // Defense in depth: ignore balance updates whose address doesn't match
+      // the wallet we're displaying.
       final activeAddr = _walletAddress;
       if (activeAddr == null || walletState.address == activeAddr) {
         balanceInSol = walletState.balanceInSol;
@@ -377,7 +358,6 @@ class _HomepageScreenState extends State<HomepageScreen> {
       isLoadingBalance = true;
     }
 
-    // Fetch price once on first relevant state
     if (walletState is! WalletLoading && walletState is! SolPriceFetched && !_hasFetchedPrice) {
       _hasFetchedPrice = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -385,9 +365,8 @@ class _HomepageScreenState extends State<HomepageScreen> {
       });
     }
 
-    // Record a portfolio snapshot whenever we have a complete picture
-    // (balance AND price known). PortfolioHistory dedupes to one entry/hour
-    // so spamming this here is cheap.
+    // Record a portfolio snapshot whenever we have a complete picture (balance
+    // AND price known).
     if (balanceInSol > 0 && solPriceUsd > 0 && (address ?? _walletAddress) != null) {
       final tokensUsd = _cachedTokens.fold<double>(0, (sum, t) => sum + t.valueUsd);
       final totalUsd = (balanceInSol * solPriceUsd) + tokensUsd;
@@ -403,8 +382,6 @@ class _HomepageScreenState extends State<HomepageScreen> {
     );
   }
 
-  // ── Tab Content ──
-
   Widget _buildTabContent(int selectedIndex, _HomeData data) {
     switch (selectedIndex) {
       case 1: return const MarketScreen();
@@ -415,13 +392,11 @@ class _HomepageScreenState extends State<HomepageScreen> {
     }
   }
 
-  // The wallet card region — swipeable between wallets with a trailing
-  // "add wallet" slot. When only one wallet is installed the list is still
-  // two pages long (the wallet + the add slot) so the swipe affordance
-  // stays discoverable.
+  // The wallet card region — swipeable between wallets with a trailing "add
+  // wallet" slot.
   Widget _buildWalletArea(BuildContext context, _HomeData data) {
-    // No wallets yet — fall back to a single static BalanceCard so the
-    // initial render before WalletsLoaded arrives doesn't flicker.
+    // No wallets yet — fall back to a single static BalanceCard so the initial
+    // render before WalletsLoaded arrives doesn't flicker.
     if (_wallets.isEmpty) {
       return _buildBalanceCard(
         data: data,
@@ -507,9 +482,7 @@ class _HomepageScreenState extends State<HomepageScreen> {
       physics: const BouncingScrollPhysics(
           parent: AlwaysScrollableScrollPhysics()),
       slivers: [
-        // Solflare-style pull-to-refresh. The builder receives live pull
-        // progress — we use it to fade and scale the Lottie naturally as
-        // the user drags, and keep it playing while refresh runs.
+        // Solflare-style pull-to-refresh.
         CupertinoSliverRefreshControl(
           refreshTriggerPullDistance: 100,
           refreshIndicatorExtent: 60,
@@ -613,7 +586,6 @@ class _HomepageScreenState extends State<HomepageScreen> {
   }
 }
 
-// Simple data class to pass resolved state values around.
 class _HomeData {
   final double balanceInSol;
   final bool isLoadingBalance;

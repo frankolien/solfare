@@ -11,9 +11,7 @@ import 'package:solfare/features/wallet/data/datasource/wallet_accounts_store.da
 import 'package:solfare/features/wallet/data/model/wallet_model.dart';
 import 'package:solfare/features/wallet/domain/entities/wallet_account.dart';
 
-/// Local wallet operations backed by [WalletAccountsStore]. The single-
-/// wallet methods (saveWallet/getSavedAddress/etc.) all transparently
-/// target the active account.
+/// Local wallet operations backed by [WalletAccountsStore].
 abstract class WalletLocalDataSource {
   Future<WalletModel> createWallet();
   Future<WalletModel> deriveWallet(String mnemonic);
@@ -36,7 +34,7 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
   final FlutterSecureStorage _secureStorage;
   final WalletAccountsStore _accounts;
 
-  // Pre-multi-wallet keys. Read once by the migration, then deleted.
+  // Pre-multi-wallet keys.
   static const _legacyMnemonicKey = 'wallet_mnemonic';
   static const _legacyAddressKey = 'wallet_address';
   static const _migrationDoneKey = 'multi_wallet_migrated_v1';
@@ -47,9 +45,7 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
   })  : _secureStorage = secureStorage ?? SecureStore.instance,
         _accounts = accountsStore ?? WalletAccountsStore(storage: secureStorage);
 
-  // Lazy one-shot: runs on first call after upgrade. If a pre-multi-wallet
-  // entry exists, fold it into the new accounts store and delete the
-  // legacy keys so the mnemonic doesn't sit duplicated in storage.
+  // Lazy one-shot: runs on first call after upgrade.
   Future<void> _runMigrationIfNeeded() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -73,9 +69,6 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
       final card = prefs.getString('card_background') ?? 'card_1.png';
 
       // The legacy address key can be missing where the mnemonic is not.
-      // Carrying '' forward makes hasWallet() reject the account on its
-      // length check, which sends a user who owns a wallet to onboarding.
-      // The mnemonic is the source of truth; derive from it.
       final address = (legacyAddress == null || legacyAddress.isEmpty)
           ? (await Keyring.publicKeyFor(legacyMnemonic)).address
           : legacyAddress;
@@ -96,8 +89,8 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
       await prefs.setBool(_migrationDoneKey, true);
     } on CorruptWalletStoreException {
       // The one failure that must not be retried-and-forgotten: the accounts
-      // blob is already there and unreadable, so "migrate the legacy keys
-      // into it" would write over it.
+      // blob is already there and unreadable, so "migrate the legacy keys into
+      // it" would write over it.
       rethrow;
     } catch (_) {
       // Don't throw — leave legacy keys in place so the next launch retries.
@@ -140,10 +133,7 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
       final active = await _accounts.getActive();
       if (active == null) return false;
 
-      // A wrapped mnemonic is one long token, not twelve words. Word-counting
-      // it would fail this check for every migrated user and send them to
-      // onboarding — which is the path that overwrites the seed. Answering
-      // "is there a wallet" must not require being able to open it.
+      // A wrapped mnemonic is one long token, not twelve words.
       if (!MnemonicEnvelope.isWrapped(active.mnemonic)) {
         final words = active.mnemonic.trim().split(RegExp(r'\s+'));
         if (words.length != 12 && words.length != 24) return false;
@@ -153,9 +143,6 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
     } on CorruptWalletStoreException {
       rethrow;
     } catch (e) {
-      // "false" here used to mean both "no wallet" and "I could not tell",
-      // and the caller acts on it by offering to create one. Only the first
-      // of those is a safe thing to act on.
       throw LocalStorageException('Failed to check for a wallet: $e');
     }
   }
@@ -178,10 +165,7 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
       // Clear legacy keys too in case wipe is called pre-migration.
       await _secureStorage.delete(key: _legacyMnemonicKey);
       await _secureStorage.delete(key: _legacyAddressKey);
-      // The passcode belongs to the wallet it guards. Leaving it behind
-      // means the next wallet created on this device silently inherits the
-      // old one, and the app-lock keeps demanding a passcode for a wallet
-      // that no longer exists.
+      // The passcode belongs to the wallet it guards.
       await _secureStorage.delete(key: AppLock.passcodeKey);
       await _secureStorage.delete(key: 'passcode_failed_attempts');
       await _secureStorage.delete(key: 'passcode_lockout_until');
@@ -198,8 +182,8 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
       if (active == null) return null;
       return MnemonicEnvelope.unwrap(active.mnemonic, WalletKey.value);
     } on MnemonicLockedException {
-      // Distinct from a storage failure: the caller can fix this by asking
-      // for the passcode, and flattening it into LocalStorageException would
+      // Distinct from a storage failure: the caller can fix this by asking for
+      // the passcode, and flattening it into LocalStorageException would
       // present it as something broken instead.
       rethrow;
     } catch (e) {
@@ -247,8 +231,7 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
     final account = WalletAccount(
       id: WalletAccountsStore.newId(),
       address: model.address,
-      // Wrapped on the way in where there is a key. Without this a wallet
-      // added after the migration sits in the clear until the next unlock.
+      // Wrapped on the way in where there is a key.
       mnemonic: key == null ? mnemonic : MnemonicEnvelope.wrap(mnemonic, key),
       name: name ?? 'Wallet ${wallets.length + 1}',
       cardBackground: 'card_${(wallets.length % 10) + 1}.png',

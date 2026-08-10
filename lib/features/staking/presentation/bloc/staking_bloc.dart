@@ -43,10 +43,7 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
     emit(const StakingLoading());
     try {
       final raw = await _rpcDataSource.getStakeAccounts(event.walletAddress);
-      // The epoch is what makes the states distinguishable. Without it the
-      // old code had no branch that could return 'active' at all, so an
-      // account staked for months reported "activating" forever — and the
-      // detail screen showed "Time to stake: ~6h 38m" to match.
+      // The epoch is what makes the states distinguishable.
       final currentEpoch = await _currentEpoch();
       final accounts = raw.map((a) {
         final activation = a['activationEpoch'] as int;
@@ -66,8 +63,8 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
     }
   }
 
-  // Null when the epoch cannot be read, which leaves the states as
-  // conservative as they were rather than inventing one.
+  // Null when the epoch cannot be read, which leaves the states as conservative
+  // as they were rather than inventing one.
   Future<int?> _currentEpoch() async {
     try {
       return await _rpcDataSource.getEpoch();
@@ -78,10 +75,6 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
   }
 
   // The four states a stake account can be in, decided against the epoch.
-  //
-  // `_neverEpoch` (u64 max, clamped to max i64 on the way in) means the
-  // field is unset — a delegation that never deactivates, or one that has
-  // not activated.
   String _determineState(int activationEpoch, int deactivationEpoch, int? currentEpoch) {
     const neverEpoch = 9223372036854775807;
     final deactivating = deactivationEpoch != neverEpoch && deactivationEpoch != 0;
@@ -93,8 +86,8 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
     }
 
     if (deactivating) {
-      // Cooldown finishes at the end of the deactivation epoch; only after
-      // that is the balance actually withdrawable.
+      // Cooldown finishes at the end of the deactivation epoch; only after that
+      // is the balance actually withdrawable.
       return deactivationEpoch < currentEpoch ? 'inactive' : 'deactivating';
     }
     if (activationEpoch == 0 || activationEpoch == neverEpoch) return 'inactive';
@@ -143,12 +136,12 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
       final stakeAccountKeyPair = await solana.Ed25519HDKeyPair.random();
 
       final lamports = Lamports.fromSol(event.amountInSol);
-      // Stake accounts are 200 bytes; the rent-exempt minimum has to be
-      // funded on top of the staked amount or the account gets purged.
+      // Stake accounts are 200 bytes; the rent-exempt minimum has to be funded
+      // on top of the staked amount or the account gets purged.
       final rentExemption = await _rpcDataSource.getMinimumBalanceForRentExemption(200);
 
-      // Bundle createAccount + initialize + delegate into one transaction
-      // — splitting them risks landing the create without the delegate and
+      // Bundle createAccount + initialize + delegate into one transaction —
+      // splitting them risks landing the create without the delegate and
       // leaving an idle stake account on the user's wallet.
       final createAndInitInstructions = solana.StakeInstruction.createAndInitializeAccount(
         fundingAccount: senderKeyPair.publicKey,
@@ -190,11 +183,6 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
   }
 
   // Three different things, and only one of them is safe to retry.
-  //
-  // "Nothing was staked, try again" used to be said for anything that was
-  // not an on-chain failure — including a transaction that was merely still
-  // in flight when the poll ran out of time. A user told that, who then
-  // retries, stakes twice.
   String _failureMessage(TxOutcome outcome) {
     debugLog('[StakingBloc] $outcome');
     return switch (outcome.status) {

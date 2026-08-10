@@ -6,20 +6,14 @@ import 'package:solfare/core/util/app_log.dart';
 import 'package:solfare/features/market/presentation/brand_palette.dart';
 
 /// Brand colours, resolved from logo URLs and remembered.
-///
-/// Loading goes through [NetworkImage], so the logo is normally already
-/// decoded and sitting in Flutter's image cache from the icon on the same
-/// screen. Results are memoised per URL — including the nulls, so a greyscale
-/// logo is measured once and never again.
 class BrandColors {
   const BrandColors._();
 
   static final Map<String, Color?> _cache = {};
   static final Map<String, Future<Color?>> _inFlight = {};
 
-  /// Null when there is no brand colour to be had: no URL, a network error,
-  /// an SVG, a decode failure, or a logo with no hue in it. The caller keeps
-  /// whatever colour it was already using.
+  /// Null when there is no brand colour to be had: no URL, a network error, an
+  /// SVG, a decode failure, or a logo with no hue in it.
   static Future<Color?> of(String imageUrl) {
     if (imageUrl.isEmpty) return Future.value(null);
     if (_cache.containsKey(imageUrl)) return Future.value(_cache[imageUrl]);
@@ -28,8 +22,7 @@ class BrandColors {
     });
   }
 
-  /// The answer if it is already known, without waiting. Lets a rebuild paint
-  /// the right colour immediately instead of flashing the fallback.
+  /// The answer if it is already known, without waiting.
   static Color? cached(String imageUrl) => _cache[imageUrl];
 
   static Future<Color?> _load(String url) async {

@@ -31,10 +31,6 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
   @override
   void initState() {
     super.initState();
-    // A TextField the user types or pastes twelve words into is a seed on
-    // screen exactly like the create flow's, and this was the one such
-    // screen that never asked for protection — screenshot-able, and in the
-    // app-switcher snapshot.
     unawaited(SecureScreen.enable());
   }
 
@@ -66,11 +62,8 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
     context.read<WalletBloc>().add(ImportWalletEvent(mnemonic));
   }
 
-  // After a successful import, send the user through passcode creation
-  // (and then biometric setup) if they don't already have a passcode set.
-  // Going straight to homepage would leave the wallet accessible with no
-  // lock screen — and on next launch the splash would bounce them back
-  // to onboarding because no passcode exists.
+  // After a successful import, send the user through passcode creation (and
+  // then biometric setup) if they don't already have a passcode set.
   void _continueAfterImport() {
     if (AppLock.instance.hasPasscode) {
       context.go(AppRoutes.homepage);
@@ -153,9 +146,6 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
     );
   }
 
-  // ─────────────────────────────────────────────
-  // STAGE 1: Input recovery phrase
-  // ─────────────────────────────────────────────
   Widget _buildInputStage() {
     return Padding(
       key: const ValueKey('input'),
@@ -175,7 +165,6 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
           ),
           const SizedBox(height: 20),
 
-          // Text input area
           Container(
             decoration: BoxDecoration(
               border: Border.all(
@@ -215,7 +204,6 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
                   },
                 ),
                 const Divider(color: Colors.white12, height: 1),
-                // Paste button
                 GestureDetector(
                   onTap: _onPaste,
                   child: Padding(
@@ -242,7 +230,6 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
             ),
           ),
 
-          // Error message
           if (_hasError) ...[
             const SizedBox(height: 12),
             Text(
@@ -257,7 +244,6 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
 
           const Spacer(),
 
-          // Confirm button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -292,9 +278,6 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
     );
   }
 
-  // ─────────────────────────────────────────────
-  // STAGE 2: Analyzing wallets (shield loader)
-  // ─────────────────────────────────────────────
   Widget _buildAnalyzingStage() {
     return Center(
       key: const ValueKey('analyzing'),
@@ -325,9 +308,6 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
     );
   }
 
-  // ─────────────────────────────────────────────
-  // STAGE 3: Result — wallet found or not
-  // ─────────────────────────────────────────────
   Widget _buildResultStage() {
     return Padding(
       key: const ValueKey('result'),
@@ -335,7 +315,6 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
       child: Column(
         children: [
           const Spacer(flex: 3),
-          // Wallet icons
           Image.asset(
             'assets/assets/images/empty_wallet.png',
             width: 180,
@@ -372,7 +351,6 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
           ),
           const Spacer(flex: 4),
 
-          // Quick setup button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -397,7 +375,6 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Advanced button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -409,7 +386,6 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
                 ),
               ),
               onPressed: () {
-                // Future: advanced import options (custom derivation paths, etc.)
               },
               child: const Text(
                 'Advanced',

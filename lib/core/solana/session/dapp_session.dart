@@ -5,43 +5,26 @@ import 'package:bs58/bs58.dart';
 import 'package:pinenacl/x25519.dart' as nacl;
 
 /// An encrypted channel with one dapp.
-///
-/// Each connection gets its own keypair, so revoking one dapp cannot affect
-/// another and a leaked session key is worth exactly one dapp's traffic. The
-/// construction is Curve25519 + XSalsa20 + Poly1305 — the same one the
-/// established wallet deeplink schemes use, so a dapp written against them
-/// needs no new cryptography to talk to Solfare.
 class DappSession {
-  /// Host of the dapp's https origin. The only identity worth trusting: a
-  /// dapp picks its own name, it does not pick its domain.
+  /// Host of the dapp's https origin.
   final String origin;
 
-  /// The dapp's x25519 public key, base58. Also the session's lookup key.
+  /// The dapp's x25519 public key, base58.
   final String dappPublicKey;
 
-  /// Our x25519 private key for this dapp, base58. Never leaves the device.
+  /// Our x25519 private key for this dapp, base58.
   final String sessionPrivateKey;
 
-  /// Wallet the user connected. A session is bound to one account.
+  /// Wallet the user connected.
   final String walletAddress;
 
   /// Opaque token echoed by the dapp on later requests.
   final String sessionToken;
 
   /// Where replies go, fixed at connect time.
-  ///
-  /// It used to be read off each incoming request instead. That let a
-  /// captured deeplink be resent with the callback swapped: the payload
-  /// decrypts (same key, same nonce, same ciphertext), the sheet shows the
-  /// real dapp and the real preview, and the signed transaction is delivered
-  /// to whoever asked last.
   final String redirectLink;
 
   /// Nonces already accepted from this dapp, newest last.
-  ///
-  /// Sealed payloads are replayable without this: the same ciphertext opens
-  /// every time. Bounded, because a session is long-lived and an unbounded
-  /// list is a way to fill the keychain.
   final List<String> seenNonces;
 
   final DateTime createdAt;
@@ -59,17 +42,13 @@ class DappSession {
     this.seenNonces = const [],
   });
 
-  /// Sessions go stale rather than living forever. A dapp the user has not
-  /// opened in a month should have to ask again.
+  /// Sessions go stale rather than living forever.
   static const Duration maxIdle = Duration(days: 30);
 
-  /// And an absolute ceiling regardless of use. Without one, a dapp that
-  /// pings monthly holds its grant forever, which is not what "I connected
-  /// to this once" means.
+  /// And an absolute ceiling regardless of use.
   static const Duration maxLifetime = Duration(days: 90);
 
-  /// How many nonces to remember. Generous next to any real request rate,
-  /// and small enough that the stored session stays a few kilobytes.
+  /// How many nonces to remember.
   static const int nonceMemory = 256;
 
   bool isExpiredAt(DateTime now) =>
@@ -103,10 +82,7 @@ class DappSession {
         lastUsedAt: lastUsedAt ?? this.lastUsedAt,
       );
 
-  // UTC on the way out. toIso8601String() on a local DateTime emits no
-  // offset and parses back as local, so a session written in UTC+2 and read
-  // in UTC-7 shifted nine hours — living that much too long or dying that
-  // much early, depending on which way the user travelled.
+  // UTC on the way out.
   Map<String, dynamic> toJson() => {
         'origin': origin,
         'dappPublicKey': dappPublicKey,
@@ -136,9 +112,6 @@ class DappSession {
 }
 
 /// Sealing and opening payloads for a session.
-///
-/// Kept apart from [DappSession] so the key handling has one home and the
-/// session stays a plain record.
 class SessionCrypto {
   const SessionCrypto._();
 
@@ -151,8 +124,7 @@ class SessionCrypto {
     );
   }
 
-  /// An opaque session token for the dapp to echo back. 32 bytes from the
-  /// same CSPRNG the keys come from.
+  /// An opaque session token for the dapp to echo back.
   static String randomToken() => base58.encode(
         Uint8List.fromList(nacl.PrivateKey.generate().publicKey.toList()),
       );
@@ -162,8 +134,7 @@ class SessionCrypto {
         theirPublicKey: nacl.PublicKey(base58.decode(theirPublicKey)),
       );
 
-  /// Encrypt [payload] for the dapp. Returns the nonce and ciphertext, both
-  /// base58, since that is what travels in a deeplink.
+  /// Encrypt [payload] for the dapp.
   static ({String nonce, String payload}) seal({
     required Map<String, dynamic> payload,
     required String sessionPrivateKey,
@@ -180,10 +151,6 @@ class SessionCrypto {
   }
 
   /// Decrypt a payload from the dapp.
-  ///
-  /// Throws [SessionCryptoException] on any failure. Callers must not report
-  /// which part failed: telling a caller apart "wrong key" from "bad
-  /// ciphertext" hands them an oracle.
   static Map<String, dynamic> open({
     required String nonce,
     required String payload,
@@ -207,8 +174,7 @@ class SessionCrypto {
   }
 }
 
-/// Deliberately carries no detail. The dapp learns that it failed, nothing
-/// about why.
+/// Deliberately carries no detail.
 class SessionCryptoException implements Exception {
   const SessionCryptoException();
 

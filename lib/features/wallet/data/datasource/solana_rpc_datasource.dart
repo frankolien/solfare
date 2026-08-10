@@ -10,8 +10,6 @@ import 'package:solfare/features/wallet/domain/entities/nft.dart';
 import 'package:solfare/features/wallet/domain/entities/spl_token.dart';
 import 'package:solfare/features/wallet/domain/entities/transactions.dart' show TransactionKind;
 
-/// Data source for Solana RPC calls
-/// Handles communication with Solana blockchain
 abstract class SolanaRpcDataSource {
   Future<String> requestAirdrop(String address, int lamports);
   Future<int> getBalance(String address);
@@ -25,23 +23,18 @@ abstract class SolanaRpcDataSource {
   Future<List<Map<String, dynamic>>> getVoteAccounts();
   Future<int> getMinimumBalanceForRentExemption(int dataLength);
 
-  // ── Transaction lifecycle ──
-
   /// Micro-lamports per compute unit paid in recent slots by transactions
-  /// touching [writableAccounts]. Empty means the fee market is idle.
+  /// touching [writableAccounts].
   Future<List<int>> getRecentPrioritizationFees(List<String> writableAccounts);
 
-  /// Dry-run against the current bank. Returns the raw `value`:
-  /// `{err, logs, unitsConsumed, preBalances, postBalances, ...}`.
+  /// Dry-run against the current bank.
   Future<Map<String, dynamic>> simulateTransaction(String base64Tx, {bool innerInstructions});
 
   /// Null if the cluster has never seen [signature] — dropped, or not yet
   /// propagated.
   Future<Map<String, dynamic>?> getSignatureStatus(String signature);
 
-  /// Program log lines for a landed transaction. `getSignatureStatuses`
-  /// reports that a transaction failed but never why; the logs are the only
-  /// place the reason is written down.
+  /// Program log lines for a landed transaction.
   Future<List<String>> getTransactionLogs(String signature);
 
   /// Compared against a blockhash's lastValidBlockHeight to detect expiry.
@@ -50,12 +43,11 @@ abstract class SolanaRpcDataSource {
   /// jsonParsed account data, or null when the account does not exist.
   Future<Map<String, dynamic>?> getAccountInfo(String address);
 
-  /// Expiry check for transactions we didn't build and have no block
-  /// height for.
+  /// Expiry check for transactions we didn't build and have no block height
+  /// for.
   Future<bool> isBlockhashValid(String blockhash);
 
   /// UI balance [owner] holds of [mint], summed across their token accounts.
-  /// Zero when they hold none.
   Future<double> getTokenBalance(String owner, String mint);
 
   /// Current epoch — decides which of a Token-2022 mint's two transfer fee
@@ -72,7 +64,6 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     http.Client? client,
   })  : client = client ?? http.Client();
 
-  // Validate a Solana address and return the cleaned version
   String _validateAddress(String address) {
     final trimmed = address.trim();
     if (trimmed.isEmpty) {
@@ -115,10 +106,6 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     );
 
     if (response.statusCode == 200) {
-      // Typed all the way down. A JSON-RPC envelope that is not an object,
-      // or an error member that is not one, used to reach `['message']` as a
-      // dynamic call and throw a NoSuchMethodError in place of the error it
-      // was trying to report.
       final data = asJsonMap(jsonDecode(response.body));
       if (data == null) {
         throw Exception('$method returned something that is not a JSON object');
@@ -149,8 +136,7 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     try {
       final cleanAddress = _validateAddress(address);
       // Use 'confirmed' to match the commitment level at which the WS fires
-      // accountNotification. With the default 'finalized' level the RPC
-      // returns the pre-tx balance for several seconds after a send.
+      // accountNotification.
       final result = await _rpcCall('getBalance', [
         cleanAddress,
         {'commitment': 'confirmed'},
@@ -265,8 +251,8 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     }
   }
 
-  /// Defaults to `confirmed` — a finalized blockhash is already ~32 slots
-  /// into its 150-block validity window.
+  /// Defaults to `confirmed` — a finalized blockhash is already ~32 slots into
+  /// its 150-block validity window.
   @override
   Future<Map<String, dynamic>> getLatestBlockhash({String commitment = 'confirmed'}) async {
     try {
@@ -375,8 +361,8 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
       final logs = asJsonMap(result)?.mapAt('meta')?.listAt('logMessages');
       return logs?.whereType<String>().toList() ?? const [];
     } catch (e) {
-      // A missing explanation is not worth failing over — the caller falls
-      // back to the generic message it would have shown anyway.
+      // A missing explanation is not worth failing over — the caller falls back
+      // to the generic message it would have shown anyway.
       debugLog('[RPC] Could not read logs for $signature: $e');
       return const [];
     }
@@ -410,13 +396,8 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
         {'encoding': 'jsonParsed', 'commitment': 'confirmed'},
       ]);
 
-      // A wallet can hold the same mint in more than one account — the ATA
-      // plus anything an airdrop or a program created for it.
-      // Summed in base units through BigInt, not as doubles. uiAmount is a
-      // JSON double and is exact only to 2^53, so a nine-decimal balance
-      // above ~9,007,199 tokens loses base units — and swap_bloc converts
-      // this straight back to an integer amount, where rounding up past the
-      // real balance makes the route fail for no visible reason.
+      // A wallet can hold the same mint in more than one account — the ATA plus
+      // anything an airdrop or a program created for it.
       var raw = BigInt.zero;
       var decimals = 0;
       for (final account in asJsonMap(result)?.listAt('value') ?? const []) {
@@ -460,7 +441,8 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     final validAddress = _validateAddress(address);
 
     try {
-      // Helius DAS getAssetsByOwner returns regular + compressed NFTs with metadata.
+      // Helius DAS getAssetsByOwner returns regular + compressed NFTs with
+      // metadata.
       final response = await HttpRetry.send(
         () => client.post(
           Uri.parse(NetworkConstants.heliusDasUrl),
@@ -509,8 +491,7 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
 
     try {
       // Helius DAS getAssetsByOwner with showFungible=true returns SPL tokens
-      // with balance + price data in token_info. One call covers every token
-      // the user holds including Token-2022.
+      // with balance + price data in token_info.
       final response = await HttpRetry.send(
         () => client.post(
           Uri.parse(NetworkConstants.heliusDasUrl),
@@ -553,8 +534,6 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     }
   }
 
-  // Map a DAS asset payload to a SplToken. Returns null for non-fungible
-  // assets and for tokens with a zero balance (to keep the list tidy).
   SplToken? _tokenFromDasAsset(Map<String, dynamic> asset) {
     final interface = asset['interface'] as String? ?? '';
     if (!interface.contains('Fungible')) return null;
@@ -576,9 +555,7 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
 
     final content = asset['content'] as Map<String, dynamic>?;
     final metadata = content?['metadata'] as Map<String, dynamic>?;
-    // A mint with no metadata has neither. Naming them all "Unknown token"
-    // makes two such holdings indistinguishable in the list, so fall back to
-    // the mint — which at least identifies which one is which.
+    // A mint with no metadata has neither.
     final shortMint = mint.length <= 8
         ? mint
         : '${mint.substring(0, 4)}…${mint.substring(mint.length - 4)}';
@@ -616,9 +593,7 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     );
   }
 
-  // First value that is present and not blank. DAS returns both null and
-  // empty strings for missing metadata, and only one of those is caught by
-  // a `??` chain.
+  // First value that is present and not blank.
   String? _firstNonEmpty(List<String?> candidates) {
     for (final value in candidates) {
       if (value != null && value.trim().isNotEmpty) return value;
@@ -634,12 +609,10 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     return v;
   }
 
-  // Map a DAS asset payload to our Nft entity. Filters out non-NFT assets
-  // (fungible tokens) by interface type.
   Nft? _nftFromDasAsset(Map<String, dynamic> asset) {
     final interface = asset['interface'] as String? ?? '';
-    // Interfaces for NFTs: V1_NFT, V2_NFT, ProgrammableNFT, LEGACY_NFT, MplCoreAsset.
-    // Exclude: FungibleToken, FungibleAsset.
+    // Interfaces for NFTs: V1_NFT, V2_NFT, ProgrammableNFT, LEGACY_NFT,
+    // MplCoreAsset.
     if (interface.contains('Fungible')) return null;
 
     final mint = asset['id'] as String?;
@@ -650,9 +623,8 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     final name = metadata?['name'] as String? ?? 'Unnamed NFT';
     final description = metadata?['description'] as String?;
 
-    // Image: prefer animated variants (gif/webp) when multiple files are listed,
-    // fall back to any static image. Use origin `uri` over Helius `cdn_uri` —
-    // the CDN's on-the-fly resize frequently returns 524 (Cloudflare timeout).
+    // Image: prefer animated variants (gif/webp) when multiple files are
+    // listed, fall back to any static image.
     String? imageUrl;
     final files = content?['files'] as List?;
     if (files != null) {
@@ -707,16 +679,14 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     );
   }
 
-  // Inspect a parsed transaction's token balance deltas to find an NFT
-  // transfer involving [owner]. Returns null if none found. An NFT is
-  // identified by decimals=0 and a balance change of exactly 1 unit.
+  // Inspect a parsed transaction's token balance deltas to find an NFT transfer
+  // involving [owner].
   _NftTransferInfo? _detectNftTransfer(Map<String, dynamic> meta, String owner) {
     final preBalances = meta.listAt('preTokenBalances') ?? const [];
     final postBalances = meta.listAt('postTokenBalances') ?? const [];
     if (preBalances.isEmpty && postBalances.isEmpty) return null;
 
     // Index balances by (accountIndex, mint) so we can diff pre vs post.
-    // Map key: "$accountIndex|$mint" -> {owner, amount, decimals}
     Map<String, Map<String, dynamic>> indexBy(List balances) {
       final out = <String, Map<String, dynamic>>{};
       for (final b in balances) {
@@ -778,7 +748,7 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
   }
 
   /// Fetch a single asset by mint — used by transaction history to attach NFT
-  /// metadata to detected SPL transfers. Returns null on failure.
+  /// metadata to detected SPL transfers.
   @override
   Future<Nft?> getAssetByMint(String mint) async {
     try {
@@ -804,14 +774,14 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
   }
 
   // True if [uri]'s extension suggests an animated image that Flutter's
-  // Image.network can render (gif, animated webp). Videos (mp4/webm) are
-  // excluded since they need video_player.
+  // Image.network can render (gif, animated webp).
   bool _looksAnimated(String uri) {
     final lower = uri.toLowerCase().split('?').first;
     return lower.endsWith('.gif') || lower.endsWith('.webp');
   }
 
-  // Rewrite ipfs:// and ar:// URIs to public HTTPS gateways so Image.network can load them.
+  // Rewrite ipfs:// and ar:// URIs to public HTTPS gateways so Image.network
+  // can load them.
   String? _normalizeImageUri(String? uri) {
     if (uri == null || uri.isEmpty) return null;
     final trimmed = uri.trim();
@@ -863,8 +833,6 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
           'lamports': inner.intAt('lamports') ?? 0,
           'voterPubkey': delegation?.stringAt('voter'),
           // Epochs arrive as decimal strings and u64 max means "never".
-          // int.tryParse returns null for a value past 2^63, so the ?? 0
-          // below turned "never deactivates" into "deactivated at epoch 0".
           'activationEpoch': _epoch(delegation?['activationEpoch']),
           'deactivationEpoch': _epoch(delegation?['deactivationEpoch']),
         });
@@ -915,12 +883,6 @@ class _NftTransferInfo {
   const _NftTransferInfo({required this.mint, required this.from, required this.to});
 }
 
-// A stake delegation epoch.
-//
-// The runtime writes u64 max for "never deactivates", which is past 2^63 and
-// so returns null from int.tryParse. The old `?? 0` turned that into
-// "deactivated at epoch 0", which is how an actively-staked account read as
-// deactivating forever.
 int _epoch(Object? raw) {
   final parsed = BigInt.tryParse(raw?.toString() ?? '');
   if (parsed == null) return 0;

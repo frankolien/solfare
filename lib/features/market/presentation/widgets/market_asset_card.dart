@@ -6,10 +6,6 @@ import 'package:solfare/features/market/presentation/widgets/market_row.dart';
 import 'package:solfare/features/market/presentation/widgets/market_token_icon.dart';
 
 /// One asset, seen at a glance.
-///
-/// Used for the shelves on the home, where the question is "what is here"
-/// rather than "how does this compare" — so it shows the logo large and the
-/// three numbers that fit, and leaves the rest to the list.
 class MarketAssetCard extends StatelessWidget {
   final MarketToken token;
   final MarketWindow window;

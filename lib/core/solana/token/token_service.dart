@@ -20,8 +20,6 @@ class TokenService {
   const TokenService(this._rpc);
 
   /// Rough rent for a token account, used to warn before the sender pays it.
-  /// The real figure comes from the simulation; this is for the amount screen,
-  /// which runs before there is a transaction to simulate.
   static const int approximateAtaRentLamports = 2039280;
 
   /// Read a mint and everything about it that changes a transfer.
@@ -31,8 +29,8 @@ class TokenService {
       throw const TokenTransferException('That token does not exist on this network.');
     }
 
-    // The epoch only matters when the mint has a fee change pending, which
-    // is rare — so the common path keeps its single round trip.
+    // The epoch only matters when the mint has a fee change pending, which is
+    // rare — so the common path keeps its single round trip.
     int? epoch;
     if (MintInfo.needsEpoch(account)) {
       try {
@@ -102,9 +100,9 @@ class TokenService {
       ));
     }
 
-    // transferChecked over transfer: it verifies decimals on chain, which
-    // turns a decimals mistake into a rejected transaction rather than a
-    // transfer off by a factor of a thousand.
+    // transferChecked over transfer: it verifies decimals on chain, which turns
+    // a decimals mistake into a rejected transaction rather than a transfer off
+    // by a factor of a thousand.
     instructions.add(solana.TokenInstruction.transferChecked(
       amount: amount,
       decimals: mint.decimals,
@@ -118,8 +116,8 @@ class TokenService {
     return instructions;
   }
 
-  /// True when the destination account has to be created, which the sender
-  /// pays rent for.
+  /// True when the destination account has to be created, which the sender pays
+  /// rent for.
   Future<bool> destinationNeedsCreating({
     required MintInfo mint,
     required String recipient,

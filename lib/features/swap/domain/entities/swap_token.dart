@@ -15,7 +15,6 @@ class SwapToken {
     this.priceUsd,
   });
 
-  // Native SOL
   static const sol = SwapToken(
     mint: 'So11111111111111111111111111111111111111112',
     symbol: 'SOL',
@@ -24,7 +23,6 @@ class SwapToken {
     logoUrl: 'https://assets.coingecko.com/coins/images/4128/large/solana.png',
   );
 
-  // USDC on Solana
   static const usdc = SwapToken(
     mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
     symbol: 'USDC',

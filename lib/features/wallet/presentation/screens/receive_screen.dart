@@ -21,7 +21,6 @@ class ReceiveScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
               child: Row(
@@ -51,7 +50,6 @@ class ReceiveScreen extends StatelessWidget {
               ),
             ),
 
-            // QR Card centered
             Expanded(
               child: Center(
                 child: Padding(
@@ -66,7 +64,6 @@ class ReceiveScreen extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // QR Code
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
@@ -91,7 +88,6 @@ class ReceiveScreen extends StatelessWidget {
 
                         const SizedBox(height: 20),
 
-                        // Main Wallet + address + Solana icon
                         Row(
                           children: [
                             Expanded(
@@ -110,7 +106,6 @@ class ReceiveScreen extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            // Solana logo
                             Container(
                               width: 36,
                               height: 36,
@@ -131,7 +126,6 @@ class ReceiveScreen extends StatelessWidget {
               ),
             ),
 
-            // Footer
             Padding(
               padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.of(context).padding.bottom + 16),
               child: Column(
@@ -143,7 +137,6 @@ class ReceiveScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
 
-                  // Copy + Share buttons
                   Row(
                     children: [
                       Expanded(

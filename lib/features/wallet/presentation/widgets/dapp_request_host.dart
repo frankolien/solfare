@@ -15,12 +15,8 @@ import 'package:solfare/features/wallet/data/datasource/solana_rpc_datasource.da
 import 'package:solfare/features/wallet/presentation/widgets/dapp_approval_sheet.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Watches for dapp requests arriving over the deeplink bridge and drives
-/// them to an answer.
-///
-/// Wraps the app's content rather than living on one screen: a request can
-/// arrive whenever the app is opened by another one, and it must not depend
-/// on which screen happened to be visible.
+/// Watches for dapp requests arriving over the deeplink bridge and drives them
+/// to an answer.
 class DappRequestHost extends StatefulWidget {
   final Widget child;
 
@@ -44,8 +40,8 @@ class _DappRequestHostState extends State<DappRequestHost> {
       preview: PreviewEngine(rpc),
     );
     DeepLinkBridge.dappRequest.addListener(_onRequest);
-    // A request can arrive before this mounts, when the app is launched cold
-    // by the deeplink rather than merely resumed.
+    // A request can arrive before this mounts, when the app is launched cold by
+    // the deeplink rather than merely resumed.
     if (DeepLinkBridge.dappRequest.value != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _onRequest());
     }
@@ -76,20 +72,19 @@ class _DappRequestHostState extends State<DappRequestHost> {
 
       final prompt = await _service.prepare(request, walletAddress: address);
 
-      // Disconnecting is the one request that needs no approval — a dapp
-      // giving up access is not a decision to protect the user from.
+      // Disconnecting is the one request that needs no approval — a dapp giving
+      // up access is not a decision to protect the user from.
       if (request is DappDisconnectRequest) {
         await _reply(await _service.approve(prompt, keyPair: await _keyPair()));
         return;
       }
 
-      // This widget wraps MaterialApp.builder, so its own context is above
-      // the Navigator and cannot host a sheet. Present over the router's
-      // Navigator instead.
+      // This widget wraps MaterialApp.builder, so its own context is above the
+      // Navigator and cannot host a sheet.
       final navigatorContext = rootNavigatorKey.currentContext;
       // navigatorContext.mounted, not this widget's `mounted`: the context
-      // belongs to the router's Navigator, which is the thing that has to
-      // still be there to host the sheet.
+      // belongs to the router's Navigator, which is the thing that has to still
+      // be there to host the sheet.
       if (navigatorContext == null || !navigatorContext.mounted) return;
 
       final approved = await showModalBottomSheet<bool>(
@@ -113,8 +108,7 @@ class _DappRequestHostState extends State<DappRequestHost> {
     } on DappRequestRejected catch (e) {
       await _reply(await _service.reject(request, message: e.message, code: e.code));
     } on SessionCryptoException {
-      // The payload did not decrypt. The dapp is told the request was
-      // invalid and nothing about which part failed.
+      // The payload did not decrypt.
       await _reply(await _service.reject(request,
           message: 'Could not read that request.',
           code: DappRequestParser.errorInvalidRequest));

@@ -1,8 +1,3 @@
-/// A trading window.
-///
-/// Jupiter returns a stats block for every window in the same response, so
-/// switching between them is a projection of data already held rather than
-/// another request.
 enum MarketWindow {
   m5('5m'),
   h1('1h'),
@@ -36,8 +31,7 @@ class MarketStats {
 
   double get volume => buyVolume + sellVolume;
 
-  /// Buying minus selling. Negative means the window sold off even where the
-  /// price held up.
+  /// Buying minus selling.
   double get netVolume => buyVolume - sellVolume;
 
   @override

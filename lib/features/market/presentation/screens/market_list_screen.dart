@@ -11,9 +11,6 @@ import 'package:solfare/features/market/presentation/screens/token_detail_screen
 import 'package:solfare/features/market/presentation/widgets/market_row.dart';
 
 /// One section in full: every row, over any window, sorted any way.
-///
-/// Reached from a section's chevron on the home. The home answers "what is
-/// going on"; this answers "show me all of it".
 class MarketListScreen extends StatelessWidget {
   final MarketSection section;
 
@@ -152,8 +149,8 @@ class _MarketListView extends StatelessWidget {
     );
   }
 
-  // The two right-hand columns double as the sort control, so ordering the
-  // list is a tap on the thing being ordered rather than a hidden menu.
+  // The two right-hand columns double as the sort control, so ordering the list
+  // is a tap on the thing being ordered rather than a hidden menu.
   Widget _columnHeaders(BuildContext context, MarketState state) {
     return Column(
       children: [

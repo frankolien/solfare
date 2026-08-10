@@ -7,13 +7,6 @@ import 'package:photo_manager/photo_manager.dart';
 import 'package:solfare/core/util/app_log.dart';
 
 /// Photo library grid that pops the chosen image back as a [File].
-///
-/// Exists because image_picker asks the PHPicker item provider for image data
-/// and gives up when the asset only lives in iCloud — the failure users see as
-/// "Cannot load representation of type public.jpeg". photo_manager goes
-/// through PHImageManager with network access allowed, so the same photo
-/// downloads instead of failing, and [PMProgressHandler] reports how far along
-/// that download is.
 class PhotoPickerSheet extends StatefulWidget {
   const PhotoPickerSheet({super.key});
 
@@ -181,8 +174,7 @@ class _PhotoPickerSheetState extends State<PhotoPickerSheet> {
             ),
           ),
           const Spacer(),
-          // iOS 14+ can grant access to a hand-picked subset. Without a way
-          // back into that sheet the user is stuck with whatever they chose.
+          // iOS 14+ can grant access to a hand-picked subset.
           if (_permission == PermissionState.limited)
             TextButton(
               onPressed: () async {
@@ -312,8 +304,7 @@ class _PhotoPickerSheetState extends State<PhotoPickerSheet> {
   }
 }
 
-// One grid cell. Thumbnails are decoded per tile and held by the element so
-// a rebuild during scrolling doesn't re-request bytes from the platform.
+// One grid cell.
 class _Thumbnail extends StatefulWidget {
   final AssetEntity asset;
   final VoidCallback onTap;

@@ -47,8 +47,8 @@ class ExecuteSwapEvent extends SwapEvent {
   List<Object?> get props => [walletAddress];
 }
 
-/// Fetch the wallet's balance of whichever token is currently selected as
-/// the input, so the swap button can tell "no balance" from "no quote".
+/// Fetch the wallet's balance of whichever token is currently selected as the
+/// input, so the swap button can tell "no balance" from "no quote".
 class LoadInputBalanceEvent extends SwapEvent {
   final String walletAddress;
   const LoadInputBalanceEvent(this.walletAddress);
@@ -65,9 +65,7 @@ class ConfirmSwapEvent extends SwapEvent {
   const ConfirmSwapEvent();
 }
 
-/// Back out of the review. The signed route is dropped rather than held:
-/// broadcasting a transaction somebody changed their mind about is the one
-/// thing this stage exists to prevent.
+/// Back out of the review.
 class CancelSwapReviewEvent extends SwapEvent {
   const CancelSwapReviewEvent();
 }

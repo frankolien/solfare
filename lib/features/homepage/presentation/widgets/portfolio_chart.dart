@@ -21,10 +21,6 @@ extension on _Timeframe {
 }
 
 /// Shows the user's total portfolio USD value over time.
-///
-/// Data comes from [PortfolioHistory] — local snapshots taken on every
-/// balance/price refresh. First launch has nothing to show, so we render a
-/// friendly empty state instead of an empty chart.
 class PortfolioChart extends StatefulWidget {
   final String address;
   final double currentUsdValue;

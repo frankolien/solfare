@@ -4,10 +4,6 @@ import 'package:solfare/core/solana/session/dapp_request.dart';
 import 'package:solfare/features/wallet/presentation/widgets/tx_preview_body.dart';
 
 /// Approval sheet for a request from another app.
-///
-/// The identity shown is the origin host, never a name the dapp chose for
-/// itself. Everything the dapp says about its own request is decoration; the
-/// preview underneath comes from simulating the transaction.
 class DappApprovalSheet extends StatelessWidget {
   final DappPrompt prompt;
   final String walletAddress;
@@ -92,12 +88,7 @@ class DappApprovalSheet extends StatelessWidget {
                     fontFamily: 'FKGroteskSemiMono',
                     fontWeight: FontWeight.w600),
               ),
-              // Said out loud, because it is not verified. The origin comes
-              // from an `app_url` query parameter the caller supplies, and
-              // over a custom scheme nothing ties it to the encryption key —
-              // so any app can open a connect link claiming to be jup.ag.
-              // Until there is a Universal Links association to check it
-              // against, presenting it as fact is the lie.
+              // Said out loud, because it is not verified.
               const SizedBox(height: 2),
               Row(
                 children: [
@@ -130,8 +121,7 @@ class DappApprovalSheet extends StatelessWidget {
         ),
       );
 
-  // A message is arbitrary text from a stranger. It is shown as a quotation
-  // with its own framing so it cannot be mistaken for the wallet speaking.
+  // A message is arbitrary text from a stranger.
   Widget _message() => Padding(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
         child: Container(
@@ -198,9 +188,7 @@ class DappApprovalSheet extends StatelessWidget {
       );
 
   Widget _buttons(BuildContext context) {
-    // needsDeliberateApproval, not hasDanger. An unverified preview carries
-    // no flags at all, so a transaction the network could not check used to
-    // render the same ordinary yellow Approve as a fully verified safe one.
+    // needsDeliberateApproval, not hasDanger.
     final danger = prompt.preview?.needsDeliberateApproval ?? false;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),

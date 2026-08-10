@@ -35,7 +35,6 @@ class _ConfirmStakeSheetState extends State<ConfirmStakeSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header
           Padding(
             padding: const EdgeInsets.fromLTRB(50, 16, 8, 0),
             child: Row(
@@ -52,7 +51,6 @@ class _ConfirmStakeSheetState extends State<ConfirmStakeSheet> {
           ),
           const SizedBox(height: 16),
 
-          // SOL icon
           Container(
             width: 56, height: 56,
             decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle),
@@ -66,7 +64,6 @@ class _ConfirmStakeSheetState extends State<ConfirmStakeSheet> {
           ),
           const SizedBox(height: 12),
 
-          // Amount
           Text(
             '${widget.amountInSol} SOL',
             style: const TextStyle(color: Colors.white, fontSize: 19, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w600),
@@ -78,7 +75,6 @@ class _ConfirmStakeSheetState extends State<ConfirmStakeSheet> {
           ),
           const SizedBox(height: 40),
 
-          // Validator row
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
@@ -100,11 +96,6 @@ class _ConfirmStakeSheetState extends State<ConfirmStakeSheet> {
           const Divider(color: Colors.white10, height: 1, indent: 20, endIndent: 20),
           const SizedBox(height: 20),
 
-          // The rent deposit is roughly a hundred times the fee and used to
-          // go unmentioned, so the sheet named a debit far smaller than the
-          // one the user was approving. It is refunded when the stake account
-          // is closed, which is worth saying rather than leaving them to
-          // discover a charge they were not shown.
           _costRow(
             'Account rent',
             '${StakeLimits.rentReserve.toStringAsFixed(8)} SOL',
@@ -114,7 +105,6 @@ class _ConfirmStakeSheetState extends State<ConfirmStakeSheet> {
           _costRow('Network fee', '0.000010000 SOL'),
           const SizedBox(height: 20),
 
-          // Slide to approve
           _buildSlideToApprove(),
         ],
       ),

@@ -106,14 +106,8 @@ void main() {
   });
 
   test('transparent pixels are not counted at all', () {
-    // The old version of this drew a disc covering 23% of the sampled area
-    // and asserted its hue — which holds whether or not transparent pixels
-    // are skipped, because black carries no hue and no weight either way.
-    //
-    // 4% coverage is below minCoverage (6%), so the result depends entirely
-    // on the denominator: skip the transparent pixels and the mark is 100%
-    // of what was sampled; count them as black and it is 4%, which is not a
-    // brand colour. Only one of those returns a hue.
+    // The disc has to be small enough that counting the transparent remainder
+    // would change the answer, or the assertion holds either way.
     final px = canvas();
     disc(px, const Color(0xFFFF8A00), radius: 0.13);
     final brand = read(px);
@@ -137,14 +131,8 @@ void main() {
   }
 
   test('a dark brand colour is lifted enough to read on black', () {
-    // 0xFF1F3D7A: lightness 0.30, saturation 0.60 — inside both floors, so
-    // it survives the filter and the lift is the only thing under test.
-    //
-    // This test used to use 0xFF14233F, whose lightness is 0.163 and so
-    // falls below minLightness (0.18): every pixel was skipped, fromPixels
-    // returned null, and the assertion sat inside `if (brand != null)` and
-    // never ran. readableLightness had zero coverage as a result — deleting
-    // the math.max that applies it left the suite green.
+    // 0xFF1F3D7A: lightness 0.30, saturation 0.60 — inside both floors, so it
+    // survives the filter and the lift is the only thing under test.
     final px = canvas();
     disc(px, const Color(0xFF1F3D7A));
     final brand = read(px);
@@ -162,12 +150,7 @@ void main() {
   });
 
   test('saturation is never invented', () {
-    // A muted logo must not come back vivid. This is the bug the measurement
-    // caught: lifting saturation turned anti-aliasing into pink.
-    //
-    // 0xFFB87A7A is 30% saturated — just above the 25% floor, so it is
-    // actually measured. The old fixture was 0xFFBEB6BA at 5.8%, which the
-    // floor rejected outright, so the guard swallowed the assertion.
+    // A muted logo must not come back vivid.
     final px = canvas();
     disc(px, const Color(0xFFB87A7A));
     final brand = read(px);
@@ -198,16 +181,6 @@ void main() {
     });
 
     test('a one-pixel image answers rather than being skipped', () {
-      // This asserts the answer, where the old version asserted only
-      // `returnsNormally` — which was true of a function that returned null
-      // for every input.
-      //
-      // What it still cannot do is catch the removal of the math.max(1, ...)
-      // on the sample stride: a stride of 0 makes the sampling loop spin
-      // synchronously, and the Dart test runner cannot interrupt that, so
-      // the suite hangs instead of failing. Verified by mutating the guard
-      // out and watching the run stall. The stride floor is defended by
-      // being obvious in the source, not by this test.
       final px = Uint8List.fromList([0xFF, 0x00, 0x00, 0xFF]);
       expect(BrandPalette.fromPixels(px, width: 1, height: 1), isNotNull);
     });

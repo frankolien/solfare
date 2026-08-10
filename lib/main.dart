@@ -24,20 +24,14 @@ void main() async {
   await ApiKeys.loadLocalEnv();
   await NetworkConstants.load();
   await _wipeSecureStorageOnFreshInstall();
-  // Before the first frame, so the router's first redirect already knows
-  // whether a passcode is expected rather than letting one frame of wallet
-  // through while it finds out.
   await AppLock.instance.load();
   DeepLinkBridge.init(appRouter);
   runApp(const MainApp());
 }
 
 // iOS keeps Keychain entries across app uninstalls, so a fresh reinstall
-// inherits whatever mnemonic/passcode/etc the previous install left behind
-// — which causes "ghost wallets", orphaned passcodes, and stuck unlock
-// screens. SharedPreferences *is* wiped on uninstall, so we use its
-// absence as the signal for "truly fresh install" and nuke everything in
-// secure storage once, at the very top of the boot.
+// inherits whatever mnemonic/passcode/etc the previous install left behind —
+// which causes "ghost wallets", orphaned passcodes, and stuck unlock screens.
 Future<void> _wipeSecureStorageOnFreshInstall() async {
   const flag = 'app_installed_v1';
   final prefs = await SharedPreferences.getInstance();
@@ -67,10 +61,6 @@ class _MainAppState extends State<MainApp> {
     _localeProvider.addListener(() {
       setState(() {});
     });
-    // The passcode was only ever asked for at cold start, so a phone left
-    // unlocked and handed over hours later opened straight onto the wallet.
-    // Locking is decided on return rather than on leaving, so the app does
-    // not tear down what the user was doing while they are not looking.
     _lifecycle = AppLifecycleListener(
       onPause: AppLock.instance.didLeave,
       onRestart: AppLock.instance.didReturn,
@@ -119,7 +109,6 @@ class _MainAppState extends State<MainApp> {
   }
 }
 
-// InheritedWidget so any screen can access the LocaleProvider
 class _LocaleScope extends InheritedWidget {
   final LocaleProvider provider;
 
@@ -133,8 +122,6 @@ class _LocaleScope extends InheritedWidget {
   bool updateShouldNotify(_LocaleScope oldWidget) => provider.locale != oldWidget.provider.locale;
 }
 
-/// Extension for easy access from any widget
 extension LocaleProviderExtension on BuildContext {
   LocaleProvider get localeProvider => _LocaleScope.of(this);
 }
-

@@ -1,5 +1,4 @@
-/// How much attention a [RiskFlag] deserves. Ordering matters — flags are
-/// sorted by this, and the highest one drives the sheet's overall tone.
+/// How much attention a [RiskFlag] deserves.
 enum RiskSeverity { info, caution, danger }
 
 /// Something about a transaction the user should see before approving.
@@ -22,12 +21,12 @@ class RiskFlag {
   String toString() => '[${severity.name}] $title';
 }
 
-/// One account's balance change, in base units. Native SOL has a null [mint].
+/// One account's balance change, in base units.
 class BalanceDelta {
   final String? mint;
   final String owner;
 
-  /// Signed, in the token's smallest unit. Negative leaves the wallet.
+  /// Signed, in the token's smallest unit.
   final int rawDelta;
   final int decimals;
   final String? symbol;
@@ -35,8 +34,7 @@ class BalanceDelta {
   /// True when [owner] is the wallet being asked to sign.
   final bool isOwnAccount;
 
-  /// Balance the simulation left behind, when known. Needed to tell "sends
-  /// most of it" from "sends all of it and closes the account".
+  /// Balance the simulation left behind, when known.
   final int? postRaw;
 
   const BalanceDelta({
@@ -60,8 +58,8 @@ class BalanceDelta {
     return rawDelta / divisor;
   }
 
-  /// Label for the token, falling back to a shortened mint when no symbol
-  /// is known — never a guess at what the token might be.
+  /// Label for the token, falling back to a shortened mint when no symbol is
+  /// known — never a guess at what the token might be.
   String get label {
     if (isNative) return 'SOL';
     if (symbol != null && symbol!.isNotEmpty) return symbol!;
@@ -78,11 +76,10 @@ class DecodedInstruction {
   final int index;
   final String programId;
 
-  /// Null when the program is not in the registry. Never a guess.
+  /// Null when the program is not in the registry.
   final String? programName;
 
   /// Machine-readable operation, e.g. `transfer`, `approve`, `setAuthority`.
-  /// [unknownKind] when the program is known but the discriminator is not.
   final String kind;
 
   /// One line for the sheet, e.g. "Send 0.5 SOL to 8xTf…9Qm".
@@ -104,16 +101,14 @@ class DecodedInstruction {
 
   bool get isKnownProgram => programName != null;
 
-  /// Compute budget instructions are ours, not the user's intent. They are
-  /// decoded so the risk engine can read the fee, and hidden from the list.
+  /// Compute budget instructions are ours, not the user's intent.
   bool get isNoise => kind == 'setComputeUnitLimit' || kind == 'setComputeUnitPrice';
 
   @override
   String toString() => '#$index ${programName ?? programId} $kind';
 }
 
-/// Everything the approval sheet needs. Built by the preview engine from one
-/// simulation; nothing here comes from whoever asked for the signature.
+/// Everything the approval sheet needs.
 class TxPreview {
   final List<BalanceDelta> deltas;
   final List<RiskFlag> flags;
@@ -123,20 +118,15 @@ class TxPreview {
   final int feeLamports;
   final int computeUnits;
 
-  /// True when the simulation itself failed. The deltas and flags are still
-  /// worth showing — a preview that says "this will fail, here is why" is
-  /// the most useful one there is.
+  /// True when the simulation itself failed.
   final bool willFail;
   final String? failureReason;
 
-  /// Set when the RPC could not simulate at all. The sheet must then say it
-  /// could not verify the transaction rather than imply it is safe.
+  /// Set when the RPC could not simulate at all.
   final bool unverified;
 
-  /// Set when the transaction cannot be made at all — a non-transferable
-  /// mint, a missing account. Distinct from [unverified]: that one means
-  /// "proceed at your own risk", this one means there is nothing to proceed
-  /// with, and the approve control must not be offered.
+  /// Set when the transaction cannot be made at all — a non-transferable mint,
+  /// a missing account.
   final bool blocked;
 
   const TxPreview({
@@ -162,8 +152,7 @@ class TxPreview {
         unverified = true,
         blocked = false;
 
-  /// This transaction cannot be made. [reason] is shown instead of an
-  /// approval control.
+  /// This transaction cannot be made.
   const TxPreview.blocked(String reason)
       : deltas = const [],
         flags = const [],
@@ -186,13 +175,6 @@ class TxPreview {
   bool get hasDanger => worstSeverity == RiskSeverity.danger;
 
   /// Whether the sheet should make the user break stride before approving.
-  ///
-  /// Wider than [hasDanger] on purpose. `TxPreview.unverified` carries no
-  /// flags at all, so a transaction the network could not check scored the
-  /// same as a fully verified safe one — same yellow button, same wording —
-  /// and for signTransaction the wallet then handed a dapp a signature over
-  /// a payload it had never inspected. "This will fail" is only a caution
-  /// too, and approving one is a guaranteed loss of the fee.
   bool get needsDeliberateApproval =>
       hasDanger || unverified || willFail || blocked;
 

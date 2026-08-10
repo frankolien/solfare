@@ -3,24 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:solfare/features/wallet/domain/entities/wallet_account.dart';
 
-/// Horizontal swipeable carousel of wallet cards. The last page is always
-/// a dashed-outline "add wallet" placeholder.
-///
-/// Design goals:
-///   - Swiping between real wallets eventually fires [onWalletSelected] with
-///     the landed-on wallet's id. A debounce stops fast drag sequences from
-///     flooding the bloc with SwitchWalletEvents.
-///   - Overshooting to the trailing [_AddWalletPage] opens a sheet but does
-///     NOT switch the active wallet — if the user taps the card, [onAddWallet]
-///     fires. We also snap back to the previously active page so they don't
-///     end on the empty placeholder after tapping cancel.
+/// Horizontal swipeable carousel of wallet cards.
 class WalletCardSwiper extends StatefulWidget {
   final List<WalletAccount> wallets;
   final String? activeWalletId;
 
-  /// Child builder called for each wallet — pass the wallet so the consumer
-  /// can render the real BalanceCard. We keep the swiper unaware of balances
-  /// so the homepage stays in charge of all data wiring.
+  /// Child builder called for each wallet — pass the wallet so the consumer can
+  /// render the real BalanceCard.
   final Widget Function(BuildContext context, WalletAccount wallet)
       walletBuilder;
 
@@ -55,9 +44,9 @@ class _WalletCardSwiperState extends State<WalletCardSwiper> {
   @override
   void didUpdateWidget(covariant WalletCardSwiper oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // When the active wallet changes externally (new wallet added,
-    // switched from settings, etc.) keep the page in sync without firing
-    // another SwitchWalletEvent ourselves.
+    // When the active wallet changes externally (new wallet added, switched
+    // from settings, etc.) keep the page in sync without firing another
+    // SwitchWalletEvent ourselves.
     final target = _indexOfActive();
     if (target != _currentPage && _controller.hasClients) {
       _currentPage = target;
@@ -101,8 +90,8 @@ class _WalletCardSwiperState extends State<WalletCardSwiper> {
 
   void _handleAddTap() {
     widget.onAddWallet?.call();
-    // Snap back to the previously active wallet so the user doesn't end on
-    // the empty slot if they dismiss the sheet.
+    // Snap back to the previously active wallet so the user doesn't end on the
+    // empty slot if they dismiss the sheet.
     final returnTo = _indexOfActive();
     if (_controller.hasClients) {
       _controller.animateToPage(
@@ -119,8 +108,7 @@ class _WalletCardSwiperState extends State<WalletCardSwiper> {
     return Column(
       children: [
         SizedBox(
-          // Fixed viewport for the PageView. Needs to comfortably fit the
-          // BalanceCard's content at all text scales without overflowing.
+          // Fixed viewport for the PageView.
           height: 240,
           child: PageView.builder(
             controller: _controller,
@@ -227,8 +215,8 @@ class _AddWalletPage extends StatelessWidget {
   }
 }
 
-// Hand-rolled dashed rounded rectangle — saves pulling in a new dependency
-// for a one-off border style.
+// Hand-rolled dashed rounded rectangle — saves pulling in a new dependency for
+// a one-off border style.
 class _DashedBorderPainter extends CustomPainter {
   final Color color;
   final double radius;

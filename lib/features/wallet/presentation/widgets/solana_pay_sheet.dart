@@ -7,10 +7,6 @@ import 'package:solfare/features/wallet/presentation/bloc/wallet_state.dart';
 import 'package:solfare/features/wallet/presentation/widgets/tx_preview_body.dart';
 
 /// Approval sheet for a scanned Solana Pay request.
-///
-/// Header differs from a normal send in one way that matters: the merchant's
-/// own text is shown, but the host it came from is what identifies it. A
-/// label saying "Coinbase" proves nothing; the origin does.
 class SolanaPaySheet extends StatelessWidget {
   const SolanaPaySheet({super.key});
 

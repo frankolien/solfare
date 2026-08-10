@@ -16,9 +16,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     var value = result.text;
     if (value.isEmpty) return;
 
-    // A solana: URL is returned whole. Stripping the scheme and query here
-    // used to throw away the amount, token, reference and label, which is
-    // everything that makes a Solana Pay code more than an address.
+    // A solana: URL is returned whole.
     if (value.toLowerCase().startsWith('solana:')) {
       _hasScanned = true;
       Navigator.pop(context, value);
@@ -38,19 +36,15 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Camera + decoder. Pure-Dart ZXing under the hood, so it runs on
-          // arm64 simulators (mobile_scanner's MLKit dependency does not).
           QRCodeDartScanView(
             typeScan: TypeScan.live,
             formats: const [BarcodeFormat.qrCode],
             onCapture: _onCapture,
           ),
 
-          // Overlay
           SafeArea(
             child: Column(
               children: [
-                // Header
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
                   child: Row(
@@ -64,7 +58,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                   ),
                 ),
 
-                // Scan frame
                 Expanded(
                   child: Center(
                     child: Container(
@@ -78,7 +71,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                   ),
                 ),
 
-                // Cancel button
                 Padding(
                   padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 20),
                   child: SizedBox(

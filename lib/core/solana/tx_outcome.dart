@@ -14,30 +14,22 @@ enum TxPhase {
 enum TxStatus {
   confirmed,
 
-  /// Landed on chain and the runtime rejected it. Fees were burned.
+  /// Landed on chain and the runtime rejected it.
   failed,
 
   /// Proven dead: the blockhash is past its last valid block height and the
-  /// cluster has no record of the signature. Nothing happened on chain and no
-  /// fee was charged, so retrying is safe.
+  /// cluster has no record of the signature.
   expired,
 
-  /// Broadcast, and we never found out what became of it — the poll ran out
-  /// of time, or the status read itself kept failing.
-  ///
-  /// Deliberately not [expired]. Everything downstream tells the user an
-  /// expired transaction cost nothing and invites them to try again, and a
-  /// transaction that is merely unresolved may still be sitting in the queue.
-  /// Saying "nothing happened" about one of those is how a user sends twice.
+  /// Broadcast, and we never found out what became of it — the poll ran out of
+  /// time, or the status read itself kept failing.
   unknown,
 }
 
-/// What the cluster charges per signature. A protocol fact rather than a
-/// service detail, so it lives beside the outcome that has to price it.
+/// What the cluster charges per signature.
 const int lamportsPerSignature = 5000;
 
-/// Terminal result of a transaction. A signature alone says nothing about
-/// whether the transfer happened, hence the status.
+/// Terminal result of a transaction.
 class TxOutcome {
   final String signature;
   final TxStatus status;
@@ -67,20 +59,16 @@ class TxOutcome {
     this.signatureCount = 1,
   });
 
-  /// How many signatures the transaction carried, so the base fee can be
-  /// stated rather than assumed to be one. A stake delegation signs twice.
+  /// How many signatures the transaction carried, so the base fee can be stated
+  /// rather than assumed to be one.
   final int signatureCount;
 
   bool get isConfirmed => status == TxStatus.confirmed;
 
-  /// Whether it is safe to tell the user nothing happened. Only true when the
-  /// cluster confirmed the blockhash is dead and has no record of the
-  /// signature — never for [TxStatus.unknown].
+  /// Whether it is safe to tell the user nothing happened.
   bool get provenNotToHaveLanded => status == TxStatus.expired;
 
-  /// Base signature fee plus the priority bid. Expired transactions cost
-  /// nothing; unknown ones may well have cost the fee, so they are charged
-  /// for here rather than quietly reported as free.
+  /// Base signature fee plus the priority bid.
   int get totalFeeLamports => status == TxStatus.expired
       ? 0
       : lamportsPerSignature * signatureCount + priorityFeeLamports;
@@ -92,8 +80,7 @@ class TxOutcome {
 }
 
 /// Rejected before it ever reached the cluster — failed simulation, missing
-/// funds, unsigned account. Carries the logs so the UI can show more than
-/// "transaction failed".
+/// funds, unsigned account.
 class TxSimulationException implements Exception {
   final String message;
   final List<String> logs;

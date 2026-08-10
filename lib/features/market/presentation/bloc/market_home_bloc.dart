@@ -10,11 +10,6 @@ import 'package:solfare/features/market/domain/entities/market_window.dart';
 import 'package:solfare/features/market/presentation/bloc/market_home_event.dart';
 import 'package:solfare/features/market/presentation/bloc/market_home_state.dart';
 
-/// Fills the market home.
-///
-/// Every section loads on its own and lands on its own. A slow feed must not
-/// hold up five sources that already answered, and a source that fails leaves
-/// one empty band rather than an empty screen.
 class MarketHomeBloc extends Bloc<MarketHomeEvent, MarketHomeState> {
   final JupiterTokenDataSource _source;
   final WatchlistStore _watchlist;
@@ -25,8 +20,8 @@ class MarketHomeBloc extends Bloc<MarketHomeEvent, MarketHomeState> {
 
   final Map<MarketSection, _Cached> _cache = {};
 
-  // Bumped per load so a slow section from an abandoned refresh cannot land
-  // on top of a newer one.
+  // Bumped per load so a slow section from an abandoned refresh cannot land on
+  // top of a newer one.
   int _loadId = 0;
 
   StreamSubscription<void>? _watchlistSubscription;
@@ -61,8 +56,7 @@ class MarketHomeBloc extends Bloc<MarketHomeEvent, MarketHomeState> {
     final remote = MarketSection.home.where((s) => !s.isWatchlist).toList();
     emit(state.copyWith(loading: remote.toSet(), failed: const {}));
 
-    // Kicked off together, not awaited together. Each section adds its own
-    // event when it lands.
+    // Kicked off together, not awaited together.
     for (final section in remote) {
       unawaited(_load(section, id, force: event.force));
     }
@@ -124,7 +118,7 @@ class MarketHomeBloc extends Bloc<MarketHomeEvent, MarketHomeState> {
     }
 
     // Most stars are put on something already on screen, so the redraw costs
-    // nothing. Only mints the home has never seen are worth a request.
+    // nothing.
     final known = state.byMint;
     final resolved = [
       for (final mint in event.mints)

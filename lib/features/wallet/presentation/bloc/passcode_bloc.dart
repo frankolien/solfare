@@ -10,12 +10,6 @@ import 'package:solfare/core/security/secure_store.dart';
 import 'package:solfare/features/wallet/presentation/bloc/passcode_event.dart';
 import 'package:solfare/features/wallet/presentation/bloc/passcode_state.dart';
 
-/// BLoC for passcode management
-/// 
-/// Handles:
-/// - Entering passcode digits
-/// - Verifying passcode (unlock mode)
-/// - Saving passcode (setup mode)
 class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
   final FlutterSecureStorage _secureStorage;
   static const String _passcodeKey = 'wallet_passcode';
@@ -34,7 +28,6 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
     on<PasscodeWrongEvent>(_onPasscodeWrong);
   }
 
-  // Handle digit entry
   void _onDigitEntered(
     PasscodeDigitEntered event,
     Emitter<PasscodeState> emit,
@@ -42,20 +35,17 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
     final currentState = state;
     
     if (currentState is PasscodeEntering) {
-      // Don't allow more digits if passcode is already complete
       if (currentState.passcode.length >= 6) {
         return;
       }
       
       final newPasscode = currentState.passcode + event.digit;
       
-      // Emit state with updated passcode
       emit(PasscodeEntering(
         passcode: newPasscode,
         isWrong: false,
       ));
     } else {
-      // Start entering passcode (from initial or other states)
       emit(PasscodeEntering(
         passcode: event.digit,
         isWrong: false,
@@ -63,7 +53,6 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
     }
   }
 
-  // Handle digit deletion
   void _onDigitDeleted(
     PasscodeDigitDeleted event,
     Emitter<PasscodeState> emit,
@@ -83,9 +72,6 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
     }
   }
 
-  // Verify the passcode. The rate limit lives in [PasscodeGate] so the
-  // export dialogs, which used to check the hash themselves and so had no
-  // limit at all, share exactly this one.
   Future<void> _onVerifyPasscode(
     VerifyPasscodeEvent event,
     Emitter<PasscodeState> emit,
@@ -93,9 +79,7 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
     try {
       switch (await PasscodeGate.verify(event.passcode)) {
         case PasscodeAccepted():
-          // Opens the door for the router. Done here rather than in the
-          // screen so the lock cannot be left engaged by a listener that
-          // did not run.
+          // Opens the door for the router.
           AppLock.instance.unlock();
           emit(const PasscodeVerified());
 
@@ -120,22 +104,21 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
     }
   }
 
-  // Hash and save passcode to secure storage.
   Future<void> _onSavePasscode(
     SavePasscodeEvent event,
     Emitter<PasscodeState> emit,
   ) async {
     try {
-      // Digest first, then wrap — the same order the unlock path uses, and
-      // for the same reason: writing it makes the salt durable, so the key
-      // is reproducible if anything below fails.
+      // Digest first, then wrap — the same order the unlock path uses, and for
+      // the same reason: writing it makes the salt durable, so the key is
+      // reproducible if anything below fails.
       final made = await PasscodeCrypto.create(event.passcode);
       await _secureStorage.write(key: _passcodeKey, value: made.stored);
       await _secureStorage.delete(key: _attemptsKey);
       await _secureStorage.delete(key: _lockoutUntilKey);
 
-      // Onboarding writes the wallet before the passcode exists, so this is
-      // the first moment there is a key to wrap that mnemonic with.
+      // Onboarding writes the wallet before the passcode exists, so this is the
+      // first moment there is a key to wrap that mnemonic with.
       WalletKey.hold(made.keys.wrapKey);
       try {
         await WalletAccountsStore().wrapPlaintextMnemonics(made.keys.wrapKey);
@@ -143,8 +126,8 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
         debugLog('[Passcode] could not wrap on setup: $e');
       }
 
-      // Setting a passcode both creates the lock and satisfies it — the user
-      // is holding the phone and has just typed it twice.
+      // Setting a passcode both creates the lock and satisfies it — the user is
+      // holding the phone and has just typed it twice.
       AppLock.instance.adopt();
       emit(const PasscodeSaved());
     } catch (e) {
@@ -152,7 +135,6 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
     }
   }
 
-  // Reset passcode state
   void _onResetPasscode(
     ResetPasscodeEvent event,
     Emitter<PasscodeState> emit,
@@ -160,7 +142,6 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
     emit(const PasscodeInitial());
   }
 
-  // Handle wrong passcode (for confirm mode)
   Future<void> _onPasscodeWrong(
     PasscodeWrongEvent event,
     Emitter<PasscodeState> emit,

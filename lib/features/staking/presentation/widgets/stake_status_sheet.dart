@@ -30,7 +30,6 @@ class StakeStatusSheet extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Close button
           Align(
             alignment: Alignment.topRight,
             child: Padding(
@@ -45,7 +44,6 @@ class StakeStatusSheet extends StatelessWidget {
           ),
           const SizedBox(height: 8),
 
-          // Lottie animation
           SizedBox(
             width: 100, height: 100,
             child: status == 'staking'
@@ -56,7 +54,6 @@ class StakeStatusSheet extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Status text
           Text(
             status == 'staking' ? 'Staking' : status == 'success' ? 'Success' : 'Failed',
             style: const TextStyle(color: Colors.white, fontSize: 18, fontFamily: 'FKGrotesk', fontWeight: FontWeight.bold),
@@ -97,7 +94,6 @@ class StakeStatusSheet extends StatelessWidget {
             }),
             const SizedBox(height: 20),
 
-            // Close button
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: SizedBox(

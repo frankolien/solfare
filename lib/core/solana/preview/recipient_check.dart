@@ -4,13 +4,6 @@ import 'package:solfare/core/util/app_log.dart';
 import 'package:solfare/features/wallet/data/datasource/solana_rpc_datasource.dart';
 
 /// Asks what a destination address actually is before sending to it.
-///
-/// Solana accepts a transfer to any address. Most addresses that are not
-/// wallets are one-way: a token mint is owned by the Token program, which has
-/// no instruction to withdraw lamports, so SOL sent there is unrecoverable
-/// unless the mint happens to carry a close authority. The chain will not stop
-/// this and the transaction will not fail — the wallet is the only thing
-/// standing between the user and a permanent loss.
 class RecipientCheck {
   final SolanaRpcDataSource _rpc;
 
@@ -26,14 +19,12 @@ class RecipientCheck {
     try {
       account = await _rpc.getAccountInfo(address);
     } catch (e) {
-      // A lookup that fails is not evidence of anything. Inventing a warning
-      // from a network error would be as bad as missing a real one.
+      // A lookup that fails is not evidence of anything.
       debugLog('[Recipient] could not inspect $address: $e');
       return null;
     }
 
-    // Never used, or emptied and closed. This is what most fresh wallets look
-    // like, so it is the normal case rather than a suspicious one.
+    // Never used, or emptied and closed.
     if (account == null) return null;
 
     if (account.boolAt('executable') == true) {
@@ -49,11 +40,8 @@ class RecipientCheck {
 
     if (owner == _tokenProgram || owner == _token2022Program) {
       // pathAt, not a ?[] chain: getAccountInfo is asked for jsonParsed and
-      // falls back to base64 for anything it cannot parse, which makes `data`
-      // a two-element List. Indexing that with a String threw a TypeError from
-      // *outside* the try above, so an attacker handing over a Token-owned
-      // account of a non-standard size collapsed the whole preview into
-      // "could not check this transaction" — with the slider still enabled.
+      // falls back to base64 for anything it cannot parse, which makes `data` a
+      // two-element List.
       final type = account.pathAt(['data', 'parsed'])?.stringAt('type');
       return switch (type) {
         'mint' => const RiskFlag(

@@ -1,7 +1,6 @@
 import 'package:solfare/core/network/coingecko_client.dart';
 
 /// Thin wrapper over [CoinGeckoClient] for SOL price + 24h change.
-/// All caching/throttling/fallback logic lives in the shared client.
 abstract class CryptoPriceDataSource {
   Future<double> getSolPrice();
   Future<double> getSolPriceChange24h();

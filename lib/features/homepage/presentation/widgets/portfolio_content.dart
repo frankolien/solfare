@@ -11,7 +11,8 @@ import 'package:solfare/features/wallet/domain/entities/spl_token.dart';
 import 'package:solfare/features/wallet/presentation/screens/nft_detail_screen.dart';
 import 'package:solfare/l10n/app_localizations.dart';
 
-/// Portfolio content shown when user has a balance — token list, staking, activity sections.
+/// Portfolio content shown when user has a balance — token list, staking,
+/// activity sections.
 class PortfolioContent extends StatelessWidget {
   final double balanceInSol;
   final String? walletAddress;
@@ -60,13 +61,11 @@ class PortfolioContent extends StatelessWidget {
         children: [
           const SizedBox(height: 24),
 
-          // Token section header
           _buildTokenHeader(totalValueUsd, l),
           const SizedBox(height: 12),
           const Divider(color: Colors.white10, height: 1),
           const SizedBox(height: 16),
 
-          // Solana (native)
           _buildTokenCard(context, price, priceChange, isPositive, solValueUsd),
 
           // Other SPL tokens (plus USDC even at zero balance)
@@ -88,14 +87,12 @@ class PortfolioContent extends StatelessWidget {
 
           const SizedBox(height: 32),
 
-          // Stocks section
           _buildSectionHeader(l.stocks),
           const SizedBox(height: 16),
           _buildSectionRow(icon: Icons.bar_chart, text: l.noAssetsYet, buttonText: l.explore, buttonColor: Colors.yellow, textColor: Colors.black, onTap: () {}),
 
           const SizedBox(height: 32),
 
-          // Collectibles section
           CollectiblesSection(
             nfts: nfts,
             onNftTap: (nft) {
@@ -109,12 +106,10 @@ class PortfolioContent extends StatelessWidget {
 
           const SizedBox(height: 32),
 
-          // Staking section
           _buildStakingSection(context, l),
 
           const SizedBox(height: 32),
 
-          // Activity section
           _buildSectionHeader(l.activity),
           const SizedBox(height: 16),
           _buildSectionRow(icon: Icons.history, text: l.transactionHistory, buttonText: l.view, buttonColor: const Color(0xFF2A2D35), textColor: Colors.white, onTap: onViewTransactions ?? () {}),
@@ -126,7 +121,6 @@ class PortfolioContent extends StatelessWidget {
 
           const SizedBox(height: 32),
 
-          // Customize portfolio button
           Center(
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -182,8 +176,8 @@ class PortfolioContent extends StatelessWidget {
                 isVerified: true,
                 stats: {MarketWindow.h24: MarketStats(priceChange: priceChange)},
               ),
-              // SOL has no SplToken holding, so this is the only way the
-              // detail screen learns the balance its Send action needs.
+              // SOL has no SplToken holding, so this is the only way the detail
+              // screen learns the balance its Send action needs.
               solBalance: balanceInSol,
             ),
           ),
@@ -243,9 +237,8 @@ class PortfolioContent extends StatelessWidget {
     );
   }
 
-  // Merge fetched SPL tokens with a default USDC entry (zero balance) so
-  // users always see the stablecoin in their list. Tokens are sorted by USD
-  // value desc so the most valuable holdings show first.
+  // Merge fetched SPL tokens with a default USDC entry (zero balance) so users
+  // always see the stablecoin in their list.
   List<SplToken> _buildDisplayTokens() {
     final merged = <String, SplToken>{};
     for (final t in tokens) {
@@ -361,10 +354,6 @@ class PortfolioContent extends StatelessWidget {
   }
 
   // A holding described the way the detail screen expects.
-  //
-  // Market cap and volume are left null rather than zero: the wallet knows
-  // what it holds and what it is worth, not what the rest of the market did
-  // with it, and zero would be a claim.
   MarketToken _splToMarketToken(SplToken t) {
     return MarketToken(
       id: t.mint,
@@ -444,7 +433,6 @@ class PortfolioContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header with value
         Row(
           children: [
             Text(l.staking, style: const TextStyle(color: Colors.white, fontSize: 11, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500)),
@@ -467,7 +455,6 @@ class PortfolioContent extends StatelessWidget {
         const Divider(color: Colors.white10, height: 1),
         const SizedBox(height: 16),
 
-        // Staked / Rewards cards
         Row(
           children: [
             Expanded(
@@ -525,7 +512,6 @@ class PortfolioContent extends StatelessWidget {
         ),
         const SizedBox(height: 16),
 
-        // Stake accounts list
         ...stakeAccounts.map((account) => GestureDetector(
           onTap: () {
             Navigator.of(context).push(

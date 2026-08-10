@@ -7,10 +7,6 @@ import 'package:solfare/features/market/domain/entities/market_window.dart';
 enum MarketStatus { initial, loading, ready, failure }
 
 /// One section, in full, sorted.
-///
-/// A single state object rather than a class per phase, so a refresh can run
-/// over rows that are already on screen instead of replacing them with a
-/// skeleton the user has already read.
 class MarketState extends Equatable {
   final MarketStatus status;
   final MarketSection section;
@@ -22,12 +18,6 @@ class MarketState extends Equatable {
   final List<MarketToken> tokens;
 
   /// The order the feed arrived in, kept so sorting can always start from it.
-  ///
-  /// Sorting used to run over [tokens] — which is the *previous* sort's
-  /// output — and nothing held the original. MarketSort.rank is defined as
-  /// "return the list unchanged", so once any other sort had been applied,
-  /// tapping Rank returned whatever that sort left behind and the feed's own
-  /// ranking was unrecoverable short of a refresh.
   final List<MarketToken> unsorted;
 
   /// Registry mints the API would not stand behind on this load.

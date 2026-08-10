@@ -1,6 +1,5 @@
 import 'package:equatable/equatable.dart';
 
-/// Events for HomepageBloc
 abstract class HomepageEvent extends Equatable {
   const HomepageEvent();
 

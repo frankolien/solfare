@@ -6,22 +6,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:solfare/core/util/app_log.dart';
 
 /// Single shared CoinGecko HTTP client for the whole app.
-///
-/// Solves three problems that hit us when every screen called CoinGecko
-/// directly:
-///   1. Persistent on-disk cache keyed by URL — survives hot restart.
-///   2. Request throttling — min gap between calls, serialised queue.
-///   3. 429-friendly — serves stale cache instead of throwing.
-///
-/// Usage: `CoinGeckoClient.instance.getJson(url, ttl: Duration(minutes: 5))`.
 class CoinGeckoClient {
   CoinGeckoClient._();
   static final CoinGeckoClient instance = CoinGeckoClient._();
 
   final http.Client _http = http.Client();
 
-  // Minimum spacing between outbound requests. CoinGecko free tier tolerates
-  // ~10-30 req/min — 2s gap gives us ~30/min worst case.
+  // Minimum spacing between outbound requests.
   static const Duration _minGap = Duration(milliseconds: 2000);
 
   // Serialised queue: only one request in flight at a time.
@@ -31,9 +22,8 @@ class CoinGeckoClient {
   // Coalesce concurrent callers of the same URL.
   final Map<String, Future<Map<String, dynamic>?>> _inflight = {};
 
-  /// Fetch JSON from [url]. Returns cached value when fresh, or on 429/error
-  /// if any cached value exists (possibly stale). Returns null only when the
-  /// request has never succeeded.
+  /// Fetch JSON from [url]. Serves cache when fresh, stale cache on failure,
+  /// and null only when the request has never succeeded.
   Future<Map<String, dynamic>?> getJson(
     String url, {
     Duration ttl = const Duration(minutes: 5),
@@ -94,9 +84,8 @@ class CoinGeckoClient {
   ) async {
     try {
       debugLog('[CoinGecko] GET $url');
-      // Hard timeout: this client serialises requests, so one hung socket
-      // would stall every subsequent fetch. The catch below falls back to
-      // stale cache, which is what we want when an upstream is misbehaving.
+      // Hard timeout: this client serialises requests, so one hung socket would
+      // stall every subsequent fetch.
       final response = await _http.get(
         Uri.parse(url),
         headers: {

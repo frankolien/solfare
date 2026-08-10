@@ -6,9 +6,6 @@ import 'package:solfare/features/wallet/presentation/bloc/wallet_state.dart';
 import 'package:solfare/features/wallet/presentation/widgets/tx_preview_body.dart';
 
 /// Bottom sheet for confirming a SOL transfer with slide-to-approve gesture.
-///
-/// The sheet opens straight away and fills in the simulated balance changes
-/// when they land, so a slow RPC never leaves the user waiting on a spinner.
 class ConfirmSendSheet extends StatefulWidget {
   final String recipientAddress;
   final String recipientName;
@@ -16,7 +13,7 @@ class ConfirmSendSheet extends StatefulWidget {
   final double amountInUsd;
   final VoidCallback onConfirm;
 
-  /// Ticker of the asset being sent, and its icon. Default to native SOL.
+  /// Ticker of the asset being sent, and its icon.
   final String symbol;
   final String? iconUrl;
 
@@ -47,9 +44,7 @@ class _ConfirmSendSheetState extends State<ConfirmSendSheet> {
     return name.substring(0, name.length >= 2 ? 2 : 1).toUpperCase();
   }
 
-  // A token with no metadata has no icon. Falling back to the Solana logo
-  // would put SOL's badge on something that is not SOL, so unknown assets
-  // get a neutral initial instead.
+  // A token with no metadata has no icon.
   Widget _assetIcon() {
     final url = widget.iconUrl ?? (widget.symbol == 'SOL'
         ? 'https://assets.coingecko.com/coins/images/4128/large/solana.png'
@@ -92,7 +87,6 @@ class _ConfirmSendSheetState extends State<ConfirmSendSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header
           Padding(
             padding: const EdgeInsets.fromLTRB(50, 16, 8, 0),
             child: Row(
@@ -117,7 +111,6 @@ class _ConfirmSendSheetState extends State<ConfirmSendSheet> {
           ),
           const SizedBox(height: 16),
 
-          // SOL icon
           Container(
             width: 56,
             height: 56,
@@ -129,7 +122,6 @@ class _ConfirmSendSheetState extends State<ConfirmSendSheet> {
           ),
           const SizedBox(height: 12),
 
-          // Amount
           Text(
             '${widget.amountInSol} ${widget.symbol}',
             style: const TextStyle(
@@ -146,7 +138,6 @@ class _ConfirmSendSheetState extends State<ConfirmSendSheet> {
           ),
           const SizedBox(height: 40),
 
-          // To row
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
@@ -175,7 +166,7 @@ class _ConfirmSendSheetState extends State<ConfirmSendSheet> {
           const SizedBox(height: 20),
 
           // Balance changes, risk flags and the real fee, straight from the
-          // simulation. The fee used to be a hardcoded 0.0000149 SOL.
+          // simulation.
           BlocBuilder<WalletBloc, WalletState>(
             buildWhen: (_, s) => s is SendPreviewLoading || s is SendPreviewReady,
             builder: (context, state) {
@@ -196,11 +187,7 @@ class _ConfirmSendSheetState extends State<ConfirmSendSheet> {
   }
 
   Widget _buildSlideToApprove(TxPreview? preview) {
-    // Nothing is approvable until the simulation answers. A preview that
-    // could not run still unlocks the control — the sheet says it could not
-    // be checked, and the choice is the user's.
-    // A blocked preview is a refusal, so the control stays dead rather than
-    // inviting a slide that cannot succeed.
+    // Nothing is approvable until the simulation answers.
     final ready = preview != null && !preview.blocked;
     final danger = preview?.needsDeliberateApproval ?? false;
     final fill = danger ? const Color(0xFFE03131) : Colors.yellow;
@@ -219,7 +206,6 @@ class _ConfirmSendSheetState extends State<ConfirmSendSheet> {
             ),
             child: Stack(
               children: [
-                // Yellow fill that grows as user slides
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 50),
                   width: 56 + (_slidePosition * maxSlide),
@@ -241,7 +227,6 @@ class _ConfirmSendSheetState extends State<ConfirmSendSheet> {
                     style: TextStyle(color: Colors.grey[500], fontSize: 13, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500),
                   ),
                 ),
-                // Draggable circle
                 Positioned(
                   left: _slidePosition * maxSlide,
                   top: 0,

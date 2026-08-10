@@ -13,9 +13,6 @@ import 'package:solfare/features/swap/presentation/widgets/token_selector_sheet.
 
 class SwapScreen extends StatefulWidget {
   /// What the swap should buy when it opens.
-  ///
-  /// Set when the screen is reached from a token, so the pair is already the
-  /// one the user was looking at rather than the default SOL to USDC.
   final SwapToken? initialOutput;
 
   const SwapScreen({super.key, this.initialOutput});
@@ -142,7 +139,6 @@ class _SwapScreenState extends State<SwapScreen> {
   Widget _buildSwapUI(BuildContext context, SwapReady state) {
     return Column(
       children: [
-        // Header — MW + Swap/Limit toggle
         _buildHeader(),
 
         Expanded(
@@ -161,9 +157,7 @@ class _SwapScreenState extends State<SwapScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Bound to the balance check, not to having a quote. Every
-                // successful quote on a funded wallet used to render a red
-                // "Insufficient" banner directly above an enabled button.
+                // Bound to the balance check, not to having a quote.
                 if (_isShort(state)) _buildWarningBanner(state),
                 const SizedBox(height: 10),
                 _buildSwapButton(context, state),
@@ -187,7 +181,6 @@ class _SwapScreenState extends State<SwapScreen> {
           ),
           const SizedBox(width: 50),
 
-          // Swap / Limit toggle
           Container(
             decoration: BoxDecoration(
               color: Colors.grey[900],
@@ -228,23 +221,17 @@ class _SwapScreenState extends State<SwapScreen> {
     );
   }
 
-  // ─── SWAP TAB ───
-
   Widget _buildSwapTab(BuildContext context, SwapReady state) {
     return Column(
       children: [
         const SizedBox(height: 20),
 
-        // SELL section
         _buildSellSection(context, state),
 
-        // Divider with flip button
         _buildFlipDivider(context),
 
-        // BUY section
         _buildBuySection(context, state),
 
-        // Rate + Slippage (only when quote exists)
         if (state.rate != null) ...[
           const SizedBox(height: 16),
           Divider(color: Colors.grey[800], height: 1),
@@ -309,7 +296,6 @@ class _SwapScreenState extends State<SwapScreen> {
   Widget _buildSellSection(BuildContext context, SwapReady state) {
     return Column(
       children: [
-        // SELL label + Max
         Row(
           children: [
             Text('SELL', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500, letterSpacing: 1)),
@@ -319,7 +305,6 @@ class _SwapScreenState extends State<SwapScreen> {
         ),
         const SizedBox(height: 12),
 
-        // Token selector + amount
         Row(
           children: [
             _buildTokenChip(state.inputToken, () => _showTokenSelector(context, state.tokens, state.inputToken, true)),
@@ -379,7 +364,6 @@ class _SwapScreenState extends State<SwapScreen> {
   Widget _buildBuySection(BuildContext context, SwapReady state) {
     return Column(
       children: [
-        // BUY label + Balance
         Row(
           children: [
             Text('BUY', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500, letterSpacing: 1)),
@@ -391,7 +375,6 @@ class _SwapScreenState extends State<SwapScreen> {
         ),
         const SizedBox(height: 12),
 
-        // Token selector + output amount
         Row(
           children: [
             _buildTokenChip(state.outputToken, () => _showTokenSelector(context, state.tokens, state.outputToken, false)),
@@ -440,9 +423,6 @@ class _SwapScreenState extends State<SwapScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  // Interpolated, not written out: the copy said 0.005 while
-                  // SwapLimits.solFeeReserve was 0.01, so the wallet told the
-                  // user a number it did not itself use.
                   SwapLimits.isNativeSol(state.inputToken)
                       ? 'Swapping SOL also pays the network fee and any token '
                           'account rent, so ${SwapLimits.solFeeReserve} SOL is held back.'
@@ -457,8 +437,7 @@ class _SwapScreenState extends State<SwapScreen> {
     );
   }
 
-  // Whether the balance is known and does not cover the amount typed. An
-  // unknown balance is not "short" — the simulation is what actually knows.
+  // Whether the balance is known and does not cover the amount typed.
   bool _isShort(SwapReady state) {
     final balance = state.inputBalance;
     final amount = double.tryParse(state.inputAmount) ?? 0;
@@ -470,9 +449,6 @@ class _SwapScreenState extends State<SwapScreen> {
     );
   }
 
-  // These read the balance the bloc already fetched and carried in state.
-  // Both were the string literals 'Max: 0' and 'Balance: 0', so a wallet
-  // holding 12 SOL was told its max was zero.
   String _maxLabel(SwapReady state) {
     final balance = state.inputBalance;
     if (balance == null) return 'Max: —';
@@ -524,8 +500,6 @@ class _SwapScreenState extends State<SwapScreen> {
 
     void onTap() {
       if (enabled) {
-        // Builds and simulates the route. Nothing is broadcast until the
-        // review sheet is confirmed.
         context.read<SwapBloc>().add(ExecuteSwapEvent(_walletAddress!));
       }
     }
@@ -553,21 +527,17 @@ class _SwapScreenState extends State<SwapScreen> {
     );
   }
 
-  // ─── LIMIT TAB ───
-
   Widget _buildLimitTab(BuildContext context, SwapReady state) {
     return Column(
       children: [
         const SizedBox(height: 20),
 
-        // SELL section (same as swap)
         _buildSellSection(context, state),
         _buildFlipDivider(context),
         _buildBuySection(context, state),
 
         const SizedBox(height: 20),
 
-        // SELL [TOKEN] AT PRICE
         Row(
           children: [
             Text('SELL ${state.inputToken.symbol} AT PRICE', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500, letterSpacing: 0.5)),
@@ -582,7 +552,6 @@ class _SwapScreenState extends State<SwapScreen> {
         ),
         const SizedBox(height: 10),
 
-        // Price input row
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
@@ -610,7 +579,6 @@ class _SwapScreenState extends State<SwapScreen> {
 
         const SizedBox(height: 16),
 
-        // Expiry
         Row(
           children: [
             Text('Expiry', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500)),
@@ -648,7 +616,6 @@ class _SwapScreenState extends State<SwapScreen> {
 
         const SizedBox(height: 24),
 
-        // Place order button
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
@@ -665,7 +632,6 @@ class _SwapScreenState extends State<SwapScreen> {
 
         const SizedBox(height: 24),
 
-        // Open orders / Order history tabs
         Row(
           children: [
             Column(
@@ -690,8 +656,6 @@ class _SwapScreenState extends State<SwapScreen> {
       ],
     );
   }
-
-  // ─── SHARED WIDGETS ───
 
   Widget _buildTokenChip(SwapToken token, VoidCallback onTap) {
     return GestureDetector(

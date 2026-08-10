@@ -8,9 +8,8 @@ import 'package:solfare/core/security/mnemonic_envelope.dart';
 import 'package:solfare/core/security/secure_store.dart';
 import 'package:solfare/features/wallet/domain/entities/wallet_account.dart';
 
-// JSON-blob persistence for the wallet list + active-wallet pointer in
-// secure storage. The pre-multi-wallet `wallet_mnemonic` / `wallet_address`
-// keys are migrated by WalletLocalDataSourceImpl on first call.
+// JSON-blob persistence for the wallet list + active-wallet pointer in secure
+// storage.
 class WalletAccountsStore {
   WalletAccountsStore({FlutterSecureStorage? storage})
       : _storage = storage ?? SecureStore.instance;
@@ -36,36 +35,18 @@ class WalletAccountsStore {
           .map((e) => WalletAccount.fromJson(e as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      // Deliberately not an empty list. A blob that exists and will not
-      // decode is the one case where guessing costs the user everything:
-      // every mutator below reads, modifies and writes the whole list, so
-      // "there are no wallets" would be persisted over a wallet that is
-      // still sitting there intact, one decode bug away from readable.
+      // Deliberately not an empty list.
       throw CorruptWalletStoreException('Stored wallets could not be read: $e');
     }
   }
 
   // Single write path so add/remove/rename all go through one atomic blob.
-  //
-  // Every caller reads through loadAll first, which throws rather than
-  // returning empty on a blob it cannot decode — so this can never be
-  // reached holding a list that lost entries to a parse failure.
   Future<void> saveAll(List<WalletAccount> wallets) async {
     final payload = jsonEncode(wallets.map((w) => w.toJson()).toList());
     await _storage.write(key: _walletsKey, value: payload);
   }
 
   /// Wraps any mnemonic still held in plaintext with [key].
-  ///
-  /// Runs on every unlock rather than only when the passcode digest was
-  /// upgraded, which is what makes a half-finished migration recover itself:
-  /// the digest is written first so the salt is durable, and if the process
-  /// dies before this runs, the next unlock derives the same key and
-  /// finishes the job. Gating on "was the digest old" would make that
-  /// half-state permanent.
-  ///
-  /// Returns how many were wrapped, so a caller can log a migration without
-  /// having to diff the store.
   Future<int> wrapPlaintextMnemonics(Uint8List key) async {
     final wallets = await loadAll();
     final wrapped = <WalletAccount>[];
@@ -80,8 +61,7 @@ class WalletAccountsStore {
       changed++;
     }
 
-    // One blob, one write. If it throws, nothing changed and the next
-    // unlock tries again.
+    // One blob, one write.
     if (changed > 0) await saveAll(wrapped);
     return changed;
   }
@@ -99,8 +79,8 @@ class WalletAccountsStore {
   }
 
   // Falls back to the first wallet (and persists the choice) if the active
-  // pointer is missing or dangling — so the user never gets stuck on a
-  // null-active state after a removal.
+  // pointer is missing or dangling — so the user never gets stuck on a null-
+  // active state after a removal.
   Future<WalletAccount?> getActive() async {
     final wallets = await loadAll();
     if (wallets.isEmpty) return null;

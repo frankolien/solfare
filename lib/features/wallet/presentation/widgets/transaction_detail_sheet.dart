@@ -49,7 +49,6 @@ class TransactionDetailSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Drag handle
           Center(
             child: Container(
               margin: const EdgeInsets.only(top: 10, bottom: 16),
@@ -67,7 +66,6 @@ class TransactionDetailSheet extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // DATE
                 _buildSectionLabel('DATE'),
                 const SizedBox(height: 4),
                 Text(
@@ -82,7 +80,6 @@ class TransactionDetailSheet extends StatelessWidget {
 
                 const SizedBox(height: 18),
 
-                // DETAILS
                 _buildSectionLabel('DETAILS'),
                 const SizedBox(height: 8),
                 Row(
@@ -147,7 +144,6 @@ class TransactionDetailSheet extends StatelessWidget {
 
                 const SizedBox(height: 18),
 
-                // TRANSACTION RESULT
                 _buildSectionLabel('TRANSACTION RESULT'),
                 const SizedBox(height: 8),
                 Row(
@@ -188,7 +184,6 @@ class TransactionDetailSheet extends StatelessWidget {
 
                 const SizedBox(height: 18),
 
-                // NETWORK FEE
                 _buildSectionLabel('NETWORK FEE'),
                 const SizedBox(height: 4),
                 Text(
@@ -203,7 +198,6 @@ class TransactionDetailSheet extends StatelessWidget {
 
                 const SizedBox(height: 18),
 
-                // TRANSACTION ID
                 _buildSectionLabel('TRANSACTION ID'),
                 const SizedBox(height: 4),
                 GestureDetector(

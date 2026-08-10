@@ -60,10 +60,7 @@ class _EditBackgroundScreenState extends State<EditBackgroundScreen> {
     _selectedCard = widget.currentCard;
   }
 
-  // Custom entries are stored as `custom:<filename>`. The sentinel lets us
-  // tell them apart from the bundled `card_*.png` presets, and storing only
-  // the filename (not the absolute path) keeps them valid even when the
-  // iOS sandbox's documents-directory path changes between launches.
+  // Custom entries are stored as `custom:<filename>`.
   static const _customPrefix = 'custom:';
   bool get _isCustomSelected => _selectedCard.startsWith(_customPrefix);
   String get _customFilename =>
@@ -84,8 +81,8 @@ class _EditBackgroundScreenState extends State<EditBackgroundScreen> {
       );
       if (picked == null) return;
 
-      // Copy into app documents so the file survives future picks from the
-      // same transient cache location and is stable across app restarts.
+      // Copy into app documents so the file survives future picks from the same
+      // transient cache location and is stable across app restarts.
       final docs = await getApplicationDocumentsDirectory();
       final ext = _extensionOf(picked.path);
       final filename =
@@ -114,9 +111,9 @@ class _EditBackgroundScreenState extends State<EditBackgroundScreen> {
     }
   }
 
-  // Photo access can still be revoked mid-flow, and the copy into documents
-  // can fail on a full disk, so the platform channel is not assumed to be
-  // clean just because the picker returned a file.
+  // Photo access can still be revoked mid-flow, and the copy into documents can
+  // fail on a full disk, so the platform channel is not assumed to be clean
+  // just because the picker returned a file.
   String _pickErrorMessage(PlatformException e) {
     debugLog('[EditBackground] picker ${e.code}: ${e.message} (${e.details})');
     return switch (e.code) {
@@ -126,8 +123,8 @@ class _EditBackgroundScreenState extends State<EditBackgroundScreen> {
     };
   }
 
-  // Trust the extension only when it looks like one — a sandbox path with a
-  // dot in a directory name would otherwise become the filename suffix.
+  // Trust the extension only when it looks like one — a sandbox path with a dot
+  // in a directory name would otherwise become the filename suffix.
   String _extensionOf(String path) {
     final ext = path.split('/').last.split('.').last.toLowerCase();
     const known = {'jpg', 'jpeg', 'png', 'heic', 'heif', 'webp', 'gif'};

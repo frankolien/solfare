@@ -44,11 +44,6 @@ class SwapReady extends SwapState {
   });
 
   // Distinguishes "leave this alone" from "set this to null".
-  //
-  // `x ?? this.x` cannot tell those apart, so every attempt to clear the
-  // quote was a no-op: change the output token after quoting 1 SOL and the
-  // old outputAmount survived, hasQuote stayed true, and the review sheet
-  // headlined "1 SOL → 150.0000 BONK" for a route paying ~5,400,000 BONK.
   static const _keep = Object();
 
   SwapReady copyWith({
@@ -85,9 +80,6 @@ class SwapReady extends SwapState {
 }
 
 /// The route is built and signed, and the network has said what it will do.
-///
-/// Nothing has been broadcast: signing is local, and this is the moment the
-/// user gets to see the balances that will really move before it is.
 class SwapReviewing extends SwapState {
   final SwapReady ready;
   final TxPreview preview;

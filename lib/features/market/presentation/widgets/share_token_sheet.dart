@@ -13,23 +13,16 @@ import 'package:solfare/features/market/presentation/market_format.dart';
 import 'package:solfare/features/market/presentation/widgets/market_row.dart';
 import 'package:solfare/features/market/presentation/widgets/market_token_icon.dart';
 
-/// Shares a token as a card.
-///
-/// Every number on the card comes from what the screen is already showing. A
-/// share image travels further than the screen it came from, so it gets
-/// nothing the screen does not have.
 class ShareTokenSheet extends StatefulWidget {
   final MarketToken token;
 
   /// Points behind the card's line, taken from the chart already on screen.
   final List<double> sparkline;
 
-  /// Stamped on the card. Passed in rather than read from the clock so the
-  /// card and the caller agree on when it was made.
+  /// Stamped on the card.
   final DateTime capturedAt;
 
-  /// The token's brand colour, when its logo had one. Null falls back to
-  /// green or red for the direction.
+  /// The token's brand colour, when its logo had one.
   final Color? accent;
 
   const ShareTokenSheet({
@@ -77,8 +70,7 @@ class _ShareTokenSheetState extends State<ShareTokenSheet> {
       final file = await _capture();
       final text = '${token.displayName} · ${token.symbol}\n${token.id}';
       if (file == null) {
-        // The card would not render. The mint is still worth sharing, and is
-        // the part somebody receiving this actually needs.
+        // The card would not render.
         await SharePlus.instance.share(ShareParams(text: text));
       } else {
         await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: text));
@@ -96,9 +88,7 @@ class _ShareTokenSheetState extends State<ShareTokenSheet> {
           _cardKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null) return null;
 
-      // Disposed on every path. A full-resolution raster of this card is
-      // roughly 5 MB, and it was retained per share tap — including on the
-      // early return below.
+      // Disposed on every path.
       final image = await boundary.toImage(pixelRatio: 3);
       final ByteData? data;
       try {
@@ -110,8 +100,8 @@ class _ShareTokenSheetState extends State<ShareTokenSheet> {
 
       final directory = await getTemporaryDirectory();
       // The symbol is arbitrary API-supplied text, and it was going straight
-      // into a path: `../` escapes the temp directory and a `/` just makes
-      // the write fail, silently degrading the share to text-only.
+      // into a path: `../` escapes the temp directory and a `/` just makes the
+      // write fail, silently degrading the share to text-only.
       final safeSymbol = token.symbol.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
       final basename = safeSymbol.isEmpty ? 'token' : safeSymbol;
       final file = File('${directory.path}/$basename-solfare.png');

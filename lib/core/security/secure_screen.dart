@@ -2,19 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_windowmanager/flutter_windowmanager.dart';
 
-/// Hides the current screen from screenshots, screen recordings, and the
-/// OS app-switcher snapshot.
-///
-/// Android uses `FLAG_SECURE`, which covers screenshots, screen recording
-/// and the recents thumbnail. iOS has no equivalent — screenshots and screen
-/// recordings of an app cannot be prevented — so the `MethodChannel` here
-/// buys exactly one thing: a privacy overlay painted over the key window
-/// when the app loses focus, which is the app-switcher snapshot.
-///
-/// Refcounted. It used to be a single flag, and screens nest: the confirm
-/// step is pushed *on top of* the screen still displaying the twelve words,
-/// so backing out of it called disable() and left the seed behind it
-/// screenshot-able.
+/// Hides the current screen from screenshots, screen recordings, and the OS
+/// app-switcher snapshot.
 class SecureScreen {
   SecureScreen._();
 
@@ -41,8 +30,6 @@ class SecureScreen {
 
   static Future<void> _apply(bool on) async {
     if (defaultTargetPlatform == TargetPlatform.android) {
-      // Wrapped like the iOS branch: an unhandled throw here left FLAG_SECURE
-      // silently absent, and nothing awaits these calls.
       try {
         if (on) {
           await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);

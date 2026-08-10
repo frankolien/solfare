@@ -11,11 +11,6 @@ import 'package:solfare/core/solana/token/token_service.dart';
 import 'package:solfare/core/util/app_log.dart';
 
 /// Turns a scanned `solana:` URL into something payable.
-///
-/// Parsing leans on package:solana's solana_pay module so the wallet follows
-/// the spec rather than a reading of it. Everything after parsing — building
-/// instructions, talking to a merchant, checking what comes back — lives here
-/// because that is where the trust decisions are.
 class PayResolver {
   final TokenService _tokens;
   final http.Client _client;
@@ -23,16 +18,12 @@ class PayResolver {
   PayResolver(this._tokens, {http.Client? client}) : _client = client ?? http.Client();
 
   /// Classify a scanned string. No network, no signing.
-  ///
-  /// Returns null when this is not a Solana Pay URL at all, which is the
-  /// common case: most QR codes in a wallet are a bare address.
   static PayRequest? parse(String raw) {
     final url = raw.trim();
     if (!url.toLowerCase().startsWith('solana:')) return null;
 
     // A transaction request points at an https link; a transfer request has a
-    // base58 recipient. Trying the transaction shape first keeps a link that
-    // happens to parse as an address from being treated as one.
+    // base58 recipient.
     final transaction = pay.SolanaTransactionRequest.tryParse(url);
     if (transaction != null) {
       return PayTransactionRequest(
@@ -59,10 +50,6 @@ class PayResolver {
     );
   }
 
-  /// Build the instructions for a transfer request.
-  ///
-  /// [amount] overrides the request's own figure, for the case where the
-  /// merchant left it open and the payer typed one.
   Future<List<encoder.Instruction>> buildTransfer({
     required PayTransferRequest request,
     required String payer,
@@ -108,11 +95,6 @@ class PayResolver {
     return instructions;
   }
 
-  // Attach the merchant's reference keys to the transfer.
-  //
-  // Read-only and non-signer, always. They exist so the merchant can find
-  // the transaction by watching those addresses; any other role would let a
-  // reference key authorise something.
   encoder.Instruction _withReferences(encoder.Instruction instruction, List<String> references) {
     return encoder.Instruction(
       programId: instruction.programId,
@@ -151,10 +133,6 @@ class PayResolver {
   }
 
   /// Ask the merchant to build the transaction, then check what comes back.
-  ///
-  /// Returns the base64 payload only if it is safe to show: the wallet must
-  /// be the fee payer, and no signature can be required from a key we do not
-  /// control. Everything else about the payload is the preview's job.
   Future<String> fetchTransaction({
     required PayTransactionRequest request,
     required String account,

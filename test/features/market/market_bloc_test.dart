@@ -189,10 +189,9 @@ void main() {
 
   test('Rank restores the feed order after another sort', () async {
     // Sorting ran over the previous sort's output and nothing held the
-    // original, and MarketSort.rank is defined as "return the list
-    // unchanged" — so once any other sort had been applied, tapping Rank
-    // gave back whatever that sort left behind. The feed's own ranking was
-    // unrecoverable short of a refresh.
+    // original, and MarketSort.rank is defined as "return the list unchanged" —
+    // so once any other sort had been applied, tapping Rank gave back whatever
+    // that sort left behind.
     final bloc = blocFor(MarketSection.trending, [
       row('C', mcap: 300),
       row('A', mcap: 100),

@@ -2,14 +2,8 @@ import 'package:solfare/features/market/domain/entities/market_token.dart';
 import 'package:solfare/features/market/domain/entities/market_window.dart';
 
 /// What the list is ordered by.
-///
-/// [volume] and [priceChange] are read from the selected window's stats, so
-/// the same key means something different under 5m than under 24h. That is
-/// what the window chips are for.
 enum MarketSort {
-  /// The order the feed itself returned. Trending is a ranking Jupiter
-  /// computes and we cannot reproduce, so leaving it alone is the only way to
-  /// show it.
+  /// The order the feed itself returned.
   rank('Rank'),
   marketCap('Mkt cap'),
   volume('Volume'),
@@ -24,10 +18,6 @@ enum MarketSort {
 }
 
 /// Orders [tokens] by [sort] as measured over [window].
-///
-/// A value the API did not report sorts last in both directions. Treating it
-/// as zero would float unknowns to the top of an ascending sort, where they
-/// would read as the smallest rather than the unmeasured.
 List<MarketToken> sortMarketTokens(
   List<MarketToken> tokens, {
   required MarketSort sort,

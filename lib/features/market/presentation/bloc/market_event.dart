@@ -9,8 +9,7 @@ abstract class MarketEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Load the section this bloc was opened on. [force] skips the cache, which
-/// is what pull-to-refresh means.
+/// Load the section this bloc was opened on.
 class FetchMarketTokensEvent extends MarketEvent {
   final bool force;
 
@@ -29,8 +28,8 @@ class SelectWindowEvent extends MarketEvent {
   List<Object?> get props => [window];
 }
 
-/// Selecting the key already in use flips its direction; a different key
-/// starts descending.
+/// Selecting the key already in use flips its direction; a different key starts
+/// descending.
 class SelectSortEvent extends MarketEvent {
   final MarketSort sort;
 

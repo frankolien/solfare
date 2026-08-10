@@ -2,8 +2,7 @@
 sealed class PayRequest {
   const PayRequest();
 
-  /// Merchant-supplied display text. Attacker-controlled in both shapes —
-  /// render it, never treat it as a claim about who is asking.
+  /// Merchant-supplied display text.
   String? get label;
   String? get message;
 }
@@ -18,8 +17,7 @@ class PayTransferRequest extends PayRequest {
   /// Null pays native SOL.
   final String? splToken;
 
-  /// Opaque keys the merchant watches for to reconcile the payment. They are
-  /// attached read-only and non-signer, and must never gain another role.
+  /// Opaque keys the merchant watches for to reconcile the payment.
   final List<String> references;
 
   @override
@@ -45,8 +43,7 @@ class PayTransferRequest extends PayRequest {
 }
 
 /// The merchant builds the transaction; the wallet fetches, checks and signs
-/// it. Strictly more dangerous than a transfer request, because the payload
-/// can contain anything.
+/// it.
 class PayTransactionRequest extends PayRequest {
   final Uri link;
 

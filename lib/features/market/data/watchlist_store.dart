@@ -3,15 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:solfare/core/util/app_log.dart';
 
 /// The mints somebody starred.
-///
-/// Shared preferences rather than the keychain: a list of things a person
-/// finds interesting is not a secret, and putting it behind the same lock as
-/// the mnemonic would mean the market cannot draw a star until the wallet is
-/// unlocked.
-///
-/// Exposed through a notifier because one star is shown in three places — the
-/// row, the detail header, and the home section — and they all have to flip
-/// on the same tap.
 class WatchlistStore {
   WatchlistStore._();
 
@@ -19,7 +10,7 @@ class WatchlistStore {
 
   static const _key = 'market_watchlist';
 
-  /// Insertion order, not market cap. It is the user's list.
+  /// Insertion order, not market cap.
   final ValueNotifier<List<String>> mints = ValueNotifier<List<String>>(const []);
 
   bool _loaded = false;
@@ -31,8 +22,7 @@ class WatchlistStore {
       final prefs = await SharedPreferences.getInstance();
       mints.value = prefs.getStringList(_key) ?? const [];
     } catch (e) {
-      // An unreadable watchlist costs a few stars. Throwing here would cost
-      // the market screen.
+      // An unreadable watchlist costs a few stars.
       debugLog('[Watchlist] could not read: $e');
     }
   }
@@ -55,8 +45,7 @@ class WatchlistStore {
   Future<void> clear() => _write(const []);
 
   Future<void> _write(List<String> next) async {
-    // The notifier moves first. A star that waits on disk to light up feels
-    // broken, and the write cannot fail in a way that makes the star wrong.
+    // The notifier moves first.
     mints.value = next;
     try {
       final prefs = await SharedPreferences.getInstance();

@@ -8,12 +8,6 @@ import 'package:solfare/core/solana/preview/program_registry.dart';
 import 'package:solfare/core/solana/preview/tx_preview.dart';
 
 /// An instruction reduced to the three things the decoder reads.
-///
-/// Exists so instructions can be decoded straight out of a compiled message
-/// with the account indices resolved against the simulation's key list. The
-/// old path went through `decompileMessage()`, which needs the actual address
-/// lookup table accounts and throws without them — so every v0 transaction
-/// that used a table decoded to nothing at all.
 class RawInstruction {
   final String programId;
   final Uint8List data;
@@ -32,10 +26,6 @@ class RawInstruction {
 }
 
 /// Turns raw instructions into readable summaries.
-///
-/// The one rule: never invent a name for something we do not recognise.
-/// "Unknown program" is a fact the user can act on; a guessed label is a
-/// lie a drainer can hide behind.
 class InstructionDecoder {
   final SolanaNetwork? network;
 
@@ -96,8 +86,6 @@ class InstructionDecoder {
     }
   }
 
-  // ── System ──
-
   DecodedInstruction _system(
       int index, String programId, String? name, Uint8List data, List<String> accounts) {
     // System instructions are tagged with a little-endian u32.
@@ -133,8 +121,6 @@ class InstructionDecoder {
         return make(DecodedInstruction.unknownKind, 'System Program instruction #$tag');
     }
   }
-
-  // ── Token / Token-2022 ──
 
   DecodedInstruction _token(
     int index,
@@ -211,22 +197,12 @@ class InstructionDecoder {
       : 'Grant spending of a token';
 
   /// Whether an approval amount may as well be unlimited.
-  ///
-  /// Comparing against u64 max exactly is a check a drainer clears by
-  /// subtracting one: `u64::MAX - 1` is still about 1.8e13 of any token with
-  /// six decimals, and it used to render as an ordinary orange "Spending
-  /// approval". The threshold is 2^63, which no honest approval reaches —
-  /// the entire supply of every real SPL token is orders of magnitude below
-  /// it — and which no amount of arithmetic can slip under while still
-  /// draining anyone.
   static bool isEffectivelyUnlimited(String? amount) {
     if (amount == null) return false;
     final value = BigInt.tryParse(amount);
     if (value == null) return false;
     return value >= BigInt.two.pow(63);
   }
-
-  // ── Associated Token Account ──
 
   DecodedInstruction _ata(
       int index, String programId, String? name, Uint8List data, List<String> accounts) {
@@ -246,8 +222,6 @@ class InstructionDecoder {
     );
   }
 
-  // ── Compute budget ──
-
   DecodedInstruction _computeBudget(int index, String programId, String? name, Uint8List data) {
     final tag = data.isEmpty ? -1 : data[0];
     final (kind, summary, fields) = switch (tag) {
@@ -264,8 +238,6 @@ class InstructionDecoder {
       kind: kind, summary: summary, fields: fields,
     );
   }
-
-  // ── Stake ──
 
   DecodedInstruction _stake(
       int index, String programId, String? name, Uint8List data, List<String> accounts) {
@@ -287,8 +259,6 @@ class InstructionDecoder {
     );
   }
 
-  // ── Memo ──
-
   DecodedInstruction _memo(int index, String programId, String? name, Uint8List data) {
     String memo;
     try {
@@ -306,8 +276,6 @@ class InstructionDecoder {
     );
   }
 
-  // ── byte helpers ──
-
   int _u32(Uint8List data, int offset) {
     if (data.length < offset + 4) return -1;
     return ByteData.sublistView(data, offset, offset + 4).getUint32(0, Endian.little);
@@ -318,10 +286,8 @@ class InstructionDecoder {
     return ByteData.sublistView(data, offset, offset + 8).getUint64(0, Endian.little);
   }
 
-  // Dart ints are signed, so a u64 at or above 2^63 comes back negative —
-  // u64 max reads as -1. Token amounts reach exactly that range, and an
-  // unlimited approval is the case that matters most, so amounts are carried
-  // as their unsigned decimal string.
+  // Dart ints are signed, so a u64 at or above 2^63 comes back negative — u64
+  // max reads as -1.
   String _u64Str(Uint8List data, int offset) =>
       BigInt.from(_u64(data, offset)).toUnsigned(64).toString();
 

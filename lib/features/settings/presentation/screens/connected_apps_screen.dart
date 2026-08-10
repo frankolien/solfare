@@ -4,10 +4,6 @@ import 'package:solfare/core/solana/session/dapp_session.dart';
 import 'package:solfare/core/solana/session/session_store.dart';
 
 /// Every app that can currently ask this wallet to sign.
-///
-/// A connection is granted in one tap on a deeplink and, until now, could
-/// only be taken back by not using it for thirty days. Access somebody cannot
-/// see is access they cannot withdraw.
 class ConnectedAppsScreen extends StatefulWidget {
   /// [store] is a test seam; the app always uses the default.
   const ConnectedAppsScreen({super.key, SessionStore? store}) : _store = store;
@@ -257,8 +253,7 @@ class _ConnectedAppsScreenState extends State<ConnectedAppsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // The origin, not a name the app chose for itself. A dapp
-                // picks its own label; it does not pick its domain.
+                // The origin, not a name the app chose for itself.
                 Text(
                   session.origin,
                   style: const TextStyle(
@@ -271,8 +266,8 @@ class _ConnectedAppsScreenState extends State<ConnectedAppsScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  // A session is bound to one account, so which one it can
-                  // sign for is part of what was granted.
+                  // A session is bound to one account, so which one it can sign
+                  // for is part of what was granted.
                   _shorten(session.walletAddress),
                   style: TextStyle(
                     color: Colors.grey[500],
@@ -338,8 +333,7 @@ class _ConnectedAppsScreenState extends State<ConnectedAppsScreen> {
     return 'Used ${elapsed.inDays}d ago';
   }
 
-  // Sessions expire on their own. Saying when means revoking is not the only
-  // way a connection ever ends.
+  // Sessions expire on their own.
   static String _lapses(DateTime lastUsedAt, DateTime now) {
     final left = DappSession.maxIdle - now.difference(lastUsedAt);
     if (left.inDays >= 1) return 'lapses in ${left.inDays}d';

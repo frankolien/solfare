@@ -14,10 +14,6 @@ import 'package:solfare/features/market/presentation/widgets/market_search_sheet
 import 'package:solfare/features/market/presentation/widgets/market_ticker_strip.dart';
 
 /// The market, as a set of sections rather than one long list.
-///
-/// Arriving here, the question is "what do I follow, what is moving, what
-/// does this wallet actually offer" — three questions a single filtered table
-/// answers badly. Each section's chevron opens that same source in full.
 class MarketScreen extends StatefulWidget {
   const MarketScreen({super.key});
 
@@ -123,8 +119,7 @@ class _MarketScreenState extends State<MarketScreen> {
   }
 
   // What scrolls across the top: the user's own list when they have one,
-  // otherwise the majors. Never a separate fetch — this is what the sections
-  // already hold.
+  // otherwise the majors.
   List<MarketToken> _tickerTokens(MarketHomeState state) {
     final watched = state.tokensFor(MarketSection.watchlist);
     if (watched.isNotEmpty) return watched;
@@ -138,9 +133,7 @@ class _MarketScreenState extends State<MarketScreen> {
     final tokens = state.tokensFor(section);
     final loading = state.isLoading(section);
 
-    // An empty shelf with a heading over it is worse than no heading. The
-    // watchlist is the exception: its empty state is the instruction for how
-    // to fill it.
+    // An empty shelf with a heading over it is worse than no heading.
     if (tokens.isEmpty && !loading && !section.isWatchlist) return const SizedBox.shrink();
 
     return Column(

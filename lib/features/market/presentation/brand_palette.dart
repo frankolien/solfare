@@ -3,9 +3,6 @@ import 'dart:typed_data';
 import 'dart:ui';
 
 /// Reads a token's brand colour out of its logo.
-///
-/// A pure function of pixel bytes, so it is tested against buffers rather
-/// than against the network.
 class BrandPalette {
   const BrandPalette._();
 
@@ -16,8 +13,7 @@ class BrandPalette {
   /// shadow, the grey wordmark.
   static const double minSaturation = 0.25;
 
-  /// The floor excludes the near-black disc a great many logos sit on. At
-  /// 0.10 that disc gets back in and wins with its own faint tint.
+  /// The floor excludes the near-black disc a great many logos sit on.
   static const double minLightness = 0.18;
   static const double maxLightness = 0.92;
 
@@ -25,13 +21,10 @@ class BrandPalette {
   static const int hueBuckets = 24;
 
   /// Share of the visible centre that has to carry a hue before there is a
-  /// brand colour to speak of. Below it the logo is greyscale and the caller
-  /// keeps whatever colour it was already using.
+  /// brand colour to speak of.
   static const double minCoverage = 0.06;
 
-  /// A logo's identity is what sits in the middle of it. Sampling the whole
-  /// image lets a corner badge — a wrapped-asset marker, say — outvote a mark
-  /// that has no hue of its own.
+  /// A logo's identity is what sits in the middle of it.
   static const double centreRadius = 0.62;
 
   /// What a line needs to read against a near-black background.
@@ -40,9 +33,8 @@ class BrandPalette {
   /// Roughly how many samples to take across the image, whatever its size.
   static const int sampleSpan = 48;
 
-  /// Null when the logo has no brand colour: greyscale, invisible, or too
-  /// small to sample. Null is an answer, not a failure — inventing a hue out
-  /// of four anti-aliased pixels would look deliberate and mean nothing.
+  /// Null when the logo has no brand colour: greyscale, invisible, or too small
+  /// to sample.
   static Color? fromPixels(
     Uint8List rgba, {
     required int width,
@@ -100,8 +92,7 @@ class BrandPalette {
     final total = weights[best];
     if (total <= 0) return null;
 
-    // Lightness is lifted for legibility. Saturation is not: raising it would
-    // turn a barely-tinted pixel into a vivid claim about the brand.
+    // Lightness is lifted for legibility.
     return _fromHsl(
       hues[best] / total,
       saturations[best] / total,

@@ -50,8 +50,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
   late final PayResolver _payResolver;
 
   // The instructions (or merchant payload) resolved for the payment now on
-  // screen. Held because a transaction request cannot be rebuilt on approval
-  // without asking the merchant for a second transaction.
+  // screen.
   List<encoder.Instruction>? _pendingPayInstructions;
   String? _pendingPayPayload;
 
@@ -59,18 +58,12 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
   // after network switches / app resume without duplicate subscriptions.
   String? _watchedAddress;
 
-  // CoinGecko is the cold-start snapshot + slow fallback heartbeat. Live
-  // price feel comes from BinancePriceWsService (1Hz pushes over public WS).
-  // The HTTP poll drops to 5min so we don't burn rate limit when the WS is
-  // already feeding fresh data — it only matters if Binance is unreachable.
+  // CoinGecko is the cold-start snapshot + slow fallback heartbeat.
   Timer? _priceTimer;
   static const _priceRefreshInterval = Duration(minutes: 5);
 
-  // Last-known SOL price + 24h change + lamports, cached so either side of
-  // the widget push (price arrives / balance arrives) can fill in the other.
-  // Without the lamports cache, a balance-fetch that beats the first
-  // price-fetch is dropped on the floor and the widget shows preview data
-  // until the *next* balance change — which can be hours.
+  // Last-known SOL price + 24h change + lamports, cached so either side of the
+  // widget push (price arrives / balance arrives) can fill in the other.
   double? _lastSolPriceUsd;
   double? _lastSolPriceChange;
   int? _lastLamports;
@@ -100,9 +93,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       if (addr != null) add(FetchBalanceEvent(addr));
     });
 
-    // Binance public WS pushes ticker frames ~1Hz. Re-emit as an event so
-    // the handler runs on the bloc's serialized queue and shares the same
-    // state-emission path as the polled fetch.
+    // Binance public WS pushes ticker frames ~1Hz.
     _priceWs = BinancePriceWsService(
       onTick: (priceUsd, change) {
         if (isClosed) return;
@@ -142,8 +133,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     on<NetworkChangedEvent>(_onNetworkChangedEvent);
   }
 
-  // Default Bloc transformer is sequential. Reads we want to run in
-  // parallel (token/NFT/customisation) use this instead.
+  // Default Bloc transformer is sequential.
   static EventTransformer<E> _concurrent<E>() {
     return (events, mapper) => events.asyncExpand(mapper);
   }
@@ -181,8 +171,8 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
         walletName: event.name,
         cardBackground: active.cardBackground,
       ));
-      // Also refresh WalletsLoaded so the swipeable carousel picks up the
-      // new name on inactive pages.
+      // Also refresh WalletsLoaded so the swipeable carousel picks up the new
+      // name on inactive pages.
       final all = await _repository.getAllWallets();
       emit(WalletsLoaded(wallets: all, activeId: active.id));
     } catch (_) {}
@@ -223,17 +213,15 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
 
     try {
       final nfts = await _rpcDataSource.getNfts(event.address);
-      // The cache write is fine — it's keyed by address. But emitting into
-      // the bloc would leak this wallet's NFTs into the active wallet's UI
-      // if the user switched mid-flight.
+      // The cache write is fine — it's keyed by address.
       await prefs.setString(cacheKey, _encodeNfts(nfts));
       if (_watchedAddress != null && _watchedAddress != event.address) {
         return;
       }
       emit(NftsFetched(nfts));
     } catch (_) {
-      // Keep whatever cached list we already emitted; only surface empty
-      // if there was nothing cached either.
+      // Keep whatever cached list we already emitted; only surface empty if
+      // there was nothing cached either.
       if (cachedJson == null) emit(NftsFetched(const []));
     }
   }
@@ -250,10 +238,6 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
 
   List<Nft> _decodeNfts(String raw) {
     try {
-      // Typed reads: a cache written by an older build, or a half-flushed
-      // one, is a shape mismatch rather than a crash — and this whole method
-      // sits inside a catch that would otherwise turn it into an empty
-      // portfolio with no explanation.
       return [
         for (final entry in asJsonList(jsonDecode(raw)))
           if (asJsonMap(entry) case final e?)
@@ -406,8 +390,8 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
         emit(const WalletError('Wallet not found'));
         return;
       }
-      // Tear down WS for the old wallet before pointing everything at the
-      // new one so we don't briefly double-subscribe.
+      // Tear down WS for the old wallet before pointing everything at the new
+      // one so we don't briefly double-subscribe.
       await _balanceWs.stop();
       await _activateWallet(active, emit);
     } catch (e) {
@@ -436,8 +420,8 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       await _repository.removeWallet(event.walletId);
       final remaining = await _repository.getAllWallets();
       if (remaining.isEmpty) {
-        // No wallets left — stop WS + polling, show cleared state so the
-        // router sends the user back to onboarding.
+        // No wallets left — stop WS + polling, show cleared state so the router
+        // sends the user back to onboarding.
         _watchedAddress = null;
         _stopPricePolling();
         await _balanceWs.stop();
@@ -455,19 +439,15 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  // Called when [NetworkConstants.setNetwork] runs. Reconnects the WS to
-  // the new cluster AND refetches cluster-scoped data (balance, tokens,
-  // NFTs, transactions) for the active wallet — otherwise the UI keeps
-  // showing stale holdings from the previous network until the user
-  // manually refreshes.
+  // Called when [NetworkConstants.setNetwork] runs.
   void _onNetworkChanged(SolanaNetwork _) {
     _balanceWs.reconnect();
     add(const NetworkChangedEvent());
   }
 
-  // Clears cluster-scoped data (tokens, NFTs) and refetches everything
-  // for the active wallet so the UI doesn't show holdings from the
-  // previous cluster after a network switch.
+  // Clears cluster-scoped data (tokens, NFTs) and refetches everything for the
+  // active wallet so the UI doesn't show holdings from the previous cluster
+  // after a network switch.
   Future<void> _onNetworkChangedEvent(
     NetworkChangedEvent event,
     Emitter<WalletState> emit,
@@ -483,8 +463,6 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  // Begin periodic SOL price refresh. Idempotent — calling twice won't
-  // spawn duplicate timers.
   void _startPricePolling() {
     if (_priceTimer?.isActive ?? false) return;
     // Fire once immediately, then on the interval.
@@ -513,7 +491,6 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     return super.close();
   }
 
-  // Handle wallet creation event
   Future<void> _onCreateWallet(
     CreateWalletEvent event,
     Emitter<WalletState> emit,
@@ -523,12 +500,10 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       final wallet = await _createWallet();
       emit(WalletCreated(wallet, false));
     } catch (e) {
-      // Emit error state if something goes wrong
       emit(WalletError(e.toString()));
     }
   }
 
-  // Handle wallet save event
   Future<void> _onSaveWallet(
     SaveWalletEvent event,
     Emitter<WalletState> emit,
@@ -550,7 +525,6 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  // Handle wallet existence check
   Future<void> _onCheckWalletExists(
     CheckWalletExistsEvent event,
     Emitter<WalletState> emit,
@@ -561,16 +535,11 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       final exists = await _repository.hasWallet();
       emit(WalletExistsChecked(exists));
     } catch (e) {
-      // This used to answer "no wallet" and call it the safer default. It is
-      // the opposite: the screen acts on that answer by offering to create
-      // one, and creating one writes over the blob nobody could read. A
-      // wallet that cannot be read is still a wallet.
       debugLog('[Wallet] exists check failed: $e');
       emit(WalletStoreUnreadable('$e'));
     }
   }
 
-  // Handle airdrop request
   Future<void> _onRequestAirdrop(
     RequestAirdropEvent event,
     Emitter<WalletState> emit,
@@ -593,7 +562,6 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
         address: event.address,
       ));
       
-      // After airdrop, fetch the updated balance
       await Future.delayed(const Duration(seconds: 2)); // Wait for confirmation
       final balance = await _rpcDataSource.getBalance(event.address);
       emit(BalanceFetched(balance: balance, address: event.address));
@@ -602,7 +570,6 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  // Handle balance fetch
   Future<void> _onFetchBalance(
     FetchBalanceEvent event,
     Emitter<WalletState> emit,
@@ -611,10 +578,8 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
 
     try {
       final balance = await _rpcDataSource.getBalance(event.address);
-      // Drop the result if the user has switched wallets while this request
-      // was in flight. Otherwise the previous wallet's balance lands ~10s
-      // after the switch and overwrites the active wallet's display — a
-      // serious UI confusion (and security) bug.
+      // Drop the result if the user has switched wallets while this request was
+      // in flight.
       if (_watchedAddress != null && _watchedAddress != event.address) {
         return;
       }
@@ -626,7 +591,6 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  // Reset wallet state to initial
   void _onResetWallet(
     ResetWalletEvent event,
     Emitter<WalletState> emit,
@@ -634,7 +598,6 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     emit(const WalletInitial());
   }
 
-  // Clear all wallet data from storage
   Future<void> _onClearWallet(
     ClearWalletEvent event,
     Emitter<WalletState> emit,
@@ -647,8 +610,8 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       await _balanceWs.stop();
       await _repository.clearWallet();
       // The passcode went with it, so the lock has nothing left to guard —
-      // without this the router would hold the user on an unlock screen for
-      // a wallet that no longer exists.
+      // without this the router would hold the user on an unlock screen for a
+      // wallet that no longer exists.
       AppLock.instance.forget();
       emit(const WalletCleared());
     } catch (e) {
@@ -656,7 +619,6 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  // Fetch SOL price from API
   Future<void> _onFetchSolPrice(
     FetchSolPriceEvent event,
     Emitter<WalletState> emit,
@@ -680,14 +642,14 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       // balance fetch beat us here and was skipped for lack of a price.
       await _pushWalletWidget(force: true);
     } catch (e) {
-      // Don't emit error state for price fetch failures - just log it
-      // Price is not critical for app functionality
+      // Don't emit error state for price fetch failures - just log it Price is
+      // not critical for app functionality
       debugLog('Failed to fetch SOL price: $e');
     }
   }
 
-  // Live ticker from Binance — same emission shape as the polled fetch so
-  // the UI doesn't care which source served the latest value.
+  // Live ticker from Binance — same emission shape as the polled fetch so the
+  // UI doesn't care which source served the latest value.
   Future<void> _onLivePriceTick(
     LivePriceTickEvent event,
     Emitter<WalletState> emit,
@@ -707,13 +669,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     await _pushWalletWidget();
   }
 
-  // Best-effort push to the iOS widget extension. Skipped silently on
-  // Android / when we don't yet have both a price and a lamports figure to
-  // compose the USD value from.
-  // The last home-screen-widget push, so a 1 Hz price feed does not drive a
-  // secure-storage read and two platform-channel calls every second. The
-  // widget is a glanceable summary; a minute-stale figure on it is invisible,
-  // and the work was not.
+  // Best-effort push to the iOS widget extension.
   DateTime? _lastWidgetPush;
   static const _widgetPushInterval = Duration(seconds: 30);
 
@@ -743,7 +699,6 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  // Fetch transaction history
   Future<void> _onFetchTransactions(
     FetchTransactionsEvent event,
     Emitter<WalletState> emit,
@@ -760,8 +715,6 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  // Simulate the pending send. Never signs, never broadcasts — the result
-  // only decides what the approval sheet shows.
   Future<void> _onPreviewSend(
     PreviewSendEvent event,
     Emitter<WalletState> emit,
@@ -781,8 +734,8 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
         lamports: Lamports.fromSol(event.amountInSol),
       );
 
-      // What the destination is cannot be read off the transaction — a
-      // transfer to a mint looks exactly like a transfer to a person.
+      // What the destination is cannot be read off the transaction — a transfer
+      // to a mint looks exactly like a transfer to a person.
       final recipientFlag = await _recipientCheck.inspect(event.recipientAddress);
 
       final preview = await _previewEngine.preview(
@@ -793,8 +746,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       );
       emit(SendPreviewReady(preview));
     } catch (e) {
-      // A preview that cannot run must not block the send. It says so, and
-      // the user decides whether to approve something we could not check.
+      // A preview that cannot run must not block the send.
       debugLog('[BLoC] PreviewSend failed: $e');
       emit(const SendPreviewReady(
           TxPreview.unverified('Could not check this transaction.')));
@@ -832,8 +784,8 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
           );
 
         case PayTransactionRequest():
-          // Ask who they are before asking for anything to sign, so the
-          // origin is on screen before the payload is even fetched.
+          // Ask who they are before asking for anything to sign, so the origin
+          // is on screen before the payload is even fetched.
           merchant = await _payResolver.fetchMerchant(request);
           final payload = await _payResolver.fetchTransaction(
             request: request,
@@ -902,9 +854,6 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     }
   }
 
-  // Simulate an SPL token send. Reads the mint first, because Token-2022
-  // extensions decide both what the instructions are and whether the send
-  // is possible at all.
   Future<void> _onPreviewTokenSend(
     PreviewTokenSendEvent event,
     Emitter<WalletState> emit,
@@ -934,9 +883,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       );
       emit(SendPreviewReady(preview));
     } on TokenTransferException catch (e) {
-      // A mint that cannot be sent is a fact, not a network hiccup. Blocked
-      // rather than unverified, so the sheet refuses instead of offering to
-      // send something it just said is impossible.
+      // A mint that cannot be sent is a fact, not a network hiccup.
       emit(SendPreviewReady(TxPreview.blocked(e.message)));
     } catch (e) {
       debugLog('[BLoC] PreviewTokenSend failed: $e');
@@ -997,10 +944,6 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
   }
 
   // Things the balance deltas cannot say for themselves.
-  //
-  // A transfer fee is withheld in flight, so the sender's delta is the full
-  // amount and the recipient quietly gets less. Account rent shows up only
-  // as SOL leaving, with nothing to say where it went.
   List<RiskFlag> _tokenSendNotes(
     MintInfo mint,
     List<encoder.Instruction> instructions,
@@ -1049,8 +992,6 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     return Keyring.keyPairFromMnemonic(mnemonic);
   }
 
-  // Display units to base units. Done in integer space after rounding, since
-  // a double multiply on a 9-decimal token loses the last digit.
   int _baseUnits(double amount, int decimals) {
     var factor = 1.0;
     for (var i = 0; i < decimals; i++) {
@@ -1092,8 +1033,8 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
         emit(SolSendFailed(
           message: outcome.error ?? 'The transaction did not confirm.',
           signature: outcome.signature,
-          // Expired means it never executed, which reads differently to a
-          // user than "failed".
+          // Expired means it never executed, which reads differently to a user
+          // than "failed".
           expired: outcome.provenNotToHaveLanded,
         ));
         return;

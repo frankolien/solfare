@@ -13,14 +13,10 @@ import 'package:solfare/core/solana/transaction_service.dart';
 import 'package:solfare/core/util/app_log.dart';
 
 /// What a dapp is asking for, resolved far enough to show someone.
-///
-/// Produced before any approval and carrying no authority of its own — the
-/// user acts on this, then the service acts on their answer.
 class DappPrompt {
   final DappRequest request;
 
   /// Host of the dapp's origin, or the stored origin for a known session.
-  /// The only identity the user is shown.
   final String origin;
 
   /// Set for anything that would put a transaction on chain.
@@ -61,9 +57,6 @@ class DappRequestRejected implements Exception {
 
 /// Runs the dApp Connect protocol: sessions, decryption, and the four
 /// operations a dapp can ask for.
-///
-/// It never decides to approve anything. Every path that produces a
-/// signature takes the user's answer as an argument.
 class DappConnectService {
   final SessionStore _sessions;
   final TransactionService _tx;
@@ -78,13 +71,6 @@ class DappConnectService {
         _preview = preview;
 
   // One refusal for every reason a request might be refused.
-  //
-  // "No session for this key", "the token did not match", "that nonce has
-  // been used" and "the payload did not decrypt" are all answered the same
-  // way on purpose. Distinguishing them hands a caller an oracle: the codes
-  // used to differ, so any local app could enumerate exactly which dapps
-  // this wallet had connected by sending garbage for each candidate key and
-  // reading which error came back.
   static const _unreadable = DappRequestRejected(
     'Could not read that request.',
     code: DappRequestParser.errorInvalidRequest,
@@ -101,17 +87,14 @@ class DappConnectService {
       walletAddress: walletAddress,
     );
     if (session == null) {
-      // Deliberately the same refusal a bad payload gets. Answering 4100
-      // here and 4200 there let any local app enumerate exactly which dapps
-      // this wallet is connected to, one candidate key at a time.
+      // Deliberately the same refusal a bad payload gets.
       throw _unreadable;
     }
 
     if (request is DappDisconnectRequest) {
       // Disconnect carries no ciphertext, so nothing proves the sender holds
-      // the dapp's private key — its public key is in every connect URL and
-      // in plenty of dapp bundles. The echoed session token is the only
-      // thing that does, so it is required rather than ignored.
+      // the dapp's private key — its public key is in every connect URL and in
+      // plenty of dapp bundles.
       if (request.sessionToken != session.sessionToken) throw _unreadable;
       return DappPrompt(request: request, origin: session.origin, session: session);
     }
@@ -125,9 +108,8 @@ class DappConnectService {
     );
 
     // A sealed payload opens every time it is presented, so without this a
-    // captured deeplink can be resent verbatim — the sheet shows the real
-    // dapp and the real preview, and the signature goes wherever the resend
-    // asked. Recorded before the user is shown anything.
+    // captured deeplink can be resent verbatim — the sheet shows the real dapp
+    // and the real preview, and the signature goes wherever the resend asked.
     final fresh = await _sessions.accept(session.dappPublicKey, sealed.nonce);
     if (!fresh) throw _unreadable;
 
@@ -160,7 +142,7 @@ class DappConnectService {
     );
   }
 
-  /// The user said yes. Returns the URL the dapp is sent back to.
+  /// The user said yes.
   Future<Uri> approve(DappPrompt prompt, {required solana.Ed25519HDKeyPair keyPair}) async {
     final request = prompt.request;
 
@@ -175,8 +157,8 @@ class DappConnectService {
         sessionPrivateKey: keys.privateKey,
         walletAddress: keyPair.address,
         sessionToken: token,
-        // Pinned now, and every later reply goes here rather than to
-        // whatever address the incoming request happened to name.
+        // Pinned now, and every later reply goes here rather than to whatever
+        // address the incoming request happened to name.
         redirectLink: request.redirectLink.toString(),
         createdAt: now,
         lastUsedAt: now,
@@ -204,10 +186,8 @@ class DappConnectService {
     final session = prompt.session!;
     await _sessions.touch(session.dappPublicKey);
 
-    // Where the answer goes, decided at connect time rather than by the
-    // request in hand. A captured deeplink resent with a different
-    // redirect_link would otherwise have the signed transaction delivered to
-    // whoever resent it.
+    // Where the answer goes, decided at connect time rather than by the request
+    // in hand.
     final replyTo = _replyTo(session, request);
 
     final Map<String, dynamic> result;
@@ -224,8 +204,8 @@ class DappConnectService {
         }
         result = {'signature': outcome.signature};
       } else {
-        // signTransaction hands the signed bytes back without broadcasting;
-        // the dapp decides when it lands.
+        // signTransaction hands the signed bytes back without broadcasting; the
+        // dapp decides when it lands.
         final signed = await _tx.signPayloadOnly(base64Tx: base64Tx, signer: keyPair);
         // Answer in the encoding the dapp used to ask.
         result = {'transaction': base58.encode(base64Decode(signed))};
@@ -244,10 +224,6 @@ class DappConnectService {
   }
 
   // The callback recorded when the session was created.
-  //
-  // Falls back to the request's own for sessions written before the field
-  // existed — those keep the old behaviour rather than becoming unusable,
-  // and age out within the 30-day idle window.
   static Uri _replyTo(DappSession session, DappRequest request) {
     if (session.redirectLink.isEmpty) return request.redirectLink;
     return Uri.tryParse(session.redirectLink) ?? request.redirectLink;
@@ -307,13 +283,13 @@ class DappConnectService {
     try {
       return utf8.decode(base58.decode(raw));
     } catch (_) {
-      // Not every message is text. Showing raw bytes is honest; guessing is not.
+      // Not every message is text.
       return raw;
     }
   }
 
-  // Refuse anything that would have us sign for an account that is not ours,
-  // or that needs a signature we cannot give.
+  // Refuse anything that would have us sign for an account that is not ours, or
+  // that needs a signature we cannot give.
   void _assertSafeToSign(String base64Tx, String walletAddress) {
     final encoder.SignedTx tx;
     try {

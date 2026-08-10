@@ -12,7 +12,6 @@ class CollectiblesSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header
         Row(
           children: [
             const Text(
@@ -37,7 +36,6 @@ class CollectiblesSection extends StatelessWidget {
         const SizedBox(height: 12),
 
         if (nfts.isEmpty)
-          // Empty state
           Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -48,7 +46,6 @@ class CollectiblesSection extends StatelessWidget {
             ),
           )
         else
-          // NFT grid — 2 columns, horizontal scroll
           SizedBox(
             height: 160,
             child: ListView.separated(
@@ -80,7 +77,6 @@ class CollectiblesSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // NFT image
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             child: nft.imageUrl != null
@@ -94,7 +90,6 @@ class CollectiblesSection extends StatelessWidget {
                 : _buildPlaceholder(),
           ),
 
-          // Name
           Padding(
             padding: const EdgeInsets.all(8),
             child: Text(

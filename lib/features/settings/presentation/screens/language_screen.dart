@@ -73,7 +73,6 @@ class _LanguageScreenState extends State<LanguageScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
               child: Row(
@@ -95,7 +94,6 @@ class _LanguageScreenState extends State<LanguageScreen> {
               ),
             ),
 
-            // Language list
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -111,11 +109,9 @@ class _LanguageScreenState extends State<LanguageScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 18),
                       child: Row(
                         children: [
-                          // Flag
                           Text(lang.flag, style: const TextStyle(fontSize: 22)),
                           const SizedBox(width: 14),
 
-                          // Name + code
                           Expanded(
                             child: Text(
                               '${lang.name} (${lang.code})',
@@ -128,7 +124,6 @@ class _LanguageScreenState extends State<LanguageScreen> {
                             ),
                           ),
 
-                          // Selection indicator
                           if (isSelected)
                             Container(
                               width: 24,

@@ -1,20 +1,17 @@
 /// A request arriving from a dapp over the deeplink scheme.
-///
-/// Everything here came from outside the app and is untrusted until checked.
 sealed class DappRequest {
   /// The dapp's x25519 public key, base58 — also the session identifier.
   final String dappPublicKey;
 
-  /// Where the answer goes. Validated at parse: without it there is nobody
-  /// to answer, and with a bad one the answer goes to the wrong place.
+  /// Where the answer goes.
   final Uri redirectLink;
 
   const DappRequest({required this.dappPublicKey, required this.redirectLink});
 }
 
-/// The opening handshake. No session exists yet, so this one is not encrypted.
+/// The opening handshake.
 class DappConnectRequest extends DappRequest {
-  /// The dapp's https origin. Its host is the only identity the user gets.
+  /// The dapp's https origin.
   final Uri appUrl;
   final String? cluster;
 
@@ -70,10 +67,6 @@ class DappSignMessageRequest extends DappSealedRequest {
 
 class DappDisconnectRequest extends DappRequest {
   /// The token handed out at connect time, echoed back.
-  ///
-  /// Disconnect carries no ciphertext, so this is the only thing that proves
-  /// the sender is the dapp rather than anyone who read its public key out of
-  /// a connect URL. Without it, any app could silently revoke a session.
   final String sessionToken;
 
   const DappDisconnectRequest({
@@ -84,10 +77,6 @@ class DappDisconnectRequest extends DappRequest {
 }
 
 /// Parses `solfare://v1/...` URLs into typed requests.
-///
-/// Rejects rather than repairs. A malformed request from a dapp is either a
-/// bug on their side or an attempt on ours, and guessing what was meant is
-/// how a wallet ends up signing something nobody asked for.
 class DappRequestParser {
   const DappRequestParser._();
 
@@ -171,8 +160,6 @@ class DappRequestParser {
   }
 
   // A redirect has to be somewhere a reply can go and nowhere dangerous.
-  // javascript: and file: are the obvious ones; anything without a scheme
-  // cannot be launched at all.
   static Uri? _validRedirect(String? raw) {
     if (raw == null || raw.isEmpty) return null;
     final uri = Uri.tryParse(raw);

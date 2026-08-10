@@ -34,8 +34,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
   Future<void> _loadContacts() async {
     final contacts = await _dataSource.getContacts();
     final recents = await _dataSource.getRecents();
-    // Two awaits on secure storage before this runs. Backing out of the
-    // screen while they are in flight used to reach setState after dispose.
+    // Two awaits on secure storage before this runs.
     if (!mounted) return;
     setState(() {
       _contacts = contacts;
@@ -81,7 +80,6 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Drag handle
               Container(
                 width: 36, height: 4,
                 margin: const EdgeInsets.only(bottom: 20),
@@ -94,11 +92,9 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Name field
               _buildTextField(nameController, 'Name'),
               const SizedBox(height: 12),
 
-              // Address field
               _buildTextField(addressController, 'Wallet address'),
               const SizedBox(height: 20),
 
@@ -115,10 +111,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                     final address = addressController.text.trim();
                     if (name.isEmpty || address.isEmpty) return;
 
-                    // Captured before the await. `mounted` here is the
-                    // screen's, but `context` is the sheet's — so if the user
-                    // swiped the sheet away mid-save, the guard passed and
-                    // Navigator.pop removed the Address Book screen instead.
+                    // Captured before the await.
                     final navigator = Navigator.of(sheetContext);
                     await _dataSource.saveContact(Contact(name: name, address: address));
                     navigator.pop();
@@ -134,8 +127,6 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
           ),
         ),
       ),
-      // Created per sheet open and never released before — one controller
-      // pair leaked for the life of the app on every "add contact" tap.
     ).whenComplete(() {
       nameController.dispose();
       addressController.dispose();
@@ -168,11 +159,9 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             _buildHeader(),
             const SizedBox(height: 8),
 
-            // Search bar
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Container(
@@ -202,7 +191,6 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
               ),
             ),
 
-            // Content
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator(color: Colors.yellow, strokeWidth: 2))
@@ -211,7 +199,6 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Contacts section
                           if (_filtered.isNotEmpty) ...[
                             const SizedBox(height: 20),
                             Text(
@@ -222,7 +209,6 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                             ..._filtered.map((c) => _buildContactRow(c)),
                           ],
 
-                          // Recents section
                           if (_recents.isNotEmpty && _searchController.text.isEmpty) ...[
                             const SizedBox(height: 24),
                             Text(
@@ -233,7 +219,6 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                             ..._recents.map((c) => _buildContactRow(c)),
                           ],
 
-                          // Empty state
                           if (_filtered.isEmpty && _recents.isEmpty)
                             Padding(
                               padding: const EdgeInsets.only(top: 60),
@@ -287,7 +272,6 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
       padding: const EdgeInsets.only(bottom: 18),
       child: Row(
         children: [
-          // Initials avatar
           Container(
             width: 40,
             height: 40,
@@ -304,7 +288,6 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
           ),
           const SizedBox(width: 12),
 
-          // Name + address
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

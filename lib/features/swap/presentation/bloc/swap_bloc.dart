@@ -18,27 +18,18 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
   late final SolanaRpcDataSource _rpc;
   late final PreviewEngine _preview;
 
-  /// Base units for [amount] of [token].
-  ///
-  /// Shared because the two call sites had drifted: the quote truncated and
-  /// the execute rounded, so 8.7 USDC quoted 8699999 and swapped 8700000 —
-  /// the user was shown a price for an amount the swap did not make.
   static int baseUnits(double amount, SwapToken token) =>
       (amount * pow(10, token.decimals)).round();
 
-  // Bumped per quote request; a response whose id no longer matches is a
-  // stale one and is dropped. Bloc 8's default transformer is concurrent
-  // and a quote fires on every keystroke, so the last response to *return*
-  // used to win rather than the last keystroke: type "12", backspace to
-  // "1", and the field read 1 while the state said 12 — which is the amount
-  // the execute then prepared.
+  // Bumped per quote request; a response whose id no longer matches is a stale
+  // one and is dropped.
   int _quoteId = 0;
 
-  // The signed route waiting on the user. Dropped the moment they back out.
+  // The signed route waiting on the user.
   PreparedSwap? _prepared;
 
-  // Held so a token switch can refresh the balance without the screen
-  // having to re-supply the address.
+  // Held so a token switch can refresh the balance without the screen having to
+  // re-supply the address.
   String? _walletAddress;
 
   SwapBloc({
@@ -91,9 +82,7 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
   void _onSelectOutput(SelectOutputTokenEvent event, Emitter<SwapState> emit) {
     if (state is SwapReady) {
       final s = state as SwapReady;
-      // Self-swaps have no route. Buying SOL from the market screen set the
-      // output to wrapped SOL, which is also the default input, so the form
-      // sat on SOL→SOL and every amount produced "Failed to get quote".
+      // Self-swaps have no route.
       if (event.token.mint == s.inputToken.mint) return;
       _quoteId++;
       emit(s.copyWith(
@@ -126,9 +115,9 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
         );
         if (quoteId != _quoteId) return;
 
-        // Re-read: `s` was captured before the await, and emitting a
-        // copyWith of it would put back whatever pair or amount was current
-        // when the request left.
+        // Re-read: `s` was captured before the await, and emitting a copyWith
+        // of it would put back whatever pair or amount was current when the
+        // request left.
         final now = state;
         if (now is! SwapReady) return;
 
@@ -191,13 +180,8 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
     if (address != null) add(LoadInputBalanceEvent(address));
   }
 
-  // Native SOL lives in the account itself; everything else is an SPL
-  // balance spread over the owner's token accounts.
-  // Null on failure, which SwapLimits.covers reads as "unknown, do not
-  // block". Returning 0 made a transient RPC error indistinguishable from
-  // an empty wallet, so one failed lookup showed "Insufficient SOL" on a
-  // funded wallet — permanently, since nothing retries until the user
-  // switches tokens.
+  // Native SOL lives in the account itself; everything else is an SPL balance
+  // spread over the owner's token accounts.
   Future<double?> _balanceOf(SwapToken token, String owner) async {
     try {
       if (token.mint == SwapToken.sol.mint) {
@@ -244,12 +228,8 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
     }
   }
 
-  // Builds and signs the route, then hands it to the user rather than to
-  // the network.
-  //
-  // The preview comes from simulating the transaction Jupiter actually
-  // built, which is the only way to show what the swap moves rather than
-  // what the route says it moves.
+  // Builds and signs the route, then hands it to the user rather than to the
+  // network.
   Future<void> _onExecuteSwap(ExecuteSwapEvent event, Emitter<SwapState> emit) async {
     if (state is! SwapReady) return;
     final s = state as SwapReady;

@@ -2,18 +2,12 @@ import 'package:solfare/features/market/domain/entities/market_category.dart';
 import 'package:solfare/features/market/domain/entities/market_window.dart';
 
 /// One asset in the market list.
-///
-/// [id] is the mint. Every row is a real Solana token, which is the whole
-/// reason a buy button can exist on it: a mint plus decimals is everything an
-/// order needs.
 class MarketToken {
   /// The mint address.
   final String id;
   final String name;
 
-  /// What a card calls this, with the issuer stripped off. The full [name]
-  /// stays available, because "which issuer" is exactly the question worth
-  /// answering before buying a tokenised equity.
+  /// What a card calls this, with the issuer stripped off.
   final String displayName;
 
   final String symbol;
@@ -21,24 +15,22 @@ class MarketToken {
   final double currentPrice;
   final int decimals;
 
-  /// SPL Token or Token-2022. Needed before a transfer, not before a swap,
-  /// but carried so the send path never has to look it up again.
+  /// SPL Token or Token-2022.
   final String tokenProgram;
 
-  /// Jupiter's own verification. Unverified mints are shown but marked.
+  /// Jupiter's own verification.
   final bool isVerified;
 
-  /// Null when the API did not report one — an unknown supply leaves market
-  /// cap unknowable, and zero would be a different claim.
+  /// Null when the API did not report one — an unknown supply leaves market cap
+  /// unknowable, and zero would be a different claim.
   final double? marketCap;
   final double? liquidity;
   final int? holderCount;
 
-  /// 0–100. How much of the volume comes from real traders rather than wash.
+  /// 0–100.
   final double? organicScore;
 
-  /// When the mint first traded. Age is most of what separates a blue chip
-  /// from something that launched this morning.
+  /// When the mint first traded.
   final DateTime? createdAt;
 
   /// Which shelf this was loaded onto.

@@ -6,8 +6,6 @@ import 'package:solfare/features/swap/domain/entities/swap_token.dart';
 
 class JupiterDataSource {
   static const _baseUrl = 'https://api.jup.ag/swap/v2';
-  // Was a literal in this file, so it shipped in every build and sat in
-  // the repository's history. Per-build now, like the Helius key.
   static String get _apiKey => ApiKeys.jupiter;
 
   final http.Client client;
@@ -15,16 +13,11 @@ class JupiterDataSource {
   JupiterDataSource({http.Client? client}) : client = client ?? http.Client();
 
   /// Returns a curated list of popular Solana tokens for swapping.
-  /// Token list APIs require an API key, so we hardcode the top tokens.
   List<SwapToken> getTokenList() {
     return _popularTokens;
   }
 
   /// Get an order from Jupiter v2 (/order endpoint).
-  ///
-  /// Without [taker] this is a price quote and `transaction` comes back
-  /// empty. Pass the wallet address to have Jupiter build the transaction
-  /// and issue the `requestId` that [execute] needs.
   Future<Map<String, dynamic>> getQuote({
     required String inputMint,
     required String outputMint,
@@ -56,11 +49,7 @@ class JupiterDataSource {
   }
 
   /// Hand the signed order back to Jupiter, which broadcasts it and polls for
-  /// landing on its own infrastructure. Returns the raw result — `status` is
-  /// "Success" or "Failed", alongside `signature`, `error` and `code`.
-  ///
-  /// [requestId] ties the signature to the order Jupiter built; it only comes
-  /// from an /order call that included a taker.
+  /// landing on its own infrastructure.
   Future<Map<String, dynamic>> execute({
     required String signedTransaction,
     required String requestId,
@@ -80,8 +69,8 @@ class JupiterDataSource {
       ),
     );
 
-    // Jupiter reports a landed-but-reverted swap as HTTP 200 with
-    // status "Failed", so the body is parsed either way.
+    // Jupiter reports a landed-but-reverted swap as HTTP 200 with status
+    // "Failed", so the body is parsed either way.
     try {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       if (response.statusCode == 200 || data['status'] != null || data['error'] != null) {
@@ -141,10 +130,6 @@ class JupiterDataSource {
       logoUrl: '$_cg/33566/large/dogwifhat.jpg?1702499428',
     ),
     SwapToken(
-      // Not a placeholder anyone would notice by eye: the old value read
-      // like an address but contained 'l', which base58 excludes, so it was
-      // not even decodable. Selecting RAY produced "Failed to get quote"
-      // forever.
       mint: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
       symbol: 'RAY',
       name: 'Raydium',

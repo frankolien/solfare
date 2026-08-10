@@ -229,11 +229,7 @@ void main() {
 
     test('an unreadable step on a known program is not silence', () {
       // System::AssignWithSeed is tag 10 and hands an account to another
-      // program exactly like Assign (tag 1), which is danger. The decoder
-      // returns unknownKind with programName still set, and the unknown-
-      // *program* check below never fired for it — so this produced no flag
-      // of any kind. Same for the stake authorize *WithSeed/*Checked
-      // variants and every Token-2022 extension instruction.
+      // program exactly like Assign (tag 1), which is danger.
       final flags = risk.evaluate(
         instructions: [
           ix(DecodedInstruction.unknownKind, programName: 'System Program'),

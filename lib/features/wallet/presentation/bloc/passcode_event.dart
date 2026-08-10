@@ -1,6 +1,5 @@
 import 'package:equatable/equatable.dart';
 
-/// Events for PasscodeBloc
 abstract class PasscodeEvent extends Equatable {
   const PasscodeEvent();
 
@@ -8,7 +7,6 @@ abstract class PasscodeEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Event when user enters a digit
 class PasscodeDigitEntered extends PasscodeEvent {
   final String digit;
 
@@ -18,12 +16,10 @@ class PasscodeDigitEntered extends PasscodeEvent {
   List<Object?> get props => [digit];
 }
 
-/// Event when user deletes a digit
 class PasscodeDigitDeleted extends PasscodeEvent {
   const PasscodeDigitDeleted();
 }
 
-/// Event to verify passcode (for unlock mode)
 class VerifyPasscodeEvent extends PasscodeEvent {
   final String passcode;
 
@@ -33,7 +29,6 @@ class VerifyPasscodeEvent extends PasscodeEvent {
   List<Object?> get props => [passcode];
 }
 
-/// Event to save passcode (after confirmation)
 class SavePasscodeEvent extends PasscodeEvent {
   final String passcode;
 
@@ -43,12 +38,10 @@ class SavePasscodeEvent extends PasscodeEvent {
   List<Object?> get props => [passcode];
 }
 
-/// Event to reset passcode state
 class ResetPasscodeEvent extends PasscodeEvent {
   const ResetPasscodeEvent();
 }
 
-/// Event to show wrong passcode error
 class PasscodeWrongEvent extends PasscodeEvent {
   const PasscodeWrongEvent();
 }

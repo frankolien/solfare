@@ -1,6 +1,5 @@
 import 'package:equatable/equatable.dart';
 
-/// States for HomepageBloc
 abstract class HomepageState extends Equatable {
   const HomepageState();
 
