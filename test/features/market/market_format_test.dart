@@ -26,6 +26,21 @@ void main() {
       expect(MarketFormat.price(0.00009999), r'$0.0₃100');
     });
 
+    test('a round-up that reaches a plain form uses it', () {
+      // 0.0009999 to three significant digits is 0.001, which has a perfectly
+      // ordinary rendering. It used to come back as $0.0₂100 — the subscript
+      // form — while every other value in that decade read as $0.00100.
+      expect(MarketFormat.price(0.0009999), r'$0.001');
+    });
+
+    test('below the notation floor it says smaller-than, not a wrong number', () {
+      // The zero-counting loop caps at 18, and past that the scaled value was
+      // used anyway: 1e-20 printed as $0.0₁₈10, which is ten times the real
+      // price.
+      expect(MarketFormat.price(1e-20), startsWith('<'));
+      expect(MarketFormat.price(1e-25), startsWith('<'));
+    });
+
     test('zero and nonsense do not render as prices', () {
       expect(MarketFormat.price(0), r'$0');
       expect(MarketFormat.price(double.nan), '—');
@@ -34,6 +49,15 @@ void main() {
   });
 
   group('compact', () {
+    test('a value that rounds to the next unit is promoted, not left behind', () {
+      // _significant rounds to three digits, so 999,999 became "1000K" and
+      // a $999.5M market cap read as "$1000M".
+      expect(MarketFormat.compact(999999), r'$1.00M');
+      expect(MarketFormat.compact(999500), r'$1.00M');
+      expect(MarketFormat.compact(999999999), r'$1.00B');
+      expect(MarketFormat.compact(999499), r'$999K', reason: 'below the boundary stays put');
+    });
+
     test('three significant digits, whatever the scale', () {
       expect(MarketFormat.compact(23200000), r'$23.2M');
       expect(MarketFormat.compact(2260000), r'$2.26M');

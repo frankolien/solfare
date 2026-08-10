@@ -21,6 +21,15 @@ class MarketState extends Equatable {
   /// Already ordered by [sort] over [window].
   final List<MarketToken> tokens;
 
+  /// The order the feed arrived in, kept so sorting can always start from it.
+  ///
+  /// Sorting used to run over [tokens] — which is the *previous* sort's
+  /// output — and nothing held the original. MarketSort.rank is defined as
+  /// "return the list unchanged", so once any other sort had been applied,
+  /// tapping Rank returned whatever that sort left behind and the feed's own
+  /// ranking was unrecoverable short of a refresh.
+  final List<MarketToken> unsorted;
+
   /// Registry mints the API would not stand behind on this load.
   final int dropped;
 
@@ -33,6 +42,7 @@ class MarketState extends Equatable {
     this.sort = MarketSort.rank,
     this.descending = true,
     this.tokens = const [],
+    this.unsorted = const [],
     this.dropped = 0,
     this.error,
   });
@@ -47,6 +57,7 @@ class MarketState extends Equatable {
     MarketSort? sort,
     bool? descending,
     List<MarketToken>? tokens,
+    List<MarketToken>? unsorted,
     int? dropped,
     String? error,
     bool clearError = false,
@@ -58,6 +69,7 @@ class MarketState extends Equatable {
       sort: sort ?? this.sort,
       descending: descending ?? this.descending,
       tokens: tokens ?? this.tokens,
+      unsorted: unsorted ?? this.unsorted,
       dropped: dropped ?? this.dropped,
       error: clearError ? null : (error ?? this.error),
     );
@@ -65,5 +77,5 @@ class MarketState extends Equatable {
 
   @override
   List<Object?> get props =>
-      [status, section, window, sort, descending, tokens, dropped, error];
+      [status, section, window, sort, descending, tokens, unsorted, dropped, error];
 }

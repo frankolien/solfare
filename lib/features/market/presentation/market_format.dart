@@ -5,6 +5,10 @@ class MarketFormat {
 
   static const _subscripts = '₀₁₂₃₄₅₆₇₈₉';
 
+  /// Where the subscript notation stops being useful. Below this a price is
+  /// reported as "smaller than" rather than given a figure.
+  static const int _maxSubscriptZeros = 18;
+
   /// A price with as much precision as it needs and no more.
   ///
   /// Below a tenth of a cent the leading zeros are collapsed into a subscript
@@ -20,15 +24,17 @@ class MarketFormat {
 
     var scaled = magnitude;
     var zeros = 0;
-    while (scaled < 0.1 && zeros < 18) {
+    while (scaled < 0.1 && zeros < _maxSubscriptZeros) {
       scaled *= 10;
       zeros++;
     }
 
-    // Three significant digits, wherever they start. A fixed number of
-    // decimals either truncates a cheap token to nothing or pads a dear one
-    // with zeros that carry no information.
-    if (zeros < 3) return '$sign\$${_trimmed(magnitude, zeros + 3)}';
+    // Past the point the notation can express. Saying "smaller than this"
+    // beats scaling a number the loop never finished normalising — that
+    // printed $0.0₁₈10 for 1e-20, which is ten times the real value.
+    if (scaled < 0.1) {
+      return '$sign<\$0.0${_subscript(_maxSubscriptZeros)}1';
+    }
 
     var digits = (scaled * 1000).round();
     // 0.0999… rounds to 1000, which is 0.1 and one zero shorter.
@@ -36,6 +42,16 @@ class MarketFormat {
       digits = 100;
       zeros--;
     }
+
+    // Three significant digits, wherever they start. A fixed number of
+    // decimals either truncates a cheap token to nothing or pads a dear one
+    // with zeros that carry no information.
+    //
+    // Checked after the round-up, not before: 0.0009999 rounds to 0.001,
+    // which has a perfectly good plain form, and deciding first printed it
+    // as $0.0₂100 while every other value in that decade read as $0.00100.
+    if (zeros < 3) return '$sign\$${_trimmed(magnitude, zeros + 3)}';
+
     return '$sign\$0.0${_subscript(zeros)}$digits';
   }
 
@@ -47,7 +63,10 @@ class MarketFormat {
 
     const units = [(1e12, 'T'), (1e9, 'B'), (1e6, 'M'), (1e3, 'K')];
     for (final (threshold, suffix) in units) {
-      if (magnitude >= threshold) {
+      // 999.5 rather than 1.0 of the threshold: _significant rounds to three
+      // digits, so anything from 999,500 up rendered as "$1000K" rather than
+      // promoting to "$1M". A $999.5M market cap read as $1000M.
+      if (magnitude >= threshold * 999.5 / 1000) {
         return '$sign\$${_significant(magnitude / threshold)}$suffix';
       }
     }

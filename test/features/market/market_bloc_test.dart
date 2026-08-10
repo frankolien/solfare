@@ -187,6 +187,33 @@ void main() {
     watchlist.resetForTest();
   });
 
+  test('Rank restores the feed order after another sort', () async {
+    // Sorting ran over the previous sort's output and nothing held the
+    // original, and MarketSort.rank is defined as "return the list
+    // unchanged" — so once any other sort had been applied, tapping Rank
+    // gave back whatever that sort left behind. The feed's own ranking was
+    // unrecoverable short of a refresh.
+    final bloc = blocFor(MarketSection.trending, [
+      row('C', mcap: 300),
+      row('A', mcap: 100),
+      row('B', mcap: 200),
+    ]);
+    bloc.add(const FetchMarketTokensEvent());
+    final feed = await settle(bloc);
+    expect(feed.tokens.map((t) => t.symbol).toList(), ['C', 'A', 'B']);
+
+    bloc.add(const SelectSortEvent(MarketSort.marketCap));
+    final sorted = await bloc.stream.firstWhere((s) => s.sort == MarketSort.marketCap);
+    expect(sorted.tokens.map((t) => t.symbol).toList(), ['C', 'B', 'A']);
+
+    bloc.add(const SelectSortEvent(MarketSort.rank));
+    final restored = await bloc.stream.firstWhere((s) => s.sort == MarketSort.rank);
+    expect(restored.tokens.map((t) => t.symbol).toList(), ['C', 'A', 'B'],
+        reason: 'Rank means the order the feed sent, not the last one shown');
+
+    await bloc.close();
+  });
+
   test('a failed load says so rather than showing an empty market', () async {
     final bloc = MarketBloc(
       section: MarketSection.trending,

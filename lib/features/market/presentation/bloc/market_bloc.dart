@@ -42,9 +42,15 @@ class MarketBloc extends Bloc<MarketEvent, MarketState> {
     final key = _cacheKey(state);
     final cached = _cache[key];
     if (!event.force && cached != null && cached.isFresh) {
+      // Bumped on the cache path too. Without it, a slow request from a
+      // window the user has already left still passed the staleness check
+      // below: tap 5m, tap 24h before it lands, and the 5m ranking arrived
+      // under the 24h chip with 24h percentages beside it.
+      ++_loadId;
       emit(_ordered(state.copyWith(
         status: MarketStatus.ready,
         tokens: cached.result.tokens,
+        unsorted: cached.result.tokens,
         dropped: cached.result.dropped,
         clearError: true,
       )));
@@ -61,6 +67,7 @@ class MarketBloc extends Bloc<MarketEvent, MarketState> {
       emit(_ordered(state.copyWith(
         status: MarketStatus.ready,
         tokens: result.tokens,
+        unsorted: result.tokens,
         dropped: result.dropped,
       )));
     } catch (e) {
@@ -109,9 +116,11 @@ class MarketBloc extends Bloc<MarketEvent, MarketState> {
     )));
   }
 
+  /// Always sorts from the feed's own order, never from the last sort's
+  /// output — which is what made Rank a one-way door.
   MarketState _ordered(MarketState next) => next.copyWith(
         tokens: sortMarketTokens(
-          next.tokens,
+          next.unsorted.isEmpty ? next.tokens : next.unsorted,
           sort: next.sort,
           window: next.window,
           descending: next.descending,
