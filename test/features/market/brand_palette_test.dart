@@ -105,11 +105,21 @@ void main() {
     expect(hueOf(read(px)!), closeTo(220, 12));
   });
 
-  test('transparent pixels are not black', () {
+  test('transparent pixels are not counted at all', () {
+    // The old version of this drew a disc covering 23% of the sampled area
+    // and asserted its hue — which holds whether or not transparent pixels
+    // are skipped, because black carries no hue and no weight either way.
+    //
+    // 4% coverage is below minCoverage (6%), so the result depends entirely
+    // on the denominator: skip the transparent pixels and the mark is 100%
+    // of what was sampled; count them as black and it is 4%, which is not a
+    // brand colour. Only one of those returns a hue.
     final px = canvas();
-    disc(px, const Color(0xFFFF8A00), radius: 0.3);
-    final brand = read(px)!;
-    expect(hueOf(brand), closeTo(32, 15));
+    disc(px, const Color(0xFFFF8A00), radius: 0.13);
+    final brand = read(px);
+    expect(brand, isNotNull,
+        reason: 'transparency is absence, not a black vote');
+    expect(hueOf(brand!), closeTo(32, 15));
   });
 
   test('a nearly invisible mark is not a mark', () {
@@ -118,26 +128,52 @@ void main() {
     expect(read(px), isNull);
   });
 
+  double saturationOf(Color c) {
+    final max = math.max(c.r, math.max(c.g, c.b));
+    final min = math.min(c.r, math.min(c.g, c.b));
+    if (max == min) return 0;
+    final l = (max + min) / 2;
+    return l > 0.5 ? (max - min) / (2 - max - min) : (max - min) / (max + min);
+  }
+
   test('a dark brand colour is lifted enough to read on black', () {
+    // 0xFF1F3D7A: lightness 0.30, saturation 0.60 — inside both floors, so
+    // it survives the filter and the lift is the only thing under test.
+    //
+    // This test used to use 0xFF14233F, whose lightness is 0.163 and so
+    // falls below minLightness (0.18): every pixel was skipped, fromPixels
+    // returned null, and the assertion sat inside `if (brand != null)` and
+    // never ran. readableLightness had zero coverage as a result — deleting
+    // the math.max that applies it left the suite green.
     final px = canvas();
-    disc(px, const Color(0xFF14233F)); // deep navy, saturated
+    disc(px, const Color(0xFF1F3D7A));
     final brand = read(px);
-    if (brand != null) {
-      expect(lightnessOf(brand), greaterThanOrEqualTo(0.5));
-    }
+    expect(brand, isNotNull, reason: 'this colour is inside every floor');
+    expect(lightnessOf(brand!),
+        greaterThanOrEqualTo(BrandPalette.readableLightness - 0.02));
+  });
+
+  test('a colour already light enough is not pushed further', () {
+    // The lift is a floor, not a normalisation.
+    final px = canvas();
+    disc(px, const Color(0xFFB3D1FF)); // lightness ~0.85
+    final brand = read(px)!;
+    expect(lightnessOf(brand), greaterThan(0.7));
   });
 
   test('saturation is never invented', () {
-    // A barely-tinted grey must not come back vivid. This is the bug the
-    // measurement caught: lifting saturation turned anti-aliasing into pink.
+    // A muted logo must not come back vivid. This is the bug the measurement
+    // caught: lifting saturation turned anti-aliasing into pink.
+    //
+    // 0xFFB87A7A is 30% saturated — just above the 25% floor, so it is
+    // actually measured. The old fixture was 0xFFBEB6BA at 5.8%, which the
+    // floor rejected outright, so the guard swallowed the assertion.
     final px = canvas();
-    disc(px, const Color(0xFFBEB6BA)); // 3% saturation
+    disc(px, const Color(0xFFB87A7A));
     final brand = read(px);
-    if (brand != null) {
-      final max = math.max(brand.r, math.max(brand.g, brand.b));
-      final min = math.min(brand.r, math.min(brand.g, brand.b));
-      expect(max - min, lessThan(0.35), reason: 'a pale logo stays pale');
-    }
+    expect(brand, isNotNull);
+    expect(saturationOf(brand!), lessThan(0.45),
+        reason: 'a muted logo stays muted');
   });
 
   test('the winning hue is the vivid one, not merely the commonest', () {
@@ -161,9 +197,19 @@ void main() {
       expect(read(canvas()), isNull);
     });
 
-    test('a one-pixel image does not divide by zero', () {
+    test('a one-pixel image answers rather than being skipped', () {
+      // This asserts the answer, where the old version asserted only
+      // `returnsNormally` — which was true of a function that returned null
+      // for every input.
+      //
+      // What it still cannot do is catch the removal of the math.max(1, ...)
+      // on the sample stride: a stride of 0 makes the sampling loop spin
+      // synchronously, and the Dart test runner cannot interrupt that, so
+      // the suite hangs instead of failing. Verified by mutating the guard
+      // out and watching the run stall. The stride floor is defended by
+      // being obvious in the source, not by this test.
       final px = Uint8List.fromList([0xFF, 0x00, 0x00, 0xFF]);
-      expect(() => BrandPalette.fromPixels(px, width: 1, height: 1), returnsNormally);
+      expect(BrandPalette.fromPixels(px, width: 1, height: 1), isNotNull);
     });
   });
 }
