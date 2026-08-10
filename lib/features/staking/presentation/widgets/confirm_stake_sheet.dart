@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:solfare/features/staking/domain/stake_limits.dart';
 import 'package:solfare/features/staking/domain/entities/validator_info.dart';
 
 class ConfirmStakeSheet extends StatefulWidget {
@@ -99,26 +100,46 @@ class _ConfirmStakeSheetState extends State<ConfirmStakeSheet> {
           const Divider(color: Colors.white10, height: 1, indent: 20, endIndent: 20),
           const SizedBox(height: 20),
 
-          // Network fee
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Text('Network fee', style: TextStyle(color: Colors.grey[500], fontSize: 12, fontFamily: 'FKGrotesk')),
-                const SizedBox(width: 4),
-                Container(
-                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: Colors.grey),
-                  child: Icon(Icons.info_outline, color: Colors.grey[800], size: 14),
-                ),
-                const Spacer(),
-                const Text('0.000023205 SOL', style: TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w500)),
-              ],
-            ),
+          // The rent deposit is roughly a hundred times the fee and used to
+          // go unmentioned, so the sheet named a debit far smaller than the
+          // one the user was approving. It is refunded when the stake account
+          // is closed, which is worth saying rather than leaving them to
+          // discover a charge they were not shown.
+          _costRow(
+            'Account rent',
+            '${StakeLimits.rentReserve.toStringAsFixed(8)} SOL',
+            note: 'Refunded when you unstake',
           ),
+          const SizedBox(height: 12),
+          _costRow('Network fee', '0.000010000 SOL'),
           const SizedBox(height: 20),
 
           // Slide to approve
           _buildSlideToApprove(),
+        ],
+      ),
+    );
+  }
+
+  Widget _costRow(String label, String value, {String? note}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(color: Colors.grey[500], fontSize: 12, fontFamily: 'FKGrotesk')),
+                if (note != null) ...[
+                  const SizedBox(height: 2),
+                  Text(note, style: TextStyle(color: Colors.grey[700], fontSize: 10, fontFamily: 'FKGrotesk')),
+                ],
+              ],
+            ),
+          ),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w500)),
         ],
       ),
     );

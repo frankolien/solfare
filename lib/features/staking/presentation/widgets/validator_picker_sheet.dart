@@ -6,7 +6,9 @@ import 'package:solfare/features/staking/presentation/bloc/staking_event.dart';
 import 'package:solfare/features/staking/presentation/bloc/staking_state.dart';
 
 class ValidatorPickerSheet extends StatefulWidget {
-  final ValidatorInfo currentValidator;
+  /// Null until the first fetch lands — the screen no longer ships with a
+  /// hardcoded validator to fall back on.
+  final ValidatorInfo? currentValidator;
   final ValueChanged<ValidatorInfo> onSelected;
 
   const ValidatorPickerSheet({
@@ -65,7 +67,7 @@ class _ValidatorPickerSheetState extends State<ValidatorPickerSheet> {
                     itemCount: validators.length,
                     itemBuilder: (context, index) {
                       final v = validators[index];
-                      final isSelected = v.votePubkey == widget.currentValidator.votePubkey;
+                      final isSelected = v.votePubkey == widget.currentValidator?.votePubkey;
                       return GestureDetector(
                         onTap: () {
                           widget.onSelected(v);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solfare/core/router/app_router.dart';
+import 'package:solfare/features/staking/domain/stake_limits.dart';
 import 'package:solfare/features/staking/domain/entities/validator_info.dart';
 import 'package:solfare/features/staking/presentation/bloc/staking_bloc.dart';
 import 'package:solfare/features/staking/presentation/bloc/staking_event.dart';
@@ -29,22 +30,29 @@ class StakeSolScreen extends StatefulWidget {
 class _StakeSolScreenState extends State<StakeSolScreen> {
   final TextEditingController _amountController = TextEditingController();
 
-  // Default validator — top devnet validator
-  ValidatorInfo _selectedValidator = const ValidatorInfo(
-    votePubkey: 'vgcDar2pryHvMgPkKaZfh8pQy4BJxv7SpwUG7zinWjG',
-    name: 'Devnet Validator 1',
-    apyPercent: 0.0,
-    activatedStake: 38705912619352696,
-  );
+  // No default. The old one was a hardcoded devnet vote account labelled
+  // "Devnet Validator 1", carrying a made-up 38.7M SOL stake, while the app
+  // defaults to mainnet — so a fresh install's first stake was aimed at an
+  // account that does not exist there and failed every time.
+  ValidatorInfo? _selectedValidator;
+
+  // Only a delegation this screen started may drive its status sheet.
+  // StakingBloc is app-wide: the validator picker and the homepage's stake
+  // list both fetch through it, and any error from those used to pop the
+  // picker, show a "Failed" sheet for a stake nobody attempted, and send the
+  // user home.
+  bool _stakeInFlight = false;
 
   double get _amountInSol => double.tryParse(_amountController.text) ?? 0.0;
   double get _amountInUsd => _amountInSol * widget.solPriceUsd;
-  double get _annualReturn => _amountInSol * (_selectedValidator.apyPercent / 100);
 
   @override
   void initState() {
     super.initState();
     _amountController.addListener(() => setState(() {}));
+    // So the screen arrives with a real validator for the cluster it is on,
+    // rather than needing the user to discover the picker first.
+    context.read<StakingBloc>().add(const FetchValidatorsEvent());
   }
 
   @override
@@ -68,7 +76,14 @@ class _StakeSolScreenState extends State<StakeSolScreen> {
   }
 
   void _showConfirmSheet() {
-    if (_amountInSol <= 0 || _amountInSol > widget.balanceInSol) return;
+    final validator = _selectedValidator;
+    if (validator == null) return;
+    if (!StakeLimits.covers(
+      amount: _amountInSol,
+      balance: widget.balanceInSol,
+    )) {
+      return;
+    }
 
     showModalBottomSheet(
       context: context,
@@ -77,7 +92,7 @@ class _StakeSolScreenState extends State<StakeSolScreen> {
       builder: (_) => ConfirmStakeSheet(
         amountInSol: _amountInSol,
         amountInUsd: _amountInUsd,
-        validator: _selectedValidator,
+        validator: validator,
         onConfirm: () {
           Navigator.of(context).pop();
           _executeStake();
@@ -87,10 +102,25 @@ class _StakeSolScreenState extends State<StakeSolScreen> {
   }
 
   void _executeStake() {
+    final validator = _selectedValidator;
+    if (validator == null) return;
+    _stakeInFlight = true;
     context.read<StakingBloc>().add(DelegateStakeEvent(
-          validatorVoteAccount: _selectedValidator.votePubkey,
+          validatorVoteAccount: validator.votePubkey,
           amountInSol: _amountInSol,
         ));
+  }
+
+  // Tracked by identity: `canPop()` pops whatever is on top, which during a
+  // back-press mid-stake is this screen rather than the sheet.
+  ModalRoute<void>? _statusRoute;
+
+  void _dismissStatusSheet() {
+    final route = _statusRoute;
+    _statusRoute = null;
+    if (route != null && route.isActive) {
+      Navigator.of(context).removeRoute(route);
+    }
   }
 
   void _showStatusSheet(String status, {String? signature, String? error}) {
@@ -100,20 +130,29 @@ class _StakeSolScreenState extends State<StakeSolScreen> {
       isDismissible: status != 'staking',
       enableDrag: status != 'staking',
       isScrollControlled: true,
-      builder: (sheetContext) => StakeStatusSheet(
-        status: status,
-        signature: signature,
-        error: error,
-        onClose: () {
-          Navigator.of(sheetContext).pop();
-          context.go(AppRoutes.homepage);
-        },
-      ),
-    );
+      routeSettings: RouteSettings(name: 'stake-status/$status'),
+      builder: (sheetContext) {
+        _statusRoute = ModalRoute.of(sheetContext) as ModalRoute<void>?;
+        return StakeStatusSheet(
+          status: status,
+          signature: signature,
+          error: error,
+          onClose: () {
+            Navigator.of(sheetContext).pop();
+            context.go(AppRoutes.homepage);
+          },
+        );
+      },
+    ).whenComplete(() => _statusRoute = null);
   }
 
   void _setMax() {
-    final max = widget.balanceInSol.toStringAsFixed(9)
+    // Not the whole balance. A delegation funds a brand new 200-byte stake
+    // account past its rent-exempt minimum on top of the amount staked, and
+    // pays two signatures — so "all of it" was an amount that could never
+    // land, and every stake within ~0.0023 SOL of the balance failed too.
+    final max = StakeLimits.maxStakeable(widget.balanceInSol)
+        .toStringAsFixed(9)
         .replaceAll(RegExp(r'0+$'), '')
         .replaceAll(RegExp(r'\.$'), '');
     _amountController.text = max.isEmpty ? '0' : max;
@@ -123,13 +162,26 @@ class _StakeSolScreenState extends State<StakeSolScreen> {
   Widget build(BuildContext context) {
     return BlocListener<StakingBloc, StakingState>(
       listener: (context, state) {
+        // Picking up the first validator for this cluster is the one thing
+        // this screen listens for that is not its own delegation.
+        if (state is ValidatorsFetched &&
+            _selectedValidator == null &&
+            state.validators.isNotEmpty) {
+          setState(() => _selectedValidator = state.validators.first);
+          return;
+        }
+
+        if (!_stakeInFlight) return;
+
         if (state is StakeDelegating) {
           _showStatusSheet('staking');
         } else if (state is StakeDelegated) {
-          if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+          _stakeInFlight = false;
+          _dismissStatusSheet();
           _showStatusSheet('success', signature: state.signature);
         } else if (state is StakingError) {
-          if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+          _stakeInFlight = false;
+          _dismissStatusSheet();
           _showStatusSheet('error', error: state.message);
         }
       },
@@ -275,9 +327,9 @@ class _StakeSolScreenState extends State<StakeSolScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_selectedValidator.name, style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500)),
+                    Text(_selectedValidator?.name ?? 'Choosing a validator…', style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500)),
                     const SizedBox(height: 2),
-                    Text('~${_selectedValidator.apyPercent.toStringAsFixed(2)}% APY', style: TextStyle(color: Colors.grey[500], fontSize: 11, fontFamily: 'FKGroteskSemiMono')),
+                    Text(_validatorSubtitle, style: TextStyle(color: Colors.grey[500], fontSize: 11, fontFamily: 'FKGroteskSemiMono')),
                   ],
                 ),
               ),
@@ -297,17 +349,19 @@ class _StakeSolScreenState extends State<StakeSolScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         children: [
+          // "Annual return" used to live here, computed from
+          // ValidatorInfo.apyPercent — which nothing ever populates, so it
+          // always read 0.00000000 SOL. A fabricated zero beside a staking
+          // decision is worse than not answering, and commission is a real
+          // number we actually fetch.
           Row(
             children: [
-              Text('Annual return', style: TextStyle(color: Colors.grey[500], fontSize: 12, fontFamily: 'FKGrotesk')),
-              const SizedBox(width: 6),
-              Container(
-                decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: Colors.grey),
-                child: Icon(Icons.info_outline, color: Colors.grey[800], size: 14),
-              ),
+              Text('Commission', style: TextStyle(color: Colors.grey[500], fontSize: 12, fontFamily: 'FKGrotesk')),
               const Spacer(),
               Text(
-                '${_annualReturn.toStringAsFixed(8)} SOL',
+                _selectedValidator == null
+                    ? '—'
+                    : '${_selectedValidator!.commission.toStringAsFixed(0)}%',
                 style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w500),
               ),
             ],
@@ -323,7 +377,9 @@ class _StakeSolScreenState extends State<StakeSolScreen> {
               ),
               const Spacer(),
               Text(
-                '${_formatStake(_selectedValidator.totalStakeInSol)} SOL',
+                _selectedValidator == null
+                    ? '—'
+                    : '${_formatStake(_selectedValidator!.totalStakeInSol)} SOL',
                 style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w500),
               ),
             ],
@@ -339,8 +395,17 @@ class _StakeSolScreenState extends State<StakeSolScreen> {
     return sol.toStringAsFixed(0);
   }
 
+  /// The commission is real and fetched; the APY is not populated anywhere,
+  /// so advertising "~0.00% APY" beside a validator was worse than silence.
+  String get _validatorSubtitle {
+    final validator = _selectedValidator;
+    if (validator == null) return 'Loading validators';
+    return '${validator.commission.toStringAsFixed(0)}% commission';
+  }
+
   Widget _buildStakeButton() {
-    final isValid = _amountInSol > 0 && _amountInSol <= widget.balanceInSol;
+    final isValid = _selectedValidator != null &&
+        StakeLimits.covers(amount: _amountInSol, balance: widget.balanceInSol);
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.of(context).padding.bottom + 16),
       child: SizedBox(
