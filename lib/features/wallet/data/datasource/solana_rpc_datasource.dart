@@ -38,6 +38,11 @@ abstract class SolanaRpcDataSource {
   /// propagated.
   Future<Map<String, dynamic>?> getSignatureStatus(String signature);
 
+  /// Program log lines for a landed transaction. `getSignatureStatuses`
+  /// reports that a transaction failed but never why; the logs are the only
+  /// place the reason is written down.
+  Future<List<String>> getTransactionLogs(String signature);
+
   /// Compared against a blockhash's lastValidBlockHeight to detect expiry.
   Future<int> getBlockHeight();
 
@@ -335,6 +340,27 @@ class SolanaRpcDataSourceImpl implements SolanaRpcDataSource {
     final values = (result['value'] as List?) ?? const [];
     if (values.isEmpty || values.first == null) return null;
     return Map<String, dynamic>.from(values.first as Map);
+  }
+
+  @override
+  Future<List<String>> getTransactionLogs(String signature) async {
+    try {
+      final result = await _rpcCall('getTransaction', [
+        signature,
+        {
+          'encoding': 'json',
+          'commitment': 'confirmed',
+          'maxSupportedTransactionVersion': 0,
+        },
+      ]);
+      final logs = (result?['meta'] as Map?)?['logMessages'];
+      return (logs as List?)?.cast<String>() ?? const [];
+    } catch (e) {
+      // A missing explanation is not worth failing over — the caller falls
+      // back to the generic message it would have shown anyway.
+      debugLog('[RPC] Could not read logs for $signature: $e');
+      return const [];
+    }
   }
 
   @override

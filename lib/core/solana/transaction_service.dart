@@ -39,7 +39,9 @@ class TxEstimate {
 /// can never land, silently and without a fee.
 ///
 /// Every send runs the same four steps:
-///   - Simulate to measure compute units and fail before signing.
+///   - Simulate to measure compute units and fail before anything is signed
+///     or broadcast. The probe is unsigned: the RPC is asked with
+///     `sigVerify: false`, so a signature would be work nobody checks.
 ///   - Budget: request the measured limit and bid a priority fee off what
 ///     recent blocks charged for these accounts.
 ///   - Broadcast with node-side retries off; the loop below owns them.
@@ -49,17 +51,28 @@ class TransactionService {
   final SolanaRpcDataSource _rpc;
   final PriorityFeeOracle _oracle;
 
-  TransactionService(this._rpc) : _oracle = PriorityFeeOracle(_rpc);
+  TransactionService(this._rpc, {PriorityFeeOracle? oracle})
+      : _oracle = oracle ?? PriorityFeeOracle(_rpc);
 
   // Runtime ceiling for a single transaction.
   static const int _maxComputeUnits = 1400000;
+
+  // Charged per signature by the runtime, and not biddable.
+  static const int lamportsPerSignature = 5000;
 
   // Account state can shift between the dry run and inclusion. 15% covers
   // that without inflating the fee, which is charged on the limit.
   static const double _computeHeadroom = 1.15;
 
   // Used when an RPC declines to report unitsConsumed. Above a system
-  // transfer (~450 CU), below anything that overpays badly.
+  // transfer (~450 CU) and comfortably above a token transfer, below anything
+  // that overpays badly.
+  //
+  // Sending anyway on an unmeasurable transaction is a deliberate trade: an
+  // RPC that cannot simulate is not evidence the transaction cannot land. It
+  // only holds while every caller of this class builds transfers, which stay
+  // far under this. Anything routing through a program that could exceed it
+  // should price itself rather than inherit this number.
   static const int _fallbackComputeUnits = 200000;
 
   static const Duration _statusPollInterval = Duration(milliseconds: 1200);
@@ -72,6 +85,9 @@ class TransactionService {
     required List<solana.Ed25519HDKeyPair> signers,
     FeeLevel feeLevel = FeeLevel.normal,
   }) async {
+    if (signers.isEmpty) {
+      throw const TxSimulationException('No signer available for this transaction.');
+    }
     final blockhash = await _fetchBlockhash();
     final measured = await _measureComputeUnits(instructions, signers, blockhash);
     final limit = _limitFor(measured);
@@ -85,7 +101,7 @@ class TransactionService {
       computeUnitLimit: limit,
       computeUnitsUsed: measured,
       priorityFeeLamports: PriorityFeeOracle.lamportsFor(microLamports, limit),
-      baseFeeLamports: 5000 * signers.length,
+      baseFeeLamports: lamportsPerSignature * signers.length,
     );
   }
 
@@ -108,10 +124,16 @@ class TransactionService {
     if (signers.isEmpty) {
       throw const TxSimulationException('No signer available for this transaction.');
     }
+    // A caller asking for no attempts still has to get an outcome rather than
+    // a null-check crash on the way out.
+    final attempts = math.max(1, maxAttempts);
 
+    // One deadline for the whole call, not one per attempt. A retry inheriting
+    // a fresh timeout makes `timeout: 90s` mean three minutes.
+    final deadline = DateTime.now().add(timeout);
     TxOutcome? lastExpired;
 
-    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+    for (var attempt = 1; attempt <= attempts; attempt++) {
       // Escalate the bid on a retry: the first attempt expiring is evidence
       // the market moved above our bid while it sat in the queue.
       final level = attempt == 1 ? feeLevel : _escalate(feeLevel);
@@ -121,16 +143,22 @@ class TransactionService {
         signers: signers,
         feeLevel: level,
         onPhase: onPhase,
-        timeout: timeout,
+        deadline: deadline,
       );
 
       if (outcome.status != TxStatus.expired) return outcome;
 
       lastExpired = outcome;
       debugLog('[Tx] Attempt $attempt expired before inclusion; rebuilding');
+      if (!DateTime.now().isBefore(deadline)) break;
     }
 
-    return lastExpired!;
+    return lastExpired ??
+        const TxOutcome(
+          signature: '',
+          status: TxStatus.expired,
+          error: 'Timed out waiting for confirmation.',
+        );
   }
 
   /// Sign a transaction somebody else built, without broadcasting it.
@@ -163,10 +191,44 @@ class TransactionService {
       throw const TxSimulationException('That transaction is malformed.');
     }
 
+    final slot = _signatureSlotFor(base64Tx, signer, signatureCount);
     final signature = await signer.sign(raw.sublist(messageStart));
     final signed = Uint8List.fromList(raw);
-    signed.setRange(offset, offset + 64, signature.bytes);
+    signed.setRange(offset + slot * 64, offset + slot * 64 + 64, signature.bytes);
     return base64Encode(signed);
+  }
+
+  /// Which signature slot belongs to [signer].
+  ///
+  /// Slots are positional: the nth slot is the nth required signer in the
+  /// message's account list. Assuming slot zero holds for anything the wallet
+  /// pays for itself, and breaks the moment a payload is sponsored, relayed,
+  /// or multi-signed — the signature lands in somebody else's slot and the
+  /// transaction fails on chain with nothing to explain it.
+  int _signatureSlotFor(
+    String base64Tx,
+    solana.Ed25519HDKeyPair signer,
+    int signatureCount,
+  ) {
+    final encoder.SignedTx tx;
+    try {
+      tx = encoder.SignedTx.decode(base64Tx);
+    } catch (e) {
+      // Undecodable means the slot cannot be established. Signing slot zero
+      // on a guess is how a wrong transaction gets built quietly.
+      debugLog('[Tx] Could not read the payload to place a signature: $e');
+      throw const TxSimulationException('That transaction could not be read.');
+    }
+
+    final keys = tx.compiledMessage.accountKeys;
+    final ours = signer.publicKey;
+    for (var i = 0; i < signatureCount && i < keys.length; i++) {
+      if (keys[i] == ours) return i;
+    }
+
+    throw const TxSimulationException(
+      'That transaction does not ask for a signature from this wallet.',
+    );
   }
 
   /// Sign a transaction somebody else built, broadcast it, and confirm it.
@@ -178,7 +240,12 @@ class TransactionService {
     final encoded = await signPayloadOnly(base64Tx: base64Tx, signer: signer);
     final decoded = encoder.SignedTx.decode(encoded);
 
-    await _rpc.sendTransaction(encoded, skipPreflight: false);
+    try {
+      await _rpc.sendTransaction(encoded, skipPreflight: false);
+    } catch (e) {
+      debugLog('[Tx] External payload rejected on broadcast: $e');
+      throw TxSimulationException(_humanizeSendFailure(e));
+    }
     debugLog('[Tx] Broadcast external payload ${decoded.id}');
 
     return confirmSigned(
@@ -204,7 +271,7 @@ class TransactionService {
         encoded: encoded,
         blockhash: blockhash,
         lastValidBlockHeight: null,
-        timeout: timeout,
+        deadline: DateTime.now().add(timeout),
         computeUnitsUsed: 0,
         computeUnitLimit: 0,
         priorityFeeLamports: 0,
@@ -214,7 +281,7 @@ class TransactionService {
     required List<encoder.Instruction> instructions,
     required List<solana.Ed25519HDKeyPair> signers,
     required FeeLevel feeLevel,
-    required Duration timeout,
+    required DateTime deadline,
     void Function(TxPhase phase)? onPhase,
   }) async {
     onPhase?.call(TxPhase.preparing);
@@ -243,8 +310,15 @@ class TransactionService {
 
     onPhase?.call(TxPhase.broadcasting);
     // First broadcast keeps preflight on: it is one more chance to catch a
-    // bad transaction against a bank fresher than our simulation.
-    await _rpc.sendTransaction(encoded, skipPreflight: false);
+    // bad transaction against a bank fresher than our simulation. A rejection
+    // here becomes a simulation failure rather than a raw RPC exception —
+    // callers already handle that shape, and nothing has left the device.
+    try {
+      await _rpc.sendTransaction(encoded, skipPreflight: false);
+    } catch (e) {
+      debugLog('[Tx] First broadcast rejected: $e');
+      throw TxSimulationException(_humanizeSendFailure(e));
+    }
     debugLog('[Tx] Broadcast $signature (cu=$measured/$limit, priority=$priorityFee lamports)');
 
     onPhase?.call(TxPhase.confirming);
@@ -252,7 +326,7 @@ class TransactionService {
       signature: signature,
       encoded: encoded,
       lastValidBlockHeight: blockhash.lastValidBlockHeight,
-      timeout: timeout,
+      deadline: deadline,
       computeUnitsUsed: measured,
       computeUnitLimit: limit,
       priorityFeeLamports: priorityFee,
@@ -264,7 +338,7 @@ class TransactionService {
   Future<TxOutcome> _confirm({
     required String signature,
     required String? encoded,
-    required Duration timeout,
+    required DateTime deadline,
     // Exact expiry for transactions we built; blockhash polling for the rest.
     int? lastValidBlockHeight,
     String? blockhash,
@@ -272,7 +346,6 @@ class TransactionService {
     required int computeUnitLimit,
     required int priorityFeeLamports,
   }) async {
-    final deadline = DateTime.now().add(timeout);
     var broadcasts = 1;
     var lastBroadcast = DateTime.now();
     var lastHeightCheck = DateTime.now();
@@ -293,9 +366,14 @@ class TransactionService {
       final status = await _safeStatus(signature);
       if (status != null) {
         if (status['err'] != null) {
+          // getSignatureStatuses says a transaction failed but never why, and
+          // every readable branch of _humanizeError is driven by the logs. An
+          // on-chain failure without them can only ever come back generic —
+          // and on-chain is where the failures simulation cannot predict land.
+          final logs = await _safeLogs(signature);
           return result(
             TxStatus.failed,
-            error: _humanizeError(status['err'], const []),
+            error: _humanizeError(status['err'], logs),
           );
         }
         final level = status['confirmationStatus'] as String?;
@@ -347,12 +425,21 @@ class TransactionService {
   ) async {
     // Probe with the maximum limit so a genuinely expensive transaction is
     // measured rather than truncated by our own guess.
-    final probe = await solana.signTransaction(
-      blockhash,
-      solana.Message(
+    //
+    // Compiled, not signed. The RPC is asked with sigVerify: false, so the
+    // slot only has to be the right size — and measuring before any key is
+    // used is the order this class claims to work in.
+    final probe = encoder.SignedTx(
+      compiledMessage: solana.Message(
         instructions: _withBudget(instructions, limit: _maxComputeUnits, microLamports: 0),
+      ).compile(
+        recentBlockhash: blockhash.blockhash,
+        feePayer: signers.first.publicKey,
       ),
-      signers,
+      signatures: [
+        for (final signer in signers)
+          encoder.Signature(List<int>.filled(64, 0), publicKey: signer.publicKey),
+      ],
     );
 
     final Map<String, dynamic> sim;
@@ -397,11 +484,22 @@ class TransactionService {
   }
 
   Future<LatestBlockhash> _fetchBlockhash() async {
-    final data = await _rpc.getLatestBlockhash();
-    return LatestBlockhash(
-      blockhash: data['blockhash'] as String,
-      lastValidBlockHeight: data['lastValidBlockHeight'] as int,
-    );
+    final Map<String, dynamic> data;
+    try {
+      data = await _rpc.getLatestBlockhash();
+    } catch (e) {
+      debugLog('[Tx] Blockhash fetch failed: $e');
+      throw const TxSimulationException('Could not reach the network. Nothing was sent.');
+    }
+
+    final blockhash = data['blockhash'];
+    final height = data['lastValidBlockHeight'];
+    if (blockhash is! String || height is! int) {
+      // Casting straight through turns a malformed response into a type
+      // error, which reaches the user as a crash rather than as a message.
+      throw const TxSimulationException('The network returned something unreadable.');
+    }
+    return LatestBlockhash(blockhash: blockhash, lastValidBlockHeight: height);
   }
 
   /// Every account the tx writes to, plus the fee payer — the set the fee
@@ -424,6 +522,33 @@ class TransactionService {
         FeeLevel.normal => FeeLevel.turbo,
         FeeLevel.turbo => FeeLevel.turbo,
       };
+
+  /// Program logs for a landed transaction, or nothing if they cannot be
+  /// read. A missing explanation must not turn a known failure into an error.
+  Future<List<String>> _safeLogs(String signature) async {
+    try {
+      return await _rpc.getTransactionLogs(signature);
+    } catch (e) {
+      debugLog('[Tx] Log lookup failed: $e');
+      return const [];
+    }
+  }
+
+  /// A broadcast rejection arrives wrapped by the RPC client, so the useful
+  /// part is inside the message rather than in a typed error.
+  String _humanizeSendFailure(Object error) {
+    final text = error.toString();
+    if (text.contains('BlockhashNotFound')) {
+      return 'The network was busy and the transaction expired before it was sent. Try again.';
+    }
+    if (text.contains('InsufficientFundsForFee') || text.contains('insufficient lamports')) {
+      return 'Not enough SOL to pay the network fee.';
+    }
+    if (text.contains('AlreadyProcessed')) {
+      return 'This transaction was already submitted.';
+    }
+    return 'The network would not accept this transaction. Nothing was sent.';
+  }
 
   Future<Map<String, dynamic>?> _safeStatus(String signature) async {
     try {
@@ -482,7 +607,7 @@ class TransactionService {
           if (detail == 'InsufficientFunds') {
             return 'Not enough SOL to cover the amount plus network fees.';
           }
-          return 'encoder.Instruction $index failed: $detail.';
+          return 'Step $index of the transaction failed: $detail.';
         }
         if (detail is Map && detail['Custom'] != null) {
           // Program-specific codes mean nothing out of context; the program's
