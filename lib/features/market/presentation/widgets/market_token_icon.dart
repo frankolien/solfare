@@ -33,6 +33,13 @@ class MarketTokenIcon extends StatelessWidget {
               width: size,
               height: size,
               fit: BoxFit.cover,
+              // Decoded at the size actually drawn. Jupiter icons are
+              // commonly 512x512 or larger, and each one decoded full-size
+              // is ~1 MB of RGBA held in the image cache — a hundred-row
+              // list plus the ticker strip pushed it past its budget and
+              // scrolling turned into evict-and-re-decode churn.
+              cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
+              cacheHeight: (size * MediaQuery.devicePixelRatioOf(context)).round(),
               errorBuilder: (_, __, ___) => _initials(),
             ),
           );

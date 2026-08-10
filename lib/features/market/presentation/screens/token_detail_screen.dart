@@ -262,7 +262,12 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     }
     // Listed and priced, but no market maker is standing behind it. Better
     // said here than after the user has typed an amount and waited.
-    if (widget.token.liquidity == 0) {
+    // `?? 0`, because null is the shape a payload with no liquidity field
+    // produces — and every portfolio holding produces one. `== 0` was false
+    // for those, so Buy was offered and the swap failed with "no route"
+    // after the user had typed an amount, which is exactly the outcome the
+    // comment above says this prevents.
+    if ((widget.token.liquidity ?? 0) <= 0) {
       return 'Nothing is quoting ${widget.token.symbol} right now.';
     }
     return null;
@@ -392,12 +397,12 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   // the header price/change for the SOL detail screen and appends a chart
   // point only on the short timeframes (1m / 1H) where 1Hz ticks are useful.
   //
-  // Skipped entirely while the candlestick WebView is visible — its
-  // controller is rebuilt on every build(), so a 1Hz setState there would
-  // tear down and reload the WebView (refetching Binance klines) every
-  // second. The candle view has its own live Binance feed via injected JS,
-  // so users on candle view aren't losing realtime — they keep it via the
-  // chart's own pipeline.
+  // Skipped while the candlestick view is visible: it has its own live
+  // Binance feed, so there is nothing to add. (This used to be load-bearing
+  // for a different reason — the WebViewController was constructed inside
+  // build(), so a 1Hz setState tore down and reloaded the whole webview
+  // every second. The controller is built once now, so this is a preference
+  // rather than a workaround.)
   void _onLivePriceTick(double priceUsd, double changePct) {
     if (!_isSol) return;
     if (!mounted) return;
@@ -418,11 +423,12 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     });
   }
 
-  String _formatPrice(double price) {
-    if (price >= 1) return '\$${price.toStringAsFixed(2)}';
-    if (price >= 0.01) return '\$${price.toStringAsFixed(4)}';
-    return '\$${price.toStringAsFixed(6)}';
-  }
+  // Was a private ladder of fixed decimals that stopped at six, so this
+  // screen's 28pt headline read "$0.000000" for any token the market list
+  // beside it rendered as "$0.0₆420" — and the list is where the user came
+  // from. MarketFormat is the shared one; this screen already used it for
+  // the stats block two hundred lines down.
+  String _formatPrice(double price) => MarketFormat.price(price);
 
   @override
   Widget build(BuildContext context) {
@@ -571,6 +577,9 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
 
   /// What the crosshair is sitting on: how far it is from now, and when.
   Widget _touchedChange(double displayedPrice) {
+    // An unpriced holding has currentPrice 0, and dividing by it rendered
+    // Infinity% or NaN% in the header the moment the chart was touched.
+    if (displayedPrice == 0) return const SizedBox.shrink();
     final pctChange = (_touchedPrice! - displayedPrice) / displayedPrice * 100;
     final touchColor = pctChange >= 0 ? _up : _down;
 
@@ -680,7 +689,11 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
             child: Row(
               children: [
                 _chartModeButton(Icons.show_chart, isLine: true),
-                _chartModeButton(Icons.candlestick_chart, isLine: false),
+                // Offered only where candles exist. A greyed-out control
+                // with no explanation is the dead end this file's own
+                // comment warns about, so the button is absent instead.
+                if (_hasCandles)
+                  _chartModeButton(Icons.candlestick_chart, isLine: false),
               ],
             ),
           ),
@@ -973,7 +986,9 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
               getTooltipColor: (_) => const Color(0xFF1C1F26),
               getTooltipItems: (spots) => spots.map((spot) {
                 return LineTooltipItem(
-                  '\$${spot.y.toStringAsFixed(2)}',
+                  // Two decimals is $0.00 for every point on any sub-cent
+                  // token, which is most of what this list shows.
+                  MarketFormat.price(spot.y),
                   const TextStyle(
                     color: Colors.white,
                     fontSize: 11,
@@ -1034,7 +1049,59 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     );
   }
 
+  /// Binance pairs, keyed by mint rather than by ticker.
+  ///
+  /// The old code built the symbol from `token.symbol.toUpperCase()`, which
+  /// is API-supplied metadata anybody can mint. A token calling itself BTC
+  /// rendered Bitcoin's real candles under its own name and logo, with no
+  /// error — and a ticker with no Binance pair, which is most of this list,
+  /// silently drew nothing.
+  static const _binancePairs = {
+    'So11111111111111111111111111111111111111112': 'SOLUSDT',
+    'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'USDCUSDT',
+    '3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh': 'BTCUSDT',
+    'cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij': 'BTCUSDT',
+    '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs': 'ETHUSDT',
+    'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': 'BONKUSDT',
+    'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN': 'JUPUSDT',
+    'jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL': 'JTOUSDT',
+    'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3': 'PYTHUSDT',
+    'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm': 'WIFUSDT',
+    '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': 'RAYUSDT',
+  };
+
+  /// Whether candles can be drawn for this asset at all.
+  bool get _hasCandles => _binancePairs.containsKey(widget.token.id);
+
+  WebViewController? _candleController;
+
   Widget _buildTradingViewChart() {
+    final pair = _binancePairs[widget.token.id];
+    if (pair == null) {
+      return Center(
+        child: Text(
+          'Candles are not available for this token.',
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 11,
+            fontFamily: 'FKGrotesk',
+          ),
+        ),
+      );
+    }
+
+    // Built once. It used to be constructed inside build(), so every rebuild
+    // tore down the platform webview and refetched 96 klines — which is why
+    // the live price tick had to be suppressed while this view was open
+    // rather than the cause being fixed.
+    final existing = _candleController;
+    if (existing != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: WebViewWidget(controller: existing),
+      );
+    }
+
     final html = '''
     <!DOCTYPE html>
     <html>
@@ -1068,7 +1135,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
         });
 
         // Fetch real candlestick data from Binance
-        fetch('https://api.binance.com/api/v3/klines?symbol=${widget.token.symbol.toUpperCase()}USDT&interval=15m&limit=96')
+        fetch('https://api.binance.com/api/v3/klines?symbol=$pair&interval=15m&limit=96')
           .then(r => r.json())
           .then(data => {
             const candles = data.map(d => ({
@@ -1103,6 +1170,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
           },
         ))
         ..loadHtmlString(html);
+      _candleController = controller;
 
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),

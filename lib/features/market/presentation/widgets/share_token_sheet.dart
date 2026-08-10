@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -95,12 +96,25 @@ class _ShareTokenSheetState extends State<ShareTokenSheet> {
           _cardKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null) return null;
 
+      // Disposed on every path. A full-resolution raster of this card is
+      // roughly 5 MB, and it was retained per share tap — including on the
+      // early return below.
       final image = await boundary.toImage(pixelRatio: 3);
-      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      final ByteData? data;
+      try {
+        data = await image.toByteData(format: ui.ImageByteFormat.png);
+      } finally {
+        image.dispose();
+      }
       if (data == null) return null;
 
       final directory = await getTemporaryDirectory();
-      final file = File('${directory.path}/${token.symbol}-solfare.png');
+      // The symbol is arbitrary API-supplied text, and it was going straight
+      // into a path: `../` escapes the temp directory and a `/` just makes
+      // the write fail, silently degrading the share to text-only.
+      final safeSymbol = token.symbol.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
+      final basename = safeSymbol.isEmpty ? 'token' : safeSymbol;
+      final file = File('${directory.path}/$basename-solfare.png');
       await file.writeAsBytes(data.buffer.asUint8List(), flush: true);
       return file;
     } catch (e) {
