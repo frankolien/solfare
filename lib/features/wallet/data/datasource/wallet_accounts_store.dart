@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:solfare/core/error/exception.dart';
+import 'package:solfare/core/security/mnemonic_envelope.dart';
 import 'package:solfare/core/security/secure_store.dart';
 import 'package:solfare/features/wallet/domain/entities/wallet_account.dart';
 
@@ -51,6 +53,37 @@ class WalletAccountsStore {
   Future<void> saveAll(List<WalletAccount> wallets) async {
     final payload = jsonEncode(wallets.map((w) => w.toJson()).toList());
     await _storage.write(key: _walletsKey, value: payload);
+  }
+
+  /// Wraps any mnemonic still held in plaintext with [key].
+  ///
+  /// Runs on every unlock rather than only when the passcode digest was
+  /// upgraded, which is what makes a half-finished migration recover itself:
+  /// the digest is written first so the salt is durable, and if the process
+  /// dies before this runs, the next unlock derives the same key and
+  /// finishes the job. Gating on "was the digest old" would make that
+  /// half-state permanent.
+  ///
+  /// Returns how many were wrapped, so a caller can log a migration without
+  /// having to diff the store.
+  Future<int> wrapPlaintextMnemonics(Uint8List key) async {
+    final wallets = await loadAll();
+    final wrapped = <WalletAccount>[];
+    var changed = 0;
+
+    for (final wallet in wallets) {
+      if (MnemonicEnvelope.isWrapped(wallet.mnemonic)) {
+        wrapped.add(wallet);
+        continue;
+      }
+      wrapped.add(wallet.withMnemonic(MnemonicEnvelope.wrap(wallet.mnemonic, key)));
+      changed++;
+    }
+
+    // One blob, one write. If it throws, nothing changed and the next
+    // unlock tries again.
+    if (changed > 0) await saveAll(wrapped);
+    return changed;
   }
 
   Future<String?> getActiveId() => _storage.read(key: _activeIdKey);

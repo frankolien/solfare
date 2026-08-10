@@ -1,6 +1,9 @@
 import 'package:solfare/core/security/app_lock.dart';
 import 'package:solfare/core/security/passcode_crypto.dart';
 import 'package:solfare/core/security/secure_store.dart';
+import 'package:solfare/core/security/wallet_key.dart';
+import 'package:solfare/core/util/app_log.dart';
+import 'package:solfare/features/wallet/data/datasource/wallet_accounts_store.dart';
 
 /// The result of one passcode attempt.
 sealed class PasscodeAttempt {
@@ -68,14 +71,28 @@ class PasscodeGate {
     final stored = await storage.read(key: AppLock.passcodeKey);
     if (stored == null) return const PasscodeUnset();
 
-    if (await PasscodeCrypto.verify(passcode, stored)) {
-      // Legacy plaintext installs are upgraded silently on first success.
-      if (PasscodeCrypto.isLegacyPlaintext(stored)) {
-        await storage.write(
-          key: AppLock.passcodeKey,
-          value: await PasscodeCrypto.hash(passcode),
-        );
+    final keys = await PasscodeCrypto.verifyAndDerive(passcode, stored);
+    if (keys != null) {
+      // The digest is written before anything is wrapped, so the salt is
+      // durable and the key is reproducible from this point on. Dying
+      // between the two steps leaves a v2 digest over plaintext mnemonics,
+      // which is the state every install is in today — recoverable, because
+      // the wrap below runs on every unlock rather than only on upgrade.
+      if (PasscodeCrypto.needsUpgrade(stored)) {
+        await storage.write(key: AppLock.passcodeKey, value: keys.stored);
       }
+
+      WalletKey.hold(keys.wrapKey);
+      try {
+        final wrapped = await WalletAccountsStore().wrapPlaintextMnemonics(keys.wrapKey);
+        if (wrapped > 0) debugLog('[Passcode] wrapped $wrapped mnemonic(s)');
+      } catch (e) {
+        // Not fatal to the unlock. The mnemonics stay plaintext and readable,
+        // which is where every install is today, and the next unlock derives
+        // the same key from the now-durable salt and tries again.
+        debugLog('[Passcode] could not wrap mnemonics: $e');
+      }
+
       await storage.delete(key: _attemptsKey);
       await storage.delete(key: _lockoutUntilKey);
       return const PasscodeAccepted();

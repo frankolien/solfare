@@ -3,6 +3,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:solfare/core/error/exception.dart';
 import 'package:solfare/core/security/app_lock.dart';
+import 'package:solfare/core/security/mnemonic_envelope.dart';
+import 'package:solfare/core/security/wallet_key.dart';
 import 'package:solfare/core/security/secure_store.dart';
 import 'package:solfare/core/wallet/keyring.dart';
 import 'package:solfare/features/wallet/data/datasource/wallet_accounts_store.dart';
@@ -137,8 +139,15 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
 
       final active = await _accounts.getActive();
       if (active == null) return false;
-      final words = active.mnemonic.trim().split(RegExp(r'\s+'));
-      if (words.length != 12 && words.length != 24) return false;
+
+      // A wrapped mnemonic is one long token, not twelve words. Word-counting
+      // it would fail this check for every migrated user and send them to
+      // onboarding — which is the path that overwrites the seed. Answering
+      // "is there a wallet" must not require being able to open it.
+      if (!MnemonicEnvelope.isWrapped(active.mnemonic)) {
+        final words = active.mnemonic.trim().split(RegExp(r'\s+'));
+        if (words.length != 12 && words.length != 24) return false;
+      }
       if (active.address.length < 32 || active.address.length > 50) return false;
       return true;
     } on CorruptWalletStoreException {
@@ -186,7 +195,13 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
     try {
       await _runMigrationIfNeeded();
       final active = await _accounts.getActive();
-      return active?.mnemonic;
+      if (active == null) return null;
+      return MnemonicEnvelope.unwrap(active.mnemonic, WalletKey.value);
+    } on MnemonicLockedException {
+      // Distinct from a storage failure: the caller can fix this by asking
+      // for the passcode, and flattening it into LocalStorageException would
+      // present it as something broken instead.
+      rethrow;
     } catch (e) {
       throw LocalStorageException('Failed to read mnemonic: $e');
     }
@@ -228,10 +243,13 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
       return existing;
     }
 
+    final key = WalletKey.value;
     final account = WalletAccount(
       id: WalletAccountsStore.newId(),
       address: model.address,
-      mnemonic: mnemonic,
+      // Wrapped on the way in where there is a key. Without this a wallet
+      // added after the migration sits in the clear until the next unlock.
+      mnemonic: key == null ? mnemonic : MnemonicEnvelope.wrap(mnemonic, key),
       name: name ?? 'Wallet ${wallets.length + 1}',
       cardBackground: 'card_${(wallets.length % 10) + 1}.png',
       createdAt: DateTime.now(),

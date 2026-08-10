@@ -166,24 +166,44 @@ error — the same discipline as `CorruptWalletStoreException`.
 
 This runs over live seeds, so the ordering is the whole design.
 
-**Wrapping (v1 → v2), on the next successful unlock:**
+**Corrected after building the primitive.** The first version of this
+section said "wrap the mnemonics, then write the digest", reasoning that a
+crash between the two leaves a state the next unlock repairs. That holds for
+a v1 digest and is **wrong for a plaintext one**, and the difference is
+where the salt comes from:
 
-1. verify against the v1 digest — this is the only proof of the passcode
+| upgrading from | salt | `wrapKey` reproducible? |
+|---|---|---|
+| `v1:` digest | reused from the stored digest | **yes** — measured |
+| plaintext | freshly minted, there is no stored salt | **no** — measured |
+
+So for a plaintext install, wrapping first and dying before the digest write
+strands every mnemonic behind a key that no longer exists anywhere. That is
+the exact failure this whole document is meant to avoid.
+
+**The rule that is safe for both:**
+
+1. verify — the only proof of the passcode
 2. derive `master`, `authKey`, `wrapKey`
-3. read every account
-4. wrap each mnemonic in memory
-5. **`saveAll` the whole list once** — one blob, one write, atomic
-6. only then write the v2 digest
+3. **write the v2 digest first**, if the stored one is not already v2
+4. wrap every mnemonic that is still plaintext, and `saveAll` once
+5. hold `wrapKey` for the session
 
-Step 5 before step 6 matters. If the process dies between them, the
-mnemonics are wrapped but the digest still says v1 — so the next unlock
-verifies v1, re-derives the same `wrapKey`, finds the mnemonics already
-wrapped, skips step 4, and writes the digest. Idempotent.
+Step 3 before step 4 makes the salt durable, so the key is reproducible from
+that point on. A crash between them leaves a v2 digest over plaintext
+mnemonics: the next unlock verifies v2, derives the *same* key from the
+stored salt, and completes step 4.
 
-The reverse order would leave a v2 digest over plaintext mnemonics, which is
-harmless but means the wrap never happens again.
+For that to actually happen, **step 4 must run on every unlock, not only
+when the digest needed upgrading** — the condition is "is any mnemonic still
+plaintext", not "was the digest old". Gating on the digest is what would
+make a half-finished migration permanent.
 
-There is no partial-write hazard inside step 5 because `saveAll` is a single
+The reverse of the old worry is harmless: writing the digest and never
+wrapping leaves the store exactly as it is today, which is the state every
+install is in right now.
+
+There is no partial-write hazard inside step 4 because `saveAll` is a single
 `SecureStore.write` of one JSON blob. If it throws, nothing changed.
 
 **A wallet with no passcode** stays plaintext. There is nothing to derive a

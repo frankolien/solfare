@@ -3,6 +3,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:solfare/core/security/app_lock.dart';
 import 'package:solfare/core/security/passcode_crypto.dart';
 import 'package:solfare/core/security/passcode_gate.dart';
+import 'package:solfare/core/security/wallet_key.dart';
+import 'package:solfare/features/wallet/data/datasource/wallet_accounts_store.dart';
 import 'package:solfare/core/util/app_log.dart';
 import 'package:solfare/core/security/secure_store.dart';
 import 'package:solfare/features/wallet/presentation/bloc/passcode_event.dart';
@@ -124,10 +126,23 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
     Emitter<PasscodeState> emit,
   ) async {
     try {
-      final hashed = await PasscodeCrypto.hash(event.passcode);
-      await _secureStorage.write(key: _passcodeKey, value: hashed);
+      // Digest first, then wrap — the same order the unlock path uses, and
+      // for the same reason: writing it makes the salt durable, so the key
+      // is reproducible if anything below fails.
+      final made = await PasscodeCrypto.create(event.passcode);
+      await _secureStorage.write(key: _passcodeKey, value: made.stored);
       await _secureStorage.delete(key: _attemptsKey);
       await _secureStorage.delete(key: _lockoutUntilKey);
+
+      // Onboarding writes the wallet before the passcode exists, so this is
+      // the first moment there is a key to wrap that mnemonic with.
+      WalletKey.hold(made.keys.wrapKey);
+      try {
+        await WalletAccountsStore().wrapPlaintextMnemonics(made.keys.wrapKey);
+      } catch (e) {
+        debugLog('[Passcode] could not wrap on setup: $e');
+      }
+
       // Setting a passcode both creates the lock and satisfies it — the user
       // is holding the phone and has just typed it twice.
       AppLock.instance.adopt();

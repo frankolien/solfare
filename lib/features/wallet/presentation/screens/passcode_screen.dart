@@ -149,6 +149,28 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
                       child: _buildPasscodeIndicators(passcode, isWrong),
                     ),
 
+                    // Said at the point the promise is made. The passcode now
+                    // encrypts the recovery phrase rather than gating a
+                    // screen, so forgetting it means the phrase is the only
+                    // way back in — and a user who does not know that will
+                    // not have written it down.
+                    if (widget.mode == PasscodeMode.enter)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 44),
+                        child: Text(
+                          'This passcode encrypts your wallet on this device. '
+                          'If you forget it, only your recovery phrase can '
+                          'restore access.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 11,
+                            fontFamily: 'FKGrotesk',
+                            height: 1.6,
+                          ),
+                        ),
+                      ),
+
                     const Spacer(),
 
                     // Numeric keypad

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:solfare/core/security/secure_store.dart';
+import 'package:solfare/core/security/wallet_key.dart';
 
 /// Whether the app is currently allowed to be used.
 ///
@@ -77,12 +78,18 @@ class AppLock extends ChangeNotifier {
     _hasPasscode = false;
     _unlocked = false;
     _leftAt = null;
+    WalletKey.clear();
     notifyListeners();
   }
 
   /// Require the passcode again on the next navigation.
+  ///
+  /// Drops the key that opens stored mnemonics along with it — otherwise
+  /// "locked" would only mean the router refuses to navigate, while anything
+  /// holding a reference could still read a seed.
   void lock() {
     _leftAt = null;
+    WalletKey.clear();
     if (!_unlocked) return;
     _unlocked = false;
     notifyListeners();
