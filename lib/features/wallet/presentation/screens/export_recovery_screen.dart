@@ -1,7 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:solfare/core/security/secure_store.dart';
 import 'package:solfare/core/security/passcode_crypto.dart';
 import 'package:solfare/core/security/secure_clipboard.dart';
 import 'package:solfare/core/security/secure_screen.dart';
@@ -16,7 +16,7 @@ class ExportRecoveryScreen extends StatefulWidget {
 }
 
 class _ExportRecoveryScreenState extends State<ExportRecoveryScreen> {
-  final _storage = const FlutterSecureStorage();
+  final _storage = SecureStore.instance;
   String? _mnemonic;
   bool _isRevealed = false;
   bool _isLoading = true;

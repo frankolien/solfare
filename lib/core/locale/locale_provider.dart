@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:solfare/core/security/secure_store.dart';
 
 class LocaleProvider extends ChangeNotifier {
   static const _storageKey = 'app_language';
-  final _storage = const FlutterSecureStorage();
+  final _storage = SecureStore.instance;
 
   Locale _locale = const Locale('en');
   Locale get locale => _locale;

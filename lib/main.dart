@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:solfare/core/constant/network.dart';
 import 'package:solfare/core/deeplink/deep_link_bridge.dart';
 import 'package:solfare/core/locale/locale_provider.dart';
 import 'package:solfare/core/security/app_lock.dart';
+import 'package:solfare/core/security/secure_store.dart';
 import 'package:solfare/features/wallet/presentation/widgets/dapp_request_host.dart';
 import 'package:solfare/core/router/app_router.dart';
 import 'package:solfare/features/explore/presentation/bloc/explore_bloc.dart';
@@ -43,7 +43,7 @@ Future<void> _wipeSecureStorageOnFreshInstall() async {
   final prefs = await SharedPreferences.getInstance();
   if (prefs.getBool(flag) == true) return;
   try {
-    await const FlutterSecureStorage().deleteAll();
+    await SecureStore.instance.deleteAll();
   } catch (_) {
     // Best-effort — never block app startup if Keychain access hiccups.
   }

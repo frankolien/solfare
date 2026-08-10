@@ -1,5 +1,5 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:solfare/core/security/secure_store.dart';
 
 enum SolanaNetwork {
   mainnet('Mainnet', 'https://api.mainnet-beta.solana.com'),
@@ -13,7 +13,7 @@ enum SolanaNetwork {
 
 class NetworkConstants {
   static const _storageKey = 'solana_network';
-  static final _storage = const FlutterSecureStorage();
+  static final _storage = SecureStore.instance;
 
   static String get _heliusApiKey => dotenv.env['HELIUS_API_KEY'] ?? '';
 

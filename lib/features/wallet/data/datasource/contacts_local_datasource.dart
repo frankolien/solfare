@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:solfare/core/security/secure_store.dart';
 
 class Contact {
   final String name;
@@ -34,7 +35,7 @@ class ContactsLocalDataSource {
   static const _recentsKey = 'recent_addresses';
 
   ContactsLocalDataSource({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+      : _storage = storage ?? SecureStore.instance;
 
   // ── Address Book ──
 

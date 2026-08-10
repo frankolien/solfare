@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:solfare/core/security/secure_store.dart';
 import 'package:solfare/main.dart';
 
 class LanguageScreen extends StatefulWidget {
@@ -11,7 +11,7 @@ class LanguageScreen extends StatefulWidget {
 
 class _LanguageScreenState extends State<LanguageScreen> {
   static const _storageKey = 'app_language';
-  final _storage = const FlutterSecureStorage();
+  final _storage = SecureStore.instance;
   String _selected = 'EN';
 
   static const List<_Language> _languages = [

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:solfare/core/security/app_lock.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
@@ -73,11 +73,10 @@ class _SplashScreenState extends State<SplashScreen>
           // install). In that case sending the user to unlock traps them —
           // bounce to onboarding instead.
           if (state.exists) {
-            const storage = FlutterSecureStorage();
-            final hasPasscode =
-                await storage.read(key: 'wallet_passcode') != null;
-            if (!mounted) return;
-            if (hasPasscode) {
+            // AppLock already read this before the first frame, and owns it
+            // from here on — it is the same fact the router's redirect gates
+            // on, so asking storage again could only disagree with it.
+            if (AppLock.instance.hasPasscode) {
               context.go(AppRoutes.unlockPasscode);
             } else {
               context.go(AppRoutes.onboarding);

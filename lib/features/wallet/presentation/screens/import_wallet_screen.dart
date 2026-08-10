@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:solfare/core/security/app_lock.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 import 'package:solfare/core/router/app_router.dart';
@@ -57,11 +57,8 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
   /// Going straight to homepage would leave the wallet accessible with no
   /// lock screen — and on next launch the splash would bounce them back
   /// to onboarding because no passcode exists.
-  Future<void> _continueAfterImport() async {
-    const storage = FlutterSecureStorage();
-    final hasPasscode = await storage.read(key: 'wallet_passcode') != null;
-    if (!mounted) return;
-    if (hasPasscode) {
+  void _continueAfterImport() {
+    if (AppLock.instance.hasPasscode) {
       context.go(AppRoutes.homepage);
     } else {
       context.go(AppRoutes.enterPasscode);
