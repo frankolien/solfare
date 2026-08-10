@@ -157,15 +157,21 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
     }
   }
 
-  /// After an expiry the stake was never touched; after a failure the fee
-  /// is gone. Different copy for each.
+  /// Three different things, and only one of them is safe to retry.
+  ///
+  /// "Nothing was staked, try again" used to be said for anything that was
+  /// not an on-chain failure — including a transaction that was merely still
+  /// in flight when the poll ran out of time. A user told that, who then
+  /// retries, stakes twice.
   String _failureMessage(TxOutcome outcome) {
     debugLog('[StakingBloc] $outcome');
-    if (outcome.status == TxStatus.expired) {
-      return 'The network did not include this transaction in time. '
-          'Nothing was staked and no fee was charged — try again.';
-    }
-    return outcome.error ?? 'The transaction failed on chain.';
+    return switch (outcome.status) {
+      TxStatus.expired => 'The network did not include this transaction in '
+          'time. Nothing was staked and no fee was charged — try again.',
+      TxStatus.unknown => 'This is taking longer than expected. It may still '
+          'go through, so check your stake accounts before trying again.',
+      _ => outcome.error ?? 'The transaction failed on chain.',
+    };
   }
 
   Future<solana.Ed25519HDKeyPair> _deriveKeyPair() async {

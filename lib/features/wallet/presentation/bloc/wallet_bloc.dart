@@ -859,7 +859,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
         emit(SolSendFailed(
           message: outcome.error ?? 'The payment did not confirm.',
           signature: outcome.signature,
-          expired: outcome.status == TxStatus.expired,
+          expired: outcome.provenNotToHaveLanded,
         ));
         return;
       }
@@ -948,7 +948,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
         emit(SolSendFailed(
           message: outcome.error ?? 'The transfer did not confirm.',
           signature: outcome.signature,
-          expired: outcome.status == TxStatus.expired,
+          expired: outcome.provenNotToHaveLanded,
         ));
         return;
       }
@@ -1070,7 +1070,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
           signature: outcome.signature,
           // Expired means it never executed, which reads differently to a
           // user than "failed".
-          expired: outcome.status == TxStatus.expired,
+          expired: outcome.provenNotToHaveLanded,
         ));
         return;
       }

@@ -147,20 +147,33 @@ class TransactionService {
         deadline: deadline,
       );
 
+      // Only a proven expiry is safe to rebuild on. TxStatus.unknown means
+      // the first transaction may still be in the queue, and sending a second
+      // one with a fresh blockhash gives it a different signature — so the
+      // cluster would happily land both.
       if (outcome.status != TxStatus.expired) return outcome;
 
       lastExpired = outcome;
       debugLog('[Tx] Attempt $attempt expired before inclusion; rebuilding');
-      if (!DateTime.now().isBefore(deadline)) break;
+
+      // A retry needs room to finish, not merely a deadline that has not yet
+      // passed. Starting one with seconds left broadcasts a real transaction
+      // and then abandons it unpolled — which is the same "sent but nobody
+      // knows" state this whole method exists to avoid.
+      if (deadline.difference(DateTime.now()) < _minimumAttemptBudget) break;
     }
 
     return lastExpired ??
         const TxOutcome(
           signature: '',
-          status: TxStatus.expired,
+          status: TxStatus.unknown,
           error: 'Timed out waiting for confirmation.',
         );
   }
+
+  // Below this there is no point starting another attempt: simulate, price,
+  // sign and broadcast alone eat most of it, leaving nothing to confirm with.
+  static const Duration _minimumAttemptBudget = Duration(seconds: 20);
 
   /// Sign a transaction somebody else built, without broadcasting it.
   ///
@@ -331,6 +344,7 @@ class TransactionService {
       computeUnitsUsed: measured,
       computeUnitLimit: limit,
       priorityFeeLamports: priorityFee,
+      signatureCount: signers.length,
     );
   }
 
@@ -346,6 +360,7 @@ class TransactionService {
     required int computeUnitsUsed,
     required int computeUnitLimit,
     required int priorityFeeLamports,
+    int signatureCount = 1,
   }) async {
     var broadcasts = 1;
     var lastBroadcast = DateTime.now();
@@ -359,12 +374,14 @@ class TransactionService {
           computeUnitLimit: computeUnitLimit,
           priorityFeeLamports: priorityFeeLamports,
           broadcasts: broadcasts,
+          signatureCount: signatureCount,
         );
 
     while (DateTime.now().isBefore(deadline)) {
       await Future<void>.delayed(_statusPollInterval);
 
-      final status = await _safeStatus(signature);
+      final read = await _safeStatus(signature);
+      final status = read.status;
       if (status != null) {
         if (status['err'] != null) {
           // getSignatureStatuses says a transaction failed but never why, and
@@ -405,17 +422,41 @@ class TransactionService {
         lastHeightCheck = now;
         if (await _hasExpired(lastValidBlockHeight, blockhash)) {
           // One last look: expiry and inclusion can race inside a poll gap.
-          final finalStatus = await _safeStatus(signature);
+          final finalRead = await _safeStatus(signature);
+          final finalStatus = finalRead.status;
+
+          // Same bar as the main loop. `err == null` alone also accepts
+          // `processed`, which is a block on a fork that can still be
+          // dropped — not something to report as confirmed.
           if (finalStatus != null && finalStatus['err'] == null) {
-            return result(TxStatus.confirmed);
+            final level = finalStatus['confirmationStatus'] as String?;
+            if (level == 'confirmed' || level == 'finalized') {
+              return result(TxStatus.confirmed);
+            }
           }
+
+          // Only the cluster answering "I have no record of this" proves the
+          // transaction is dead. A read that failed proves nothing, and
+          // declaring expiry on it is what let the retry loop send a second
+          // transfer — so keep polling until the deadline instead.
+          if (!finalRead.readable) {
+            debugLog('[Tx] $signature past expiry but status unreadable; still polling');
+            continue;
+          }
+
           debugLog('[Tx] $signature expired before inclusion');
           return result(TxStatus.expired, error: 'Transaction expired before it was included.');
         }
       }
     }
 
-    return result(TxStatus.expired, error: 'Timed out waiting for confirmation.');
+    // Out of time, not out of hope. The blockhash was never observed to be
+    // dead, so this may still land — say so rather than claiming it cost
+    // nothing and inviting a second send.
+    return result(
+      TxStatus.unknown,
+      error: 'Still waiting on the network. Check the transaction before sending again.',
+    );
   }
 
   /// Dry-run the instruction set and read back what it actually costs.
@@ -551,13 +592,18 @@ class TransactionService {
     return 'The network would not accept this transaction. Nothing was sent.';
   }
 
-  Future<Map<String, dynamic>?> _safeStatus(String signature) async {
+  /// Reads the signature's status, keeping "the RPC could not tell us" apart
+  /// from "the cluster has no record of it".
+  ///
+  /// Both used to come back as null, and the expiry check read null as "never
+  /// landed" — so a 429 on the final poll declared a live transaction dead and
+  /// the retry loop sent a second one.
+  Future<_StatusRead> _safeStatus(String signature) async {
     try {
-      return await _rpc.getSignatureStatus(signature);
+      return _StatusRead.ok(await _rpc.getSignatureStatus(signature));
     } catch (e) {
-      // A flaky status read must not be mistaken for a dropped transaction.
       debugLog('[Tx] Status poll failed: $e');
-      return null;
+      return const _StatusRead.unreadable();
     }
   }
 
@@ -626,4 +672,17 @@ class TransactionService {
 
     return 'Transaction failed. Please try again.';
   }
+}
+
+/// The outcome of one status poll. Exists so "the RPC could not tell us" and
+/// "the cluster has no record of it" cannot collapse into the same null —
+/// only the second of those proves a transaction is dead.
+class _StatusRead {
+  final bool readable;
+  final Map<String, dynamic>? status;
+
+  const _StatusRead.ok(this.status) : readable = true;
+  const _StatusRead.unreadable()
+      : readable = false,
+        status = null;
 }

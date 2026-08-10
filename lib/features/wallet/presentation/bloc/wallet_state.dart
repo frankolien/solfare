@@ -244,8 +244,11 @@ class SendingSol extends WalletState {
 }
 
 /// Broadcast but never confirmed. [WalletError] covers the earlier failures.
-/// [expired] means it never executed and cost nothing; otherwise it ran on
-/// chain and burned the fee.
+///
+/// [expired] means the cluster proved it can never be included: it did not
+/// execute and cost nothing, so retrying is safe. It is deliberately false
+/// for a transaction that is merely unresolved — that one may still land,
+/// and telling the user it did not is how they end up sending twice.
 class SolSendFailed extends WalletState {
   final String message;
   final String signature;

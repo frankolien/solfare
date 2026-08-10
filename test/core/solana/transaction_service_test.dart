@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:solana/encoder.dart' as encoder;
@@ -14,14 +15,31 @@ class _FakeRpc implements SolanaRpcDataSource {
   final Object? blockhashError;
   final Map<String, dynamic>? status;
   final List<String> logs;
+
+  /// Statuses to hand back in order, so a test can play out "pending, then
+  /// confirmed" rather than answering identically forever.
+  final List<Map<String, dynamic>?>? statusSequence;
+
+  /// Throws on every status read, standing in for an RPC that is rate
+  /// limiting us. Distinct from answering "no record of this signature".
+  final bool statusUnreadable;
+
+  /// Whether the blockhash is still good. False means the transaction can
+  /// never be included.
+  final bool blockhashValid;
+
   int logLookups = 0;
   int sends = 0;
+  int statusReads = 0;
 
   _FakeRpc({
     this.blockhash,
     this.blockhashError,
     this.status,
     this.logs = const [],
+    this.statusSequence,
+    this.statusUnreadable = false,
+    this.blockhashValid = true,
   });
 
   @override
@@ -31,7 +49,15 @@ class _FakeRpc implements SolanaRpcDataSource {
   }
 
   @override
-  Future<Map<String, dynamic>?> getSignatureStatus(String signature) async => status;
+  Future<Map<String, dynamic>?> getSignatureStatus(String signature) async {
+    statusReads++;
+    if (statusUnreadable) throw Exception('429 rate limited');
+    final sequence = statusSequence;
+    if (sequence != null) {
+      return sequence[math.min(statusReads - 1, sequence.length - 1)];
+    }
+    return status;
+  }
 
   @override
   Future<List<String>> getTransactionLogs(String signature) async {
@@ -49,7 +75,7 @@ class _FakeRpc implements SolanaRpcDataSource {
   Future<int> getBlockHeight() async => 1;
 
   @override
-  Future<bool> isBlockhashValid(String blockhash) async => true;
+  Future<bool> isBlockhashValid(String blockhash) async => blockhashValid;
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>
@@ -227,6 +253,110 @@ void main() {
 
       expect(outcome.status, TxStatus.confirmed);
       expect(rpc.logLookups, 0);
+    });
+  });
+
+  group('expired is not the same as unresolved', () {
+    test('running out of time is unknown, not expired', () async {
+      // The bug: this returned expired, and everything downstream tells the
+      // user an expired transaction cost nothing and invites a retry. The
+      // blockhash was never observed to be dead, so it may still land.
+      final rpc = _FakeRpc(status: null, blockhashValid: true);
+      final outcome = await TransactionService(rpc).confirmSigned(
+        signature: 'sig',
+        blockhash: '11111111111111111111111111111111',
+        timeout: const Duration(seconds: 3),
+      );
+
+      expect(outcome.status, TxStatus.unknown);
+      expect(outcome.provenNotToHaveLanded, isFalse,
+          reason: 'nobody may be told this cost them nothing');
+    });
+
+    test('a dead blockhash with no record of the signature is expired', () async {
+      final rpc = _FakeRpc(status: null, blockhashValid: false);
+      final outcome = await TransactionService(rpc).confirmSigned(
+        signature: 'sig',
+        blockhash: '11111111111111111111111111111111',
+        timeout: const Duration(seconds: 8),
+      );
+
+      expect(outcome.status, TxStatus.expired);
+      expect(outcome.provenNotToHaveLanded, isTrue);
+    });
+
+    test('a dead blockhash we could not check is never called expired', () async {
+      // A 429 on the final poll used to declare a live transaction dead, and
+      // the retry loop then sent a second one.
+      final rpc = _FakeRpc(statusUnreadable: true, blockhashValid: false);
+      final outcome = await TransactionService(rpc).confirmSigned(
+        signature: 'sig',
+        blockhash: '11111111111111111111111111111111',
+        timeout: const Duration(seconds: 8),
+      );
+
+      expect(outcome.status, TxStatus.unknown);
+      expect(rpc.statusReads, greaterThan(1),
+          reason: 'an unreadable status keeps polling rather than concluding');
+    });
+
+    test('pending then confirmed is confirmed', () async {
+      // The normal case, which no test exercised: the first polls come back
+      // with nothing and a later one lands.
+      final rpc = _FakeRpc(statusSequence: [
+        null,
+        {'err': null, 'confirmationStatus': 'processed'},
+        {'err': null, 'confirmationStatus': 'confirmed'},
+      ]);
+      final outcome = await TransactionService(rpc).confirmSigned(
+        signature: 'sig',
+        blockhash: '11111111111111111111111111111111',
+        timeout: const Duration(seconds: 8),
+      );
+
+      expect(outcome.status, TxStatus.confirmed);
+    });
+
+    test('processed alone is not confirmation', () async {
+      // A block on a fork that can still be dropped.
+      final rpc = _FakeRpc(status: {'err': null, 'confirmationStatus': 'processed'});
+      final outcome = await TransactionService(rpc).confirmSigned(
+        signature: 'sig',
+        blockhash: '11111111111111111111111111111111',
+        timeout: const Duration(seconds: 3),
+      );
+
+      expect(outcome.status, isNot(TxStatus.confirmed));
+    });
+  });
+
+  group('what the fee was', () {
+    test('an expired transaction cost nothing', () {
+      const outcome = TxOutcome(
+        signature: 'sig',
+        status: TxStatus.expired,
+        priorityFeeLamports: 4000,
+      );
+      expect(outcome.totalFeeLamports, 0);
+    });
+
+    test('an unresolved transaction is charged for, not assumed free', () {
+      const outcome = TxOutcome(
+        signature: 'sig',
+        status: TxStatus.unknown,
+        priorityFeeLamports: 4000,
+      );
+      expect(outcome.totalFeeLamports, lamportsPerSignature + 4000);
+    });
+
+    test('two signers are charged two signatures', () {
+      // A stake delegation signs twice; the old getter hardcoded one.
+      const outcome = TxOutcome(
+        signature: 'sig',
+        status: TxStatus.confirmed,
+        signatureCount: 2,
+      );
+      expect(outcome.totalFeeLamports, lamportsPerSignature * 2);
     });
   });
 
