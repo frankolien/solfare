@@ -30,6 +30,11 @@ class SwapReady extends SwapState {
   /// Wallet balance of [inputToken], null until it has been fetched.
   final double? inputBalance;
 
+  /// The lookup ran and could not answer. Distinct from "not yet fetched",
+  /// which is the same null — without it a failed read left the button saying
+  /// "Checking balance" with nothing left to check.
+  final bool balanceUnknown;
+
   const SwapReady({
     required this.tokens,
     required this.inputToken,
@@ -41,6 +46,7 @@ class SwapReady extends SwapState {
     this.isLoadingQuote = false,
     this.error,
     this.inputBalance,
+    this.balanceUnknown = false,
   });
 
   // Distinguishes "leave this alone" from "set this to null".
@@ -48,6 +54,7 @@ class SwapReady extends SwapState {
 
   SwapReady copyWith({
     List<SwapToken>? tokens,
+    bool? balanceUnknown,
     SwapToken? inputToken,
     SwapToken? outputToken,
     String? inputAmount,
@@ -72,11 +79,12 @@ class SwapReady extends SwapState {
       error: error,
       inputBalance:
           identical(inputBalance, _keep) ? this.inputBalance : inputBalance as double?,
+      balanceUnknown: balanceUnknown ?? this.balanceUnknown,
     );
   }
 
   @override
-  List<Object?> get props => [tokens, inputToken, outputToken, inputAmount, outputAmount, priceImpact, rate, isLoadingQuote, error, inputBalance];
+  List<Object?> get props => [tokens, inputToken, outputToken, inputAmount, outputAmount, priceImpact, rate, isLoadingQuote, error, inputBalance, balanceUnknown];
 }
 
 /// The route is built and signed, and the network has said what it will do.

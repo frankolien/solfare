@@ -488,15 +488,22 @@ class _SwapScreenState extends State<SwapScreen> {
         );
 
     final isMainnet = NetworkConstants.current == SolanaNetwork.mainnet;
-    final enabled = hasQuote && hasSufficientBalance && isMainnet && _walletAddress != null;
+    // A balance we could not read must not be a dead end. The route request
+    // and the on-chain simulation both refuse a swap the wallet cannot cover,
+    // so proceeding is safe and being stuck is not.
+    final balanceChecked = balance != null || state.balanceUnknown;
+    final enabled = hasQuote &&
+        (hasSufficientBalance || state.balanceUnknown) &&
+        isMainnet &&
+        _walletAddress != null;
 
     final label = !isMainnet
         ? 'Swap available on Mainnet'
         : amount <= 0
             ? 'Enter an amount'
-            : balance == null
+            : !balanceChecked
                 ? 'Checking balance'
-                : !hasSufficientBalance
+                : (balance != null && !hasSufficientBalance)
                     ? 'Insufficient ${state.inputToken.symbol}'
                     : 'Review swap';
 

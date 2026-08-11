@@ -1,6 +1,7 @@
 import 'package:solfare/core/solana/lamports.dart';
 import 'dart:math';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:solfare/core/network/network_error.dart';
 import 'package:solfare/core/solana/preview/preview_engine.dart';
 import 'package:solfare/core/util/app_log.dart';
 import 'package:solfare/core/wallet/active_wallet.dart';
@@ -83,6 +84,7 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
         rate: null,
         priceImpact: null,
         inputBalance: null,
+        balanceUnknown: false,
       ));
       _refreshBalance();
     }
@@ -132,7 +134,10 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
 
         final outAmount = int.tryParse(quoteData['outAmount']?.toString() ?? '');
         if (outAmount == null) {
-          emit(now.copyWith(isLoadingQuote: false, error: 'Failed to get quote'));
+          emit(now.copyWith(
+            isLoadingQuote: false,
+            error: 'No route for this pair right now.',
+          ));
           return;
         }
         final outputDecimal = outAmount / pow(10, now.outputToken.decimals);
@@ -149,9 +154,17 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
         if (quoteId != _quoteId) return;
         final now = state;
         if (now is! SwapReady) return;
-        emit(now.copyWith(isLoadingQuote: false, error: 'Failed to get quote'));
+        emit(now.copyWith(isLoadingQuote: false, error: _quoteError(e)));
       }
     }
+  }
+
+  // Jupiter's sentence when it gave one. "Swapping of jlWSOL is not supported"
+  // tells the user the token cannot be routed; "Failed to get quote" tells
+  // them the app is broken.
+  static String _quoteError(Object error) {
+    if (error is SwapUnavailableException) return error.message;
+    return friendlyNetworkError(error);
   }
 
   void _onFlipTokens(FlipTokensEvent event, Emitter<SwapState> emit) {
@@ -166,6 +179,7 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
         rate: null,
         priceImpact: null,
         inputBalance: null,
+        balanceUnknown: false,
       ));
       _refreshBalance();
     }
@@ -180,7 +194,10 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
     final s = state as SwapReady;
     final balance = await _balanceOf(s.inputToken, event.walletAddress);
     if (state is SwapReady) {
-      emit((state as SwapReady).copyWith(inputBalance: balance));
+      emit((state as SwapReady).copyWith(
+        inputBalance: balance,
+        balanceUnknown: balance == null,
+      ));
     }
   }
 
@@ -189,8 +206,6 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
     if (address != null) add(LoadInputBalanceEvent(address));
   }
 
-  // Native SOL lives in the account itself; everything else is an SPL balance
-  // spread over the owner's token accounts.
   // The curated list is a starting point, not the universe. A wallet holding
   // jitoSOL could not swap it, because the list of nine did not name it — the
   // one token set that must always be swappable is the one the user owns.
@@ -233,6 +248,8 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
       ? mint
       : '${mint.substring(0, 4)}…${mint.substring(mint.length - 4)}';
 
+  // Native SOL lives in the account itself; everything else is an SPL balance
+  // spread over the owner's token accounts.
   Future<double?> _balanceOf(SwapToken token, String owner) async {
     try {
       if (token.mint == SwapToken.sol.mint) {
@@ -275,7 +292,7 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
         isLoadingQuote: false,
       ));
     } catch (e) {
-      emit(s.copyWith(isLoadingQuote: false, error: 'Failed to get quote'));
+      emit(s.copyWith(isLoadingQuote: false, error: _quoteError(e)));
     }
   }
 

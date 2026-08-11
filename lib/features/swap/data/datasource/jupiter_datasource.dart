@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:solfare/core/constant/api_keys.dart';
 import 'package:solfare/core/network/http_retry.dart';
+import 'package:solfare/core/util/json.dart';
+import 'package:solfare/features/swap/domain/swap_executor.dart';
 import 'package:solfare/features/swap/domain/entities/swap_token.dart';
 
 class JupiterDataSource {
@@ -43,9 +45,29 @@ class JupiterDataSource {
     );
 
     if (response.statusCode == 200) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      // Jupiter answers an unroutable pair with HTTP 200 and an error in the
+      // body — "Swapping of jlWSOL is not supported" — exactly as execute()
+      // reports a reverted swap. Reading only the status code threw that
+      // sentence away and left the screen saying "Failed to get quote", which
+      // reads as the app being broken rather than the token being unsupported.
+      final reason = json.stringAt('error');
+      if (reason != null && reason.isNotEmpty) {
+        throw SwapUnavailableException(reason);
+      }
+      return json;
     }
-    throw Exception('Quote failed: ${response.statusCode} ${response.body}');
+    throw SwapUnavailableException(_reasonFrom(response.body) ??
+        'The route service returned ${response.statusCode}.');
+  }
+
+  /// Jupiter's own words, when it gave any.
+  static String? _reasonFrom(String body) {
+    try {
+      return asJsonMap(jsonDecode(body))?.stringAt('error');
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Hand the signed order back to Jupiter, which broadcasts it and polls for
