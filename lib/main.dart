@@ -6,6 +6,7 @@ import 'package:solfare/core/constant/api_keys.dart';
 import 'package:solfare/core/constant/network.dart';
 import 'package:solfare/core/deeplink/deep_link_bridge.dart';
 import 'package:solfare/core/locale/locale_provider.dart';
+import 'package:solfare/core/currency/currency_store.dart';
 import 'package:solfare/core/security/app_lock.dart';
 import 'package:solfare/core/security/secure_store.dart';
 import 'package:solfare/features/wallet/presentation/widgets/dapp_request_host.dart';
@@ -25,6 +26,7 @@ void main() async {
   await NetworkConstants.load();
   await _wipeSecureStorageOnFreshInstall();
   await AppLock.instance.load();
+  await CurrencyStore.instance.load();
   DeepLinkBridge.init(appRouter);
   runApp(const MainApp());
 }
@@ -101,8 +103,11 @@ class _MainAppState extends State<MainApp> {
           ],
           // Wraps every route: a dapp request arrives whenever another app
           // opens us, and must not depend on which screen was showing.
-          builder: (context, child) =>
-              DappRequestHost(child: child ?? const SizedBox.shrink()),
+          builder: (context, child) => ListenableBuilder(
+            listenable: CurrencyStore.instance,
+            builder: (context, _) =>
+                DappRequestHost(child: child ?? const SizedBox.shrink()),
+          ),
         ),
       ),
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:solfare/core/currency/money.dart';
 import 'package:solfare/features/homepage/presentation/widgets/collectibles_section.dart';
 import 'package:solfare/features/market/domain/entities/market_token.dart';
 import 'package:solfare/features/market/domain/entities/market_window.dart';
@@ -148,7 +149,7 @@ class PortfolioContent extends StatelessWidget {
       children: [
         Text(l.tokens, style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500)),
         Container(width: 1, height: 16, margin: const EdgeInsets.symmetric(horizontal: 10), color: Colors.white24),
-        Text('\$${totalValueUsd.toStringAsFixed(2)}', style: TextStyle(color: Colors.grey[400], fontSize: 13, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w500)),
+        Text(Money.format(totalValueUsd), style: TextStyle(color: Colors.grey[400], fontSize: 13, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w500)),
         const Spacer(),
         GestureDetector(
           onTap: () {},
@@ -214,7 +215,7 @@ class PortfolioContent extends StatelessWidget {
                 const SizedBox(height: 3),
                 Row(
                   children: [
-                    Text('\$${price.toStringAsFixed(2)}', style: TextStyle(color: Colors.grey[500], fontSize: 11, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w400)),
+                    Text(Money.format(price), style: TextStyle(color: Colors.grey[500], fontSize: 11, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w400)),
                     const SizedBox(width: 6),
                     Text(
                       '${isPositive ? '+' : ''}${priceChange.toStringAsFixed(2)}%',
@@ -228,7 +229,7 @@ class PortfolioContent extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('\$${totalValueUsd.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 14, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w500)),
+              Text(Money.format(totalValueUsd), style: const TextStyle(color: Colors.white, fontSize: 14, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w500)),
               const SizedBox(height: 3),
               Text(
                 '${balanceInSol % 1 == 0 ? balanceInSol.toInt() : balanceInSol.toStringAsFixed(2)} SOL',
@@ -305,7 +306,7 @@ class PortfolioContent extends StatelessWidget {
               Row(
                 children: [
                   Text(
-                    token.priceUsd > 0 ? '\$${_fmtPrice(token.priceUsd)}' : token.symbol,
+                    token.priceUsd > 0 ? _fmtPrice(token.priceUsd) : token.symbol,
                     style: TextStyle(color: Colors.grey[500], fontSize: 11, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w400),
                   ),
                   if (token.priceChange24h != 0) ...[
@@ -329,7 +330,7 @@ class PortfolioContent extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text(
-              '\$${token.valueUsd.toStringAsFixed(2)}',
+              Money.format(token.valueUsd),
               style: const TextStyle(color: Colors.white, fontSize: 14, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 3),
@@ -370,11 +371,7 @@ class PortfolioContent extends StatelessWidget {
     );
   }
 
-  String _fmtPrice(double price) {
-    if (price >= 1) return price.toStringAsFixed(2);
-    if (price >= 0.01) return price.toStringAsFixed(4);
-    return price.toStringAsFixed(6);
-  }
+  String _fmtPrice(double price) => Money.formatPrice(price);
 
   Widget _buildSectionHeader(String title) {
     return Column(
@@ -441,7 +438,7 @@ class PortfolioContent extends StatelessWidget {
           children: [
             Text(l.staking, style: const TextStyle(color: Colors.white, fontSize: 11, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500)),
             Container(width: 1, height: 16, margin: const EdgeInsets.symmetric(horizontal: 10), color: Colors.white24),
-            Text('\$${totalStakedUsd.toStringAsFixed(2)}', style: TextStyle(color: Colors.grey[400], fontSize: 11, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w500)),
+            Text(Money.format(totalStakedUsd), style: TextStyle(color: Colors.grey[400], fontSize: 11, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w500)),
             const Spacer(),
             GestureDetector(
               onTap: onStartStaking,
@@ -554,7 +551,7 @@ class PortfolioContent extends StatelessWidget {
                 children: [
                   Text('${account.amountInSol.toStringAsFixed(3)} SOL', style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w500)),
                   const SizedBox(height: 2),
-                  Text('\$${(account.amountInSol * (solPriceForStaking > 0 ? solPriceForStaking : solPriceUsd)).toStringAsFixed(2)}', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGroteskSemiMono')),
+                  Text(Money.format(account.amountInSol * (solPriceForStaking > 0 ? solPriceForStaking : solPriceUsd)), style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGroteskSemiMono')),
                 ],
               ),
             ],

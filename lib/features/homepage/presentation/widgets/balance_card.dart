@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:solfare/core/currency/money.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:solfare/core/util/copied_toast.dart';
@@ -307,12 +308,11 @@ class BalanceCard extends StatelessWidget {
   Widget _buildPriceChange(Color subtextColor) {
     final price = solPriceUsd;
     final dollarChange = balanceInSol * price * (solPriceChange24h / 100);
-    final isPositive = dollarChange >= 0;
 
     return Row(
       children: [
         Text(
-          '${isPositive ? '+' : ''}\$${dollarChange.abs().toStringAsFixed(2)}',
+          Money.formatChange(dollarChange),
           style: TextStyle(color: subtextColor, fontSize: 13, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w500),
         ),
         const SizedBox(width: 6),
@@ -359,17 +359,20 @@ class _AnimatedMoneyState extends State<_AnimatedMoney> {
       duration: const Duration(milliseconds: 550),
       curve: Curves.easeOutCubic,
       builder: (context, v, _) {
-        final text = v.toStringAsFixed(2);
+        // Formatted whole rather than digit-appended, so the symbol, the
+        // grouping and the decimals all come from one place.
+        final text = Money.format(v);
         final dotIndex = text.indexOf('.');
         return Row(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            _RollingDigit(char: '\$', color: widget.textColor),
             for (var i = 0; i < text.length; i++)
               _RollingDigit(
                 char: text[i],
-                color: i > dotIndex ? widget.centsColor : widget.textColor,
+                color: (dotIndex != -1 && i > dotIndex)
+                    ? widget.centsColor
+                    : widget.textColor,
               ),
           ],
         );

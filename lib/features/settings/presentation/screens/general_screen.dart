@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:solfare/core/security/secure_store.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:solfare/core/constant/network.dart';
+import 'package:solfare/core/currency/currency_store.dart';
+import 'package:solfare/features/settings/presentation/screens/currency_screen.dart';
 import 'package:solfare/features/settings/presentation/screens/language_screen.dart';
 import 'package:solfare/features/settings/presentation/screens/network_screen.dart';
 
@@ -86,8 +88,13 @@ class _GeneralScreenState extends State<GeneralScreen> {
             _buildMenuItem(
               icon: Iconsax.dollar_circle,
               title: 'Currency',
-              subtitle: 'US Dollar',
-              onTap: () {},
+              subtitle: CurrencyStore.instance.selected.name,
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const CurrencyScreen()),
+                );
+                if (mounted) setState(() {});
+              },
             ),
             _buildMenuItem(
               icon: Iconsax.hierarchy_square_2,
