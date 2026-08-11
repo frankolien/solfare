@@ -44,6 +44,10 @@ class AmountKeypad extends StatelessWidget {
               _key('.'),
               _key('0'),
               GestureDetector(
+                // Without this the tap area is the glyph, not the key: a bare
+                // SizedBox paints nothing, so deferToChild hit-tests the Text
+                // and a finger landing beside the digit hits the background.
+                behavior: HitTestBehavior.opaque,
                 onTap: () {
                   HapticFeedback.lightImpact();
                   onDelete();
@@ -55,8 +59,8 @@ class AmountKeypad extends StatelessWidget {
                         onDeleteAll!();
                       },
                 child: const SizedBox(
-                  width: 70,
-                  height: 50,
+                  width: 76,
+                  height: 56,
                   child: Center(
                     child: Icon(Icons.backspace_outlined,
                         color: Colors.white, size: 20),
@@ -72,13 +76,14 @@ class AmountKeypad extends StatelessWidget {
 
   Widget _key(String digit) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () {
         HapticFeedback.lightImpact();
         onDigit(digit);
       },
       child: SizedBox(
-        width: 70,
-        height: 50,
+        width: 76,
+        height: 56,
         child: Center(
           child: Text(
             digit,

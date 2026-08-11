@@ -28,6 +28,10 @@ class _SwapScreenState extends State<SwapScreen> {
   int _selectedTab = 0; // 0 = Swap, 1 = Limit
   String _expiry = 'Never';
 
+  // The last quote failure surfaced, so the same one is not raised again on
+  // every rebuild.
+  String? _shownError;
+
   @override
   void initState() {
     super.initState();
@@ -99,6 +103,26 @@ class _SwapScreenState extends State<SwapScreen> {
                 SnackBar(content: Text(state.message), backgroundColor: Colors.red),
               );
               context.read<SwapBloc>().add(const LoadTokenListEvent());
+            } else if (state is SwapReady) {
+              // A quote that cannot be had is the common failure and it only
+              // showed as 10pt red text under the cards, which is easy to miss
+              // when the answer you are waiting for is a number that never
+              // arrives. Deduped, or it would re-fire on every rebuild.
+              final message = state.error;
+              if (message != null && message != _shownError) {
+                _shownError = message;
+                ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(SnackBar(
+                    content: Text(message),
+                    backgroundColor: Colors.red[700],
+                    behavior: SnackBarBehavior.floating,
+                    margin: const EdgeInsets.all(16),
+                    duration: const Duration(seconds: 4),
+                  ));
+              } else if (message == null) {
+                _shownError = null;
+              }
             }
           },
           builder: (context, state) {
@@ -259,7 +283,24 @@ class _SwapScreenState extends State<SwapScreen> {
         if (state.error != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(state.error!, style: const TextStyle(color: Color(0xFFFF5252), fontSize: 10, fontFamily: 'FKGrotesk')),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.error_outline,
+                    color: Color(0xFFFF5252), size: 14),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    state.error!,
+                    style: const TextStyle(
+                        color: Color(0xFFFF5252),
+                        fontSize: 12,
+                        height: 1.4,
+                        fontFamily: 'FKGrotesk'),
+                  ),
+                ),
+              ],
+            ),
           ),
 
         const SizedBox(height: 20),
