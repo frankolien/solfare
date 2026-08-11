@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:solfare/core/security/app_lock.dart';
 import 'package:solfare/core/security/passcode_crypto.dart';
 import 'package:solfare/core/security/secure_store.dart';
@@ -69,14 +71,7 @@ class PasscodeGate {
         await storage.write(key: AppLock.passcodeKey, value: keys.stored);
       }
 
-      WalletKey.hold(keys.wrapKey);
-      try {
-        final wrapped = await WalletAccountsStore().wrapPlaintextMnemonics(keys.wrapKey);
-        if (wrapped > 0) debugLog('[Passcode] wrapped $wrapped mnemonic(s)');
-      } catch (e) {
-        // Not fatal to the unlock.
-        debugLog('[Passcode] could not wrap mnemonics: $e');
-      }
+      await holdAndMigrate(keys.wrapKey);
 
       await storage.delete(key: _attemptsKey);
       await storage.delete(key: _lockoutUntilKey);
@@ -98,6 +93,22 @@ class PasscodeGate {
     }
 
     return PasscodeWrong(attemptsPerLockout - (attempts % attemptsPerLockout));
+  }
+
+  /// Take up [wrapKey] for the unlocked session and finish any migration.
+  ///
+  /// Shared by the passcode and the biometric door, so both end in the same
+  /// state — a biometric unlock that skipped the wrap would leave a mnemonic
+  /// in plaintext for as long as the user never typed their passcode again.
+  static Future<void> holdAndMigrate(Uint8List wrapKey) async {
+    WalletKey.hold(wrapKey);
+    try {
+      final wrapped = await WalletAccountsStore().wrapPlaintextMnemonics(wrapKey);
+      if (wrapped > 0) debugLog('[Passcode] wrapped $wrapped mnemonic(s)');
+    } catch (e) {
+      // Not fatal to the unlock.
+      debugLog('[Passcode] could not wrap mnemonics: $e');
+    }
   }
 
   /// Human wording for a lockout, so every caller says the same thing.

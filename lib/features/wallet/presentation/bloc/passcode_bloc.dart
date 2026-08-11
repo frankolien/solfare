@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:solfare/core/security/app_lock.dart';
+import 'package:solfare/core/security/biometric_lock.dart';
 import 'package:solfare/core/security/passcode_crypto.dart';
 import 'package:solfare/core/security/passcode_gate.dart';
 import 'package:solfare/core/security/wallet_key.dart';
@@ -26,6 +27,7 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
     on<SavePasscodeEvent>(_onSavePasscode);
     on<ResetPasscodeEvent>(_onResetPasscode);
     on<PasscodeWrongEvent>(_onPasscodeWrong);
+    on<BiometricUnlockRequested>(_onBiometricUnlock);
   }
 
   void _onDigitEntered(
@@ -104,6 +106,20 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
     }
   }
 
+  Future<void> _onBiometricUnlock(
+    BiometricUnlockRequested event,
+    Emitter<PasscodeState> emit,
+  ) async {
+    final key = await BiometricLock.unlock();
+    // Cancelled, failed, or the OS invalidated the item because the enrolled
+    // biometrics changed. The keypad is already on screen either way.
+    if (key == null) return;
+
+    await PasscodeGate.holdAndMigrate(key);
+    AppLock.instance.unlock();
+    emit(const PasscodeVerified());
+  }
+
   Future<void> _onSavePasscode(
     SavePasscodeEvent event,
     Emitter<PasscodeState> emit,
@@ -125,6 +141,11 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
       } catch (e) {
         debugLog('[Passcode] could not wrap on setup: $e');
       }
+
+      // A changed passcode is a changed wrapKey, and a stored one that no
+      // longer decrypts surfaces as an unreadable recovery phrase. No-op when
+      // biometrics was never turned on.
+      await BiometricLock.rekey(made.keys.wrapKey);
 
       // Setting a passcode both creates the lock and satisfies it — the user is
       // holding the phone and has just typed it twice.

@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solfare/core/router/app_router.dart';
+import 'package:solfare/core/security/biometric_lock.dart';
 import 'package:solfare/features/wallet/presentation/bloc/passcode_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/passcode_event.dart';
 import 'package:solfare/features/wallet/presentation/bloc/passcode_state.dart';
@@ -27,6 +30,10 @@ class PasscodeScreen extends StatefulWidget {
 class _PasscodeScreenState extends State<PasscodeScreen> {
   bool _hasNavigated = false; // Prevent multiple navigations
 
+  // Null until we know there is a biometric door to offer, so the button never
+  // appears on a device that would only fail.
+  String? _biometricLabel;
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +46,22 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
         }
       });
     }
+    if (widget.mode == PasscodeMode.unlock) unawaited(_offerBiometrics());
+  }
+
+  // Prompts once on arrival, then leaves the button for a retry. A user who
+  // dismisses Face ID wants the keypad, not the same sheet again.
+  Future<void> _offerBiometrics() async {
+    if (!await BiometricLock.isEnabled()) return;
+    final label = await BiometricLock.label();
+    if (!mounted) return;
+    setState(() => _biometricLabel = label);
+    _promptBiometrics();
+  }
+
+  void _promptBiometrics() {
+    if (_hasNavigated) return;
+    context.read<PasscodeBloc>().add(const BiometricUnlockRequested());
   }
 
   @override
@@ -168,6 +191,24 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
                     const Spacer(),
 
                     _buildKeypad(),
+
+                    if (_biometricLabel != null) ...[
+                      const SizedBox(height: 20),
+                      TextButton.icon(
+                        onPressed: _promptBiometrics,
+                        icon: const Icon(Icons.fingerprint,
+                            color: Colors.white, size: 22),
+                        label: Text(
+                          'Unlock with $_biometricLabel',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontFamily: 'FKGrotesk',
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
 
                     SizedBox(height: isKeyboardVisible ? 20 : 40),
                   ],

@@ -49,6 +49,7 @@ dependencies:
   # which the rest of the SPM setup tolerates fine.
   photo_manager: 3.7.1
   path_provider: ^2.1.5
+  local_auth: ^3.0.2
 
 dev_dependencies:
   flutter_test:

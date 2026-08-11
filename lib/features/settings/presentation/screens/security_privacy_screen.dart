@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:solfare/core/security/biometric_lock.dart';
+import 'package:solfare/core/security/wallet_key.dart';
 import 'package:solfare/features/settings/presentation/screens/connected_apps_screen.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_event.dart';
@@ -13,7 +17,54 @@ class SecurityPrivacyScreen extends StatefulWidget {
 }
 
 class _SecurityPrivacyScreenState extends State<SecurityPrivacyScreen> {
-  bool _biometricsEnabled = true;
+  bool _biometricsEnabled = false;
+  bool _biometricsAvailable = false;
+  String _biometricLabel = 'Biometrics';
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadBiometrics());
+  }
+
+  Future<void> _loadBiometrics() async {
+    final available = await BiometricLock.isAvailable();
+    final enabled = await BiometricLock.isEnabled();
+    final label = available ? await BiometricLock.label() : 'Biometrics';
+    if (!mounted) return;
+    setState(() {
+      _biometricsAvailable = available;
+      _biometricsEnabled = enabled;
+      _biometricLabel = label;
+    });
+  }
+
+  Future<void> _setBiometrics(bool on) async {
+    if (!on) {
+      await BiometricLock.disable();
+      if (mounted) setState(() => _biometricsEnabled = false);
+      return;
+    }
+
+    // Turning it on stores the key the passcode derived, so it can only happen
+    // while that key is held — which, on this screen, it always is.
+    final key = WalletKey.value;
+    final ok = key != null && await BiometricLock.enable(key);
+    if (!mounted) return;
+    setState(() => _biometricsEnabled = ok);
+    if (!ok) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('Could not turn on $_biometricLabel.'),
+            backgroundColor: Colors.red[700],
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,10 +103,12 @@ class _SecurityPrivacyScreenState extends State<SecurityPrivacyScreen> {
                     ),
                     _buildToggleItem(
                       icon: Iconsax.finger_scan,
-                      title: 'Biometrics',
-                      subtitle: 'Unlock the app quickly and securely',
+                      title: _biometricLabel,
+                      subtitle: _biometricsAvailable
+                          ? 'Unlock without typing your passcode'
+                          : 'Not set up on this device',
                       value: _biometricsEnabled,
-                      onChanged: (val) => setState(() => _biometricsEnabled = val),
+                      onChanged: _biometricsAvailable ? _setBiometrics : null,
                     ),
                     _buildMenuItem(
                       icon: Iconsax.lock,
@@ -157,7 +210,8 @@ class _SecurityPrivacyScreenState extends State<SecurityPrivacyScreen> {
     required String title,
     required String subtitle,
     required bool value,
-    required ValueChanged<bool> onChanged,
+    // Null renders the switch disabled, for a setting the device cannot offer.
+    required ValueChanged<bool>? onChanged,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),

@@ -45,3 +45,8 @@ class ResetPasscodeEvent extends PasscodeEvent {
 class PasscodeWrongEvent extends PasscodeEvent {
   const PasscodeWrongEvent();
 }
+
+/// Offer the biometric door instead of the keypad.
+class BiometricUnlockRequested extends PasscodeEvent {
+  const BiometricUnlockRequested();
+}

@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:solfare/core/error/exception.dart';
 import 'package:solfare/core/security/app_lock.dart';
+import 'package:solfare/core/security/biometric_lock.dart';
 import 'package:solfare/core/security/mnemonic_envelope.dart';
 import 'package:solfare/core/security/wallet_key.dart';
 import 'package:solfare/core/security/secure_store.dart';
@@ -169,6 +170,8 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
       await _secureStorage.delete(key: AppLock.passcodeKey);
       await _secureStorage.delete(key: 'passcode_failed_attempts');
       await _secureStorage.delete(key: 'passcode_lockout_until');
+      // Along with the copy of the wrapKey it was holding.
+      await BiometricLock.disable();
     } catch (e) {
       throw LocalStorageException('Failed to clear wallet: $e');
     }
