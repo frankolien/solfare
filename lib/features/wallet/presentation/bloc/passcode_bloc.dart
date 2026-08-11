@@ -83,7 +83,7 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
         case PasscodeAccepted():
           // Opens the door for the router.
           AppLock.instance.unlock();
-          emit(const PasscodeVerified());
+          _emitVerified(emit);
 
         case PasscodeUnset():
           emit(const PasscodeError('No passcode set.'));
@@ -125,6 +125,16 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
 
     await PasscodeGate.holdAndMigrate(key);
     AppLock.instance.unlock();
+    _emitVerified(emit);
+  }
+
+  // This bloc is app-level, so after one unlock its state stays
+  // PasscodeVerified. Emitting an identical Equatable state is dropped, the
+  // screen's listener never fires, and nothing navigates — the app sits on the
+  // keypad having just accepted a face. Typing a passcode hid it, because the
+  // digits move the state away first.
+  void _emitVerified(Emitter<PasscodeState> emit) {
+    if (state is PasscodeVerified) emit(const PasscodeInitial());
     emit(const PasscodeVerified());
   }
 

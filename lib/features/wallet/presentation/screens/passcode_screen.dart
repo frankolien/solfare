@@ -37,15 +37,14 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
   @override
   void initState() {
     super.initState();
-    // The bloc carries leftover entered digits when arriving from the enter
-    // step.
-    if (widget.mode == PasscodeMode.confirm) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          context.read<PasscodeBloc>().add(const ResetPasscodeEvent());
-        }
-      });
-    }
+    // The bloc is app-level, so it arrives carrying whatever the last screen
+    // left in it — leftover digits from the enter step, or a stale
+    // PasscodeVerified from the previous unlock.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<PasscodeBloc>().add(const ResetPasscodeEvent());
+      }
+    });
     if (widget.mode == PasscodeMode.unlock) unawaited(_offerBiometrics());
   }
 
