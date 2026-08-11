@@ -91,7 +91,15 @@ class PasscodeBloc extends Bloc<PasscodeEvent, PasscodeState> {
         case PasscodeLocked(:final remaining):
           emit(PasscodeError(PasscodeGate.describe(remaining)));
 
-        case PasscodeWrong():
+        case PasscodeWrong(:final remaining):
+          // The gate has always counted these down; nothing ever read the
+          // number, so a wrong passcode looked the same as a mis-tap right up
+          // until the lockout landed.
+          emit(PasscodeError(
+            remaining == 1
+                ? 'Wrong passcode. 1 try left.'
+                : 'Wrong passcode. $remaining tries left.',
+          ));
           emit(const PasscodeEntering(passcode: '', isWrong: true));
           await Future.delayed(const Duration(milliseconds: 500));
           if (state is PasscodeEntering) {

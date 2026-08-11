@@ -6,6 +6,7 @@ import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:solfare/core/security/app_lock.dart';
 import 'package:solfare/core/security/biometric_lock.dart';
 import 'package:solfare/core/security/wallet_key.dart';
+import 'package:solfare/features/settings/presentation/screens/change_passcode_screen.dart';
 import 'package:solfare/features/settings/presentation/screens/connected_apps_screen.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_event.dart';
@@ -126,7 +127,15 @@ class _SecurityPrivacyScreenState extends State<SecurityPrivacyScreen> {
                       icon: Iconsax.lock,
                       title: 'Change passcode',
                       subtitle: 'Update your account security',
-                      onTap: () {},
+                      onTap: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) => const ChangePasscodeScreen()),
+                        );
+                        // The biometric copy of the key was rewritten, so the
+                        // toggle's state is worth re-reading.
+                        if (mounted) unawaited(_loadBiometrics());
+                      },
                     ),
                     _buildMenuItem(
                       icon: Iconsax.timer_1,

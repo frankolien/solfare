@@ -67,6 +67,12 @@ class BiometricLock {
   }
 
   /// Stores [wrapKey] behind biometry. Caller must hold a verified key.
+  ///
+  /// Writes, then reads it straight back. Writing under an access control needs
+  /// no authentication — only reading does — so without the read the user taps
+  /// the toggle and sees nothing at all, and we would be claiming a feature
+  /// works without having checked. The read raises the prompt and proves the
+  /// round trip, here rather than at the next unlock.
   static Future<bool> enable(Uint8List wrapKey) async {
     if (!await isAvailable()) return false;
     try {
@@ -75,13 +81,33 @@ class BiometricLock {
         value: base64Encode(wrapKey),
         iOptions: _protected,
       );
+
+      final readBack = await SecureStore.instance.read(
+        key: _keyItem,
+        iOptions: _protected,
+      );
+      if (readBack == null || !_sameBytes(base64Decode(readBack), wrapKey)) {
+        await disable();
+        return false;
+      }
+
       await SecureStore.instance.write(key: _flagItem, value: 'true');
       return true;
     } catch (e) {
+      // Includes the user dismissing the prompt, which is a refusal to turn it
+      // on rather than an error to report.
       debugLog('[Biometric] could not store the key: $e');
       await disable();
       return false;
     }
+  }
+
+  static bool _sameBytes(List<int> a, List<int> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   /// Prompts, and returns the wrapKey on success.

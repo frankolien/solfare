@@ -140,6 +140,50 @@ void main() {
     expect(await BiometricLock.isEnabled(), isFalse);
   });
 
+  test('enabling reads the key back, so the prompt is raised and checked',
+      () async {
+    var reads = 0;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(storage, (call) async {
+      final args = (call.arguments as Map?) ?? const {};
+      switch (call.method) {
+        case 'read':
+          if (args['key'] == 'wallet_biometric_key') reads++;
+          return backing[args['key']];
+        case 'write':
+          backing[args['key']] = args['value'] as String;
+          return null;
+        case 'delete':
+          backing.remove(args['key']);
+          return null;
+      }
+      return null;
+    });
+
+    final made = await PasscodeCrypto.create('123456');
+    expect(await BiometricLock.enable(made.keys.wrapKey), isTrue);
+    expect(reads, greaterThan(0),
+        reason: 'a write we never read is a promise we have not checked');
+  });
+
+  test('a refused prompt does not leave it looking enabled', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(storage, (call) async {
+      final args = (call.arguments as Map?) ?? const {};
+      if (call.method == 'read' && args['key'] == 'wallet_biometric_key') {
+        throw PlatformException(code: 'UserCanceled');
+      }
+      if (call.method == 'read') return backing[args['key']];
+      if (call.method == 'write') backing[args['key']] = args['value'] as String;
+      if (call.method == 'delete') backing.remove(args['key']);
+      return null;
+    });
+
+    final made = await PasscodeCrypto.create('123456');
+    expect(await BiometricLock.enable(made.keys.wrapKey), isFalse);
+    expect(backing['wallet_biometric_enabled'], isNull);
+  });
+
   test('disable clears both the key and the flag', () async {
     final made = await PasscodeCrypto.create('123456');
     await BiometricLock.enable(made.keys.wrapKey);
