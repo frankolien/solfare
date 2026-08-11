@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:solfare/core/currency/money.dart';
+import 'package:solfare/core/widgets/amount_keypad.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lottie/lottie.dart';
 import 'package:solfare/core/wallet/active_wallet.dart';
@@ -22,7 +24,6 @@ class SwapScreen extends StatefulWidget {
 }
 
 class _SwapScreenState extends State<SwapScreen> {
-  final _inputController = TextEditingController();
   String? _walletAddress;
   int _selectedTab = 0; // 0 = Swap, 1 = Limit
   String _expiry = 'Never';
@@ -75,7 +76,6 @@ class _SwapScreenState extends State<SwapScreen> {
 
   @override
   void dispose() {
-    _inputController.dispose();
     super.dispose();
   }
 
@@ -161,9 +161,16 @@ class _SwapScreenState extends State<SwapScreen> {
               children: [
                 // Bound to the balance check, not to having a quote.
                 if (_isShort(state)) _buildWarningBanner(state),
+                const SizedBox(height: 8),
+                AmountKeypad(
+                  onDigit: (d) => _setAmount(
+                      context, appendDigit(state.inputAmount, d)),
+                  onDelete: () =>
+                      _setAmount(context, removeDigit(state.inputAmount)),
+                  onDeleteAll: () => _setAmount(context, ''),
+                ),
                 const SizedBox(height: 10),
                 _buildSwapButton(context, state),
-                
               ],
             ),
           ),
@@ -234,6 +241,9 @@ class _SwapScreenState extends State<SwapScreen> {
 
         _buildBuySection(context, state),
 
+        const SizedBox(height: 16),
+        _buildPercentRow(context, state),
+
         if (state.rate != null) ...[
           const SizedBox(height: 16),
           Divider(color: Colors.grey[800], height: 1),
@@ -255,6 +265,57 @@ class _SwapScreenState extends State<SwapScreen> {
         const SizedBox(height: 20),
       ],
     );
+  }
+
+  // A quarter, a half, three quarters, or everything the reserve allows.
+  Widget _buildPercentRow(BuildContext context, SwapReady state) {
+    final balance = state.inputBalance;
+    final enabled = balance != null && balance > 0;
+
+    return Row(
+      children: [
+        for (final percent in const [25, 50, 75, 100])
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(right: percent == 100 ? 0 : 8),
+              child: GestureDetector(
+                onTap: !enabled
+                    ? null
+                    : () {
+                        final spendable = SwapLimits.maxSpendable(
+                          balance: balance,
+                          nativeSol: SwapLimits.isNativeSol(state.inputToken),
+                        );
+                        final value = spendable * percent / 100;
+                        _setAmount(context, value <= 0 ? '' : _trim(value));
+                      },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF16181D),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Text(
+                      percent == 100 ? 'Max' : '$percent%',
+                      style: TextStyle(
+                        color: enabled ? Colors.white : Colors.grey[700],
+                        fontSize: 13,
+                        fontFamily: 'FKGrotesk',
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _setAmount(BuildContext context, String value) {
+    context.read<SwapBloc>().add(UpdateInputAmountEvent(value));
   }
 
   Widget _buildRateRow(String label, String value) {
@@ -296,43 +357,112 @@ class _SwapScreenState extends State<SwapScreen> {
   }
 
   Widget _buildSellSection(BuildContext context, SwapReady state) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Text('SELL', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500, letterSpacing: 1)),
-            const Spacer(),
-            Text(_maxLabel(state), style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGrotesk')),
-          ],
-        ),
-        const SizedBox(height: 12),
+    final amount = double.tryParse(state.inputAmount) ?? 0;
+    final price = state.inputToken.priceUsd ?? 0;
 
-        Row(
-          children: [
-            _buildTokenChip(state.inputToken, () => _showTokenSelector(context, state.tokens, state.inputToken, true)),
-            const Spacer(),
-            SizedBox(
-              width: 120,
-              child: TextField(
-                controller: _inputController,
-                style: TextStyle(color: Colors.grey[500], fontSize: 28, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w400),
-                decoration: InputDecoration(
-                  hintText: '0',
-                  hintStyle: TextStyle(color: Colors.grey[700], fontSize: 28, fontFamily: 'FKGroteskSemiMono'),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                  isDense: true,
-                ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                textAlign: TextAlign.right,
-                onChanged: (val) {
-                  context.read<SwapBloc>().add(UpdateInputAmountEvent(val));
-                },
+    return _amountCard(
+      label: 'SELL',
+      amount: state.inputAmount.isEmpty ? '0' : state.inputAmount,
+      dimmed: state.inputAmount.isEmpty,
+      valueUsd: price > 0 ? amount * price : null,
+      trailing: _buildTokenChip(state.inputToken,
+          () => _showTokenSelector(context, state.tokens, state.inputToken, true)),
+      balance: _maxLabel(state),
+    );
+  }
+
+  // One shape for both halves: the figure large on the left, the token on the
+  // right, and what each is worth underneath.
+  Widget _amountCard({
+    required String label,
+    required String amount,
+    required bool dimmed,
+    required double? valueUsd,
+    required Widget trailing,
+    required String balance,
+    Widget? labelSuffix,
+    bool loading = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF16181D),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(label,
+                  style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 10,
+                      fontFamily: 'FKGrotesk',
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 1)),
+              if (labelSuffix != null) ...[
+                const SizedBox(width: 4),
+                labelSuffix,
+              ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: loading
+                    ? SizedBox(
+                        height: 32,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 1.5, color: Colors.grey[500]),
+                          ),
+                        ),
+                      )
+                    : FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          amount,
+                          style: TextStyle(
+                            color: dimmed ? Colors.grey[700] : Colors.white,
+                            fontSize: 32,
+                            fontFamily: 'FKGroteskSemiMono',
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
               ),
-            ),
-          ],
-        ),
-      ],
+              const SizedBox(width: 12),
+              trailing,
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(
+                valueUsd == null ? '' : Money.format(valueUsd),
+                style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 11,
+                    fontFamily: 'FKGroteskSemiMono'),
+              ),
+              const Spacer(),
+              Text(balance,
+                  style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 11,
+                      fontFamily: 'FKGrotesk')),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -346,7 +476,6 @@ class _SwapScreenState extends State<SwapScreen> {
           GestureDetector(
             onTap: () {
               context.read<SwapBloc>().add(const FlipTokensEvent());
-              _inputController.clear();
             },
             child: Container(
               width: 36, height: 36,
@@ -364,37 +493,19 @@ class _SwapScreenState extends State<SwapScreen> {
   }
 
   Widget _buildBuySection(BuildContext context, SwapReady state) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Text('BUY', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w500, letterSpacing: 1)),
-            const SizedBox(width: 4),
-            Icon(Icons.info_outline, color: Colors.grey[600], size: 12),
-            const Spacer(),
-            Text(_balanceLabel(state), style: TextStyle(color: Colors.grey[500], fontSize: 10, fontFamily: 'FKGrotesk')),
-          ],
-        ),
-        const SizedBox(height: 12),
+    final out = double.tryParse(state.outputAmount ?? '') ?? 0;
+    final price = state.outputToken.priceUsd ?? 0;
 
-        Row(
-          children: [
-            _buildTokenChip(state.outputToken, () => _showTokenSelector(context, state.tokens, state.outputToken, false)),
-            const Spacer(),
-            state.isLoadingQuote
-                ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.grey[500]))
-                : Text(
-                    state.outputAmount ?? '0',
-                    style: TextStyle(
-                      color: state.outputAmount != null ? Colors.white : Colors.grey[700],
-                      fontSize: 28,
-                      fontFamily: 'FKGroteskSemiMono',
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-          ],
-        ),
-      ],
+    return _amountCard(
+      label: 'BUY',
+      amount: state.outputAmount ?? '0',
+      dimmed: state.outputAmount == null,
+      valueUsd: price > 0 && out > 0 ? out * price : null,
+      loading: state.isLoadingQuote,
+      labelSuffix: Icon(Icons.info_outline, color: Colors.grey[600], size: 12),
+      trailing: _buildTokenChip(state.outputToken,
+          () => _showTokenSelector(context, state.tokens, state.outputToken, false)),
+      balance: _balanceLabel(state),
     );
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:solfare/core/widgets/amount_keypad.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -783,64 +784,8 @@ class _SendSolScreenState extends State<SendSolScreen> {
     );
   }
 
-  Widget _buildKeypad() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 30),
-      child: Column(
-        children: [
-          for (int row = 0; row < 3; row++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  for (int col = 0; col < 3; col++)
-                    _buildKey('${row * 3 + col + 1}'),
-                ],
-              ),
-            ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildKey('.'),
-              _buildKey('0'),
-              GestureDetector(
-                onTap: _onDelete,
-                child: const SizedBox(
-                  width: 70,
-                  height: 50,
-                  child: Center(
-                    child: Icon(Icons.backspace_outlined, color: Colors.white, size: 20),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildKey(String digit) {
-    return GestureDetector(
-      onTap: () => _onDigit(digit),
-      child: SizedBox(
-        width: 70,
-        height: 50,
-        child: Center(
-          child: Text(
-            digit,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontFamily: 'FKGroteskSemiMono',
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _buildKeypad() =>
+      AmountKeypad(onDigit: _onDigit, onDelete: _onDelete);
 
   // The route the status sheet is sitting on, so it can be dismissed by
   // identity.
