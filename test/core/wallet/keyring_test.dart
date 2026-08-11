@@ -21,9 +21,9 @@ void main() {
 
     test('a derived keypair can actually sign', () async {
       // Nothing in this file signed anything, so the invariant the comment in
-      // Keyring.keyPairFromMnemonic defends — "do NOT zero priv,
+      // Keyring.keyPairFor defends — "do NOT zero priv,
       // Ed25519HDKeyPair stores it by reference" — was undefended.
-      final keypair = await Keyring.keyPairFromMnemonic(testMnemonic);
+      final keypair = await Keyring.keyPairFor(testMnemonic);
       final signature = await keypair.sign(utf8.encode('solfare'));
       expect(signature.bytes.length, 64);
       expect(signature.bytes.any((b) => b != 0), isTrue,
@@ -73,15 +73,15 @@ void main() {
         throwsA(isA<KeyDerivationException>()),
       );
       expect(
-        () => Keyring.keyPairFromMnemonic(''),
+        () => Keyring.keyPairFor(''),
         throwsA(isA<KeyDerivationException>()),
       );
     });
 
-    test('keyPairFromMnemonic produces a keypair whose address matches publicKeyFor',
+    test('keyPairFor produces a keypair whose address matches publicKeyFor',
         () async {
       final derived = await Keyring.publicKeyFor(testMnemonic);
-      final keypair = await Keyring.keyPairFromMnemonic(testMnemonic);
+      final keypair = await Keyring.keyPairFor(testMnemonic);
       expect(keypair.address, equals(derived.address));
     });
   });

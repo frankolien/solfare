@@ -126,7 +126,7 @@ class _DappRequestHostState extends State<DappRequestHost> {
   Future<solana.Ed25519HDKeyPair> _keyPair() async {
     final mnemonic = await ActiveWallet.mnemonic();
     if (mnemonic == null) throw const DappRequestRejected('No wallet is set up.');
-    return Keyring.keyPairFromMnemonic(mnemonic);
+    return Keyring.keyPairFor(mnemonic);
   }
 
   Future<void> _reply(Uri url) async {

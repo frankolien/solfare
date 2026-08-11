@@ -4,6 +4,7 @@ import 'package:solfare/core/security/passcode_gate.dart';
 import 'package:solfare/core/security/secure_clipboard.dart';
 import 'package:solfare/core/security/secure_screen.dart';
 import 'package:solfare/core/wallet/active_wallet.dart';
+import 'package:solfare/core/wallet/keyring.dart';
 import 'package:solfare/core/util/copied_toast.dart';
 
 class ExportRecoveryScreen extends StatefulWidget {
@@ -15,6 +16,7 @@ class ExportRecoveryScreen extends StatefulWidget {
 
 class _ExportRecoveryScreenState extends State<ExportRecoveryScreen> {
   String? _mnemonic;
+  bool _noPhrase = false;
   bool _isRevealed = false;
   bool _isLoading = true;
 
@@ -32,10 +34,14 @@ class _ExportRecoveryScreenState extends State<ExportRecoveryScreen> {
   }
 
   Future<void> _loadMnemonic() async {
-    final mnemonic = await ActiveWallet.mnemonic();
+    final secret = await ActiveWallet.mnemonic();
     if (mounted) {
       setState(() {
-        _mnemonic = mnemonic;
+        // A wallet imported from a private key has no phrase behind it. Saying
+        // so beats an empty box or an error, both of which read as the phrase
+        // having been lost.
+        _noPhrase = secret != null && Keyring.isPrivateKey(secret);
+        _mnemonic = _noPhrase ? null : secret;
         _isLoading = false;
       });
     }
@@ -186,6 +192,21 @@ class _ExportRecoveryScreenState extends State<ExportRecoveryScreen> {
 
             if (_isLoading)
               const Center(child: CircularProgressIndicator(color: Colors.yellow, strokeWidth: 2))
+            else if (_noPhrase)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  'This wallet was imported from a private key, so it has no '
+                  'recovery phrase. Export the private key instead.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 13,
+                    fontFamily: 'FKGrotesk',
+                    height: 1.6,
+                  ),
+                ),
+              )
             else if (_mnemonic != null) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),

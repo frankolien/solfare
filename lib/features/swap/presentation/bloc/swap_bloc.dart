@@ -242,7 +242,7 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
     try {
       final mnemonic = await ActiveWallet.mnemonic();
       if (mnemonic == null) throw Exception('No wallet found');
-      final keyPair = await Keyring.keyPairFromMnemonic(mnemonic);
+      final keyPair = await Keyring.keyPairFor(mnemonic);
 
       final prepared = await _executor.prepare(
         inputMint: s.inputToken.mint,

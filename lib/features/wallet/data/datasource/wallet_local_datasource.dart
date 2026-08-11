@@ -134,8 +134,11 @@ class WalletLocalDataSourceImpl implements WalletLocalDataSource {
       final active = await _accounts.getActive();
       if (active == null) return false;
 
-      // A wrapped mnemonic is one long token, not twelve words.
-      if (!MnemonicEnvelope.isWrapped(active.mnemonic)) {
+      // A wrapped secret is one long token, and a raw private key is one too.
+      // Word-counting either sends a real wallet to onboarding, and onboarding
+      // is the path that overwrites it.
+      if (!MnemonicEnvelope.isWrapped(active.mnemonic) &&
+          !Keyring.isPrivateKey(active.mnemonic)) {
         final words = active.mnemonic.trim().split(RegExp(r'\s+'));
         if (words.length != 12 && words.length != 24) return false;
       }

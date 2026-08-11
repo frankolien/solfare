@@ -8,6 +8,7 @@ import 'package:solfare/core/security/secure_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 import 'package:solfare/core/router/app_router.dart';
+import 'package:solfare/core/wallet/keyring.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_bloc.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_event.dart';
 import 'package:solfare/features/wallet/presentation/bloc/wallet_state.dart';
@@ -41,16 +42,15 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
     super.dispose();
   }
 
-  bool get _isValid {
-    final words = _phraseController.text.trim().split(RegExp(r'\s+'));
-    return words.length == 12 || words.length == 24;
-  }
-
   void _onConfirm() {
-    if (!_isValid) {
+    // Parsed rather than word-counted, so a pasted private key is recognised
+    // as one instead of being rejected as a short phrase.
+    final secret = Keyring.parseSecret(_phraseController.text);
+    if (secret == null) {
       setState(() {
         _hasError = true;
-        _errorMessage = 'Please enter a valid 12 or 24 word recovery phrase';
+        _errorMessage =
+            'Enter a 12 or 24 word recovery phrase, or a private key';
       });
       return;
     }
@@ -58,8 +58,7 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
       _hasError = false;
       _stage = _ImportStage.analyzing;
     });
-    final mnemonic = _phraseController.text.trim().toLowerCase();
-    context.read<WalletBloc>().add(ImportWalletEvent(mnemonic));
+    context.read<WalletBloc>().add(ImportWalletEvent(secret));
   }
 
   // After a successful import, send the user through passcode creation (and
@@ -155,7 +154,8 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
         children: [
           const SizedBox(height: 8),
           Text(
-            'Enter the 12 or 24 words from your recovery phrase in the right order, separated by spaces.',
+            'Enter the 12 or 24 words from your recovery phrase in the right '
+            'order, or paste a private key.',
             style: TextStyle(
               color: Colors.grey[400],
               fontSize: 13,
@@ -183,7 +183,7 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
                     height: 1.6,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'Type your recovery phrase',
+                    hintText: 'Recovery phrase or private key',
                     hintStyle: TextStyle(
                       color: Colors.grey[600],
                       fontSize: 15,

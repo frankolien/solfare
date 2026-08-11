@@ -814,7 +814,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
         emit(const SendPreviewReady(TxPreview.unverified('No wallet found.')));
         return;
       }
-      final keyPair = await Keyring.keyPairFromMnemonic(mnemonic);
+      final keyPair = await Keyring.keyPairFor(mnemonic);
 
       final instruction = solana.SystemInstruction.transfer(
         fundingAccount: keyPair.publicKey,
@@ -1077,7 +1077,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     if (mnemonic == null) {
       throw Exception('No wallet found. Please create or import a wallet first.');
     }
-    return Keyring.keyPairFromMnemonic(mnemonic);
+    return Keyring.keyPairFor(mnemonic);
   }
 
   int _baseUnits(double amount, int decimals) {
@@ -1098,7 +1098,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       if (mnemonic == null) {
         throw Exception('No wallet found. Please create or import a wallet first.');
       }
-      final senderKeyPair = await Keyring.keyPairFromMnemonic(mnemonic);
+      final senderKeyPair = await Keyring.keyPairFor(mnemonic);
 
       final lamports = Lamports.fromSol(event.amountInSol);
 

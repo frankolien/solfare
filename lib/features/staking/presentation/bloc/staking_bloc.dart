@@ -199,7 +199,7 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
     if (mnemonic == null) {
       throw Exception('No wallet found.');
     }
-    return Keyring.keyPairFromMnemonic(mnemonic);
+    return Keyring.keyPairFor(mnemonic);
   }
 
   Future<void> _onDeactivateStake(
