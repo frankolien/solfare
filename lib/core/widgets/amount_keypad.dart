@@ -14,11 +14,16 @@ class AmountKeypad extends StatelessWidget {
   /// Held down to clear, where the screen supports it.
   final VoidCallback? onDeleteAll;
 
+  /// How tall each key is drawn. Screens that have to fit the keypad alongside
+  /// fixed content pass a smaller one rather than let it push them off-screen.
+  final double keyHeight;
+
   const AmountKeypad({
     super.key,
     required this.onDigit,
     required this.onDelete,
     this.onDeleteAll,
+    this.keyHeight = 56,
   });
 
   @override
@@ -58,10 +63,10 @@ class AmountKeypad extends StatelessWidget {
                         HapticFeedback.mediumImpact();
                         onDeleteAll!();
                       },
-                child: const SizedBox(
+                child: SizedBox(
                   width: 76,
-                  height: 56,
-                  child: Center(
+                  height: keyHeight,
+                  child: const Center(
                     child: Icon(Icons.backspace_outlined,
                         color: Colors.white, size: 20),
                   ),
@@ -83,7 +88,7 @@ class AmountKeypad extends StatelessWidget {
       },
       child: SizedBox(
         width: 76,
-        height: 56,
+        height: keyHeight,
         child: Center(
           child: Text(
             digit,

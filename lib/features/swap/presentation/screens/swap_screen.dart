@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:solfare/core/currency/money.dart';
 import 'package:solfare/core/widgets/amount_keypad.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lottie/lottie.dart';
@@ -9,6 +8,8 @@ import 'package:solfare/features/swap/domain/swap_limits.dart';
 import 'package:solfare/features/swap/presentation/bloc/swap_bloc.dart';
 import 'package:solfare/features/swap/presentation/bloc/swap_event.dart';
 import 'package:solfare/features/swap/presentation/bloc/swap_state.dart';
+import 'package:solfare/features/swap/presentation/swap_layout.dart';
+import 'package:solfare/features/swap/presentation/widgets/amount_card.dart';
 import 'package:solfare/features/swap/presentation/widgets/swap_review_sheet.dart';
 import 'package:solfare/core/constant/network.dart';
 import 'package:solfare/features/swap/presentation/widgets/token_selector_sheet.dart';
@@ -169,38 +170,57 @@ class _SwapScreenState extends State<SwapScreen> {
       children: [
         _buildHeader(),
 
+        // What the user operates is pinned; what merely informs them scrolls.
+        // The keys take what is left after the cards, so a screen that cannot
+        // hold both scrolls the cards instead of clipping through a control.
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _selectedTab == 0
-                ? _buildSwapTab(context, state)
-                : _buildLimitTab(context, state),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final keyHeight = SwapLayout.keyHeight(constraints.maxHeight);
+              return Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _selectedTab == 0
+                          ? _buildSwapTab(context, state)
+                          : _buildLimitTab(context, state),
+                    ),
+                  ),
+                  if (_selectedTab == 0)
+                    _buildInputBand(context, state, keyHeight),
+                ],
+              );
+            },
           ),
         ),
-
-        // Insufficient SOL warning + Swap button pinned at bottom
-        if (_selectedTab == 0)
-          Padding(
-            padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.of(context).padding.bottom + 2),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Bound to the balance check, not to having a quote.
-                if (_isShort(state)) _buildWarningBanner(state),
-                const SizedBox(height: 8),
-                AmountKeypad(
-                  onDigit: (d) => _setAmount(
-                      context, appendDigit(state.inputAmount, d)),
-                  onDelete: () =>
-                      _setAmount(context, removeDigit(state.inputAmount)),
-                  onDeleteAll: () => _setAmount(context, ''),
-                ),
-                const SizedBox(height: 10),
-                _buildSwapButton(context, state),
-              ],
-            ),
-          ),
       ],
+    );
+  }
+
+  // The pinned half: amount shortcuts, keys, and the button they lead to.
+  Widget _buildInputBand(
+      BuildContext context, SwapReady state, double keyHeight) {
+    return Padding(
+      // No bottom inset: the nav bar below this screen already pads for the
+      // home indicator, and adding it here reserved the same strip twice.
+      padding: const EdgeInsets.fromLTRB(20, SwapLayout.gap, 20, 0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildPercentRow(context, state),
+          const SizedBox(height: SwapLayout.gap),
+          AmountKeypad(
+            keyHeight: keyHeight,
+            onDigit: (d) =>
+                _setAmount(context, appendDigit(state.inputAmount, d)),
+            onDelete: () => _setAmount(context, removeDigit(state.inputAmount)),
+            onDeleteAll: () => _setAmount(context, ''),
+          ),
+          const SizedBox(height: SwapLayout.buttonGap),
+          _buildSwapButton(context, state),
+        ],
+      ),
     );
   }
 
@@ -259,7 +279,7 @@ class _SwapScreenState extends State<SwapScreen> {
   Widget _buildSwapTab(BuildContext context, SwapReady state) {
     return Column(
       children: [
-        const SizedBox(height: 20),
+        const SizedBox(height: SwapLayout.topGap),
 
         _buildSellSection(context, state),
 
@@ -267,8 +287,13 @@ class _SwapScreenState extends State<SwapScreen> {
 
         _buildBuySection(context, state),
 
-        const SizedBox(height: 16),
-        _buildPercentRow(context, state),
+        // Bound to the balance check, not to having a quote. It sits here
+        // rather than above the button because the button's own label already
+        // says the balance is short, and the pinned band has no room to spare.
+        if (_isShort(state)) ...[
+          const SizedBox(height: 12),
+          _buildWarningBanner(state),
+        ],
 
         if (state.rate != null) ...[
           const SizedBox(height: 16),
@@ -304,8 +329,6 @@ class _SwapScreenState extends State<SwapScreen> {
               ],
             ),
           ),
-
-        const SizedBox(height: 20),
       ],
     );
   }
@@ -403,7 +426,7 @@ class _SwapScreenState extends State<SwapScreen> {
     final amount = double.tryParse(state.inputAmount) ?? 0;
     final price = state.inputToken.priceUsd ?? 0;
 
-    return _amountCard(
+    return AmountCard(
       label: 'SELL',
       amount: state.inputAmount.isEmpty ? '0' : state.inputAmount,
       dimmed: state.inputAmount.isEmpty,
@@ -414,104 +437,9 @@ class _SwapScreenState extends State<SwapScreen> {
     );
   }
 
-  // One shape for both halves: the figure large on the left, the token on the
-  // right, and what each is worth underneath.
-  Widget _amountCard({
-    required String label,
-    required String amount,
-    required bool dimmed,
-    required double? valueUsd,
-    required Widget trailing,
-    required String balance,
-    Widget? labelSuffix,
-    bool loading = false,
-  }) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF16181D),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(label,
-                  style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 10,
-                      fontFamily: 'FKGrotesk',
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 1)),
-              if (labelSuffix != null) ...[
-                const SizedBox(width: 4),
-                labelSuffix,
-              ],
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: loading
-                    ? SizedBox(
-                        height: 32,
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 1.5, color: Colors.grey[500]),
-                          ),
-                        ),
-                      )
-                    : FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          amount,
-                          style: TextStyle(
-                            color: dimmed ? Colors.grey[700] : Colors.white,
-                            fontSize: 32,
-                            fontFamily: 'FKGroteskSemiMono',
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-              ),
-              const SizedBox(width: 12),
-              trailing,
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Text(
-                valueUsd == null ? '' : Money.format(valueUsd),
-                style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 11,
-                    fontFamily: 'FKGroteskSemiMono'),
-              ),
-              const Spacer(),
-              Text(balance,
-                  style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 11,
-                      fontFamily: 'FKGrotesk')),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildFlipDivider(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -539,7 +467,7 @@ class _SwapScreenState extends State<SwapScreen> {
     final out = double.tryParse(state.outputAmount ?? '') ?? 0;
     final price = state.outputToken.priceUsd ?? 0;
 
-    return _amountCard(
+    return AmountCard(
       label: 'BUY',
       amount: state.outputAmount ?? '0',
       dimmed: state.outputAmount == null,
