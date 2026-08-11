@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lottie/lottie.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solfare/core/constant/network.dart';
+import 'package:solfare/core/network/network_error.dart';
 import 'package:solfare/core/solana/pay/pay_resolver.dart';
 import 'package:solfare/core/router/app_router.dart';
 import 'package:solfare/features/homepage/data/portfolio_history.dart';
@@ -54,6 +55,10 @@ class _HomepageScreenState extends State<HomepageScreen> {
   // Cached values so data persists across BLoC state changes
   double _cachedBalanceInSol = 0.0;
   DateTime? _staleSince;
+
+  // False until a balance has actually arrived. Without it the first frames
+  // render _cachedBalanceInSol's initial 0.0 as a real figure.
+  bool _hasBalance = false;
   String? _cachedAddress;
   double _cachedSolPriceUsd = 0.0;
   double _cachedSolPriceChange24h = 0.0;
@@ -315,15 +320,32 @@ class _HomepageScreenState extends State<HomepageScreen> {
         _cardBackground = state.cardBackground;
       });
     } else if (state is WalletError) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${state.message}'), backgroundColor: Colors.red),
-      );
+      final address = _walletAddress;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(friendlyNetworkError(state.message)),
+            backgroundColor: Colors.red[700],
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            action: address == null
+                ? null
+                : SnackBarAction(
+                    label: 'Retry',
+                    textColor: Colors.white,
+                    onPressed: () => context.read<WalletBloc>().add(
+                          FetchBalanceEvent(address, userInitiated: true),
+                        ),
+                  ),
+          ),
+        );
     }
   }
 
   _HomeData _resolveData(WalletState walletState) {
     double balanceInSol = _cachedBalanceInSol;
-    bool isLoadingBalance = false;
+    bool isLoadingBalance = !_hasBalance;
     String? address = _cachedAddress ?? _walletAddress;
     double solPriceUsd = _cachedSolPriceUsd;
     double solPriceChange24h = _cachedSolPriceChange24h;
@@ -347,6 +369,7 @@ class _HomepageScreenState extends State<HomepageScreen> {
         _cachedBalanceInSol = balanceInSol;
         _cachedAddress = address;
         _staleSince = walletState.staleSince;
+        _hasBalance = true;
       }
     }
 
@@ -441,7 +464,7 @@ class _HomepageScreenState extends State<HomepageScreen> {
   }) {
     return BalanceCard(
       balanceInSol: showData ? data.balanceInSol : 0,
-      isLoading: showData ? data.isLoadingBalance : false,
+      isLoading: showData ? data.isLoadingBalance : true,
       walletAddress: forcedAddress ?? data.address,
       solPriceUsd: showData ? data.solPriceUsd : 0,
       solPriceChange24h: showData ? data.solPriceChange24h : 0,

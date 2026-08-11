@@ -5,10 +5,16 @@ import 'package:solfare/features/homepage/presentation/widgets/balance_card.dart
 void main() {
   Widget host(Widget child) => MaterialApp(home: Scaffold(body: child));
 
-  BalanceCard card({DateTime? staleSince, double price = 86.29, VoidCallback? onRetry}) =>
+  BalanceCard card({
+    DateTime? staleSince,
+    double price = 86.29,
+    VoidCallback? onRetry,
+    bool isLoading = false,
+    double balance = 0.3523,
+  }) =>
       BalanceCard(
-        balanceInSol: 0.3523,
-        isLoading: false,
+        balanceInSol: balance,
+        isLoading: isLoading,
         solPriceUsd: price,
         solPriceChange24h: 2.4,
         staleSince: staleSince,
@@ -62,6 +68,23 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.refresh));
     expect(retried, 1);
+  });
+
+  testWidgets('an unknown balance is a dash, never a zero', (tester) async {
+    // "We do not know yet" rendered as 0 tells the user their wallet is empty,
+    // in 32pt type, on the first screen they see.
+    await tester.pumpWidget(host(card(isLoading: true, balance: 0, price: 0)));
+
+    expect(find.text('\u2014'), findsOneWidget);
+    expect(find.textContaining('0.0000'), findsNothing);
+    expect(find.textContaining(r'$0.00'), findsNothing);
+  });
+
+  testWidgets('an inactive carousel page shows no figure at all', (tester) async {
+    // What the swiper passes for a wallet that is not the active one.
+    await tester.pumpWidget(host(card(isLoading: true, balance: 0, price: 0)));
+
+    expect(find.textContaining('SOL'), findsNothing);
   });
 
   testWidgets('with no price it shows SOL rather than an invented dollar figure',

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:solfare/core/security/app_lock.dart';
 import 'package:solfare/core/security/biometric_lock.dart';
 import 'package:solfare/core/security/wallet_key.dart';
 import 'package:solfare/features/settings/presentation/screens/connected_apps_screen.dart';
@@ -39,6 +40,17 @@ class _SecurityPrivacyScreenState extends State<SecurityPrivacyScreen> {
     });
   }
 
+  // Biometrics releases the key the passcode derives, so without a passcode
+  // there is nothing for it to release.
+  bool get _canUseBiometrics =>
+      _biometricsAvailable && AppLock.instance.hasPasscode;
+
+  String get _biometricsSubtitle {
+    if (!_biometricsAvailable) return 'Not set up on this device';
+    if (!AppLock.instance.hasPasscode) return 'Set a passcode first';
+    return 'Unlock without typing your passcode';
+  }
+
   Future<void> _setBiometrics(bool on) async {
     if (!on) {
       await BiometricLock.disable();
@@ -57,7 +69,9 @@ class _SecurityPrivacyScreenState extends State<SecurityPrivacyScreen> {
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: Text('Could not turn on $_biometricLabel.'),
+            content: Text(key == null
+                ? 'Unlock with your passcode first, then turn on $_biometricLabel.'
+                : 'Could not turn on $_biometricLabel.'),
             backgroundColor: Colors.red[700],
             behavior: SnackBarBehavior.floating,
             margin: const EdgeInsets.all(16),
@@ -104,11 +118,9 @@ class _SecurityPrivacyScreenState extends State<SecurityPrivacyScreen> {
                     _buildToggleItem(
                       icon: Iconsax.finger_scan,
                       title: _biometricLabel,
-                      subtitle: _biometricsAvailable
-                          ? 'Unlock without typing your passcode'
-                          : 'Not set up on this device',
+                      subtitle: _biometricsSubtitle,
                       value: _biometricsEnabled,
-                      onChanged: _biometricsAvailable ? _setBiometrics : null,
+                      onChanged: _canUseBiometrics ? _setBiometrics : null,
                     ),
                     _buildMenuItem(
                       icon: Iconsax.lock,

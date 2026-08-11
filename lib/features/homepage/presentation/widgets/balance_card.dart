@@ -119,8 +119,11 @@ class BalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Three states, not two. "We do not know yet" is not "you have nothing",
+    // and rendering the second when we mean the first tells the user their
+    // wallet is empty.
     final hasPrice = solPriceUsd > 0;
-    final usdValue = hasPrice ? balanceInSol * solPriceUsd : null;
+    final usdValue = (!isLoading && hasPrice) ? balanceInSol * solPriceUsd : null;
     final textColor = _isLightCard ? Colors.black : Colors.white;
     final subtextColor = _isLightCard ? Colors.black54 : Colors.grey[400]!;
     final iconColor = _isLightCard ? Colors.black : Colors.white;
@@ -158,6 +161,8 @@ class BalanceCard extends StatelessWidget {
                     textColor: textColor,
                     centsColor: _isLightCard ? Colors.black45 : const Color(0xFFb8bbc1),
                   )
+                else if (isLoading)
+                  _buildUnknown(textColor)
                 else
                   Text(
                     '${balanceInSol.toStringAsFixed(4)} SOL',
@@ -168,7 +173,7 @@ class BalanceCard extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                if (hasPrice) _buildPriceChange(subtextColor),
+                if (hasPrice && !isLoading) _buildPriceChange(subtextColor),
                 if (staleSince != null) _buildStaleNote(subtextColor),
               ],
             ),
@@ -242,6 +247,23 @@ class BalanceCard extends StatelessWidget {
     return Text(
       'BALANCE',
       style: TextStyle(color: subtextColor, fontSize: 12, fontFamily: 'FKGrotesk', fontWeight: FontWeight.w600, letterSpacing: 1.2),
+    );
+  }
+
+  // A muted placeholder rather than a zero. The card is 32pt type: whatever it
+  // says, the user believes.
+  Widget _buildUnknown(Color textColor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Text(
+        '\u2014',
+        style: TextStyle(
+          color: textColor.withValues(alpha: 0.35),
+          fontSize: 32,
+          fontFamily: 'FKGrotesk',
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 
