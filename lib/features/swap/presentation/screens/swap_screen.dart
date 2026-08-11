@@ -38,7 +38,9 @@ class _SwapScreenState extends State<SwapScreen> {
     final bloc = context.read<SwapBloc>();
     bloc.add(const LoadTokenListEvent());
     final output = widget.initialOutput;
-    if (output != null) bloc.add(SelectOutputTokenEvent(output));
+    // Sets both halves: arriving to buy a token means paying with the default,
+    // not with whatever was last sold.
+    if (output != null) bloc.add(OpenWithOutputEvent(output));
     _loadAddress();
   }
 

@@ -44,6 +44,7 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
     _preview = previewEngine ?? PreviewEngine(_rpc);
 
     on<LoadTokenListEvent>(_onLoadTokens);
+    on<OpenWithOutputEvent>(_onOpenWithOutput);
     on<SelectInputTokenEvent>(_onSelectInput);
     on<SelectOutputTokenEvent>(_onSelectOutput);
     on<UpdateInputAmountEvent>(_onUpdateAmount);
@@ -76,6 +77,28 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
 
     // Whatever the list did, the balance still has to arrive. Without this a
     // reload leaves it null with nothing else scheduled to fill it in.
+    _refreshBalance();
+  }
+
+  void _onOpenWithOutput(OpenWithOutputEvent event, Emitter<SwapState> emit) {
+    if (state is! SwapReady) return;
+    final s = state as SwapReady;
+    _quoteId++;
+
+    // Paying with SOL is the default, but nothing can be swapped for itself —
+    // so buying SOL is paid for with USDC instead.
+    final buyingSol = event.output.mint == SwapToken.sol.mint;
+    emit(s.copyWith(
+      inputToken: buyingSol ? SwapToken.usdc : SwapToken.sol,
+      outputToken: event.output,
+      inputAmount: '',
+      outputAmount: null,
+      rate: null,
+      priceImpact: null,
+      error: null,
+      inputBalance: null,
+      balanceUnknown: false,
+    ));
     _refreshBalance();
   }
 

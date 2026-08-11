@@ -12,6 +12,13 @@ void main() {
     decimals: 9,
   );
 
+  const pump = SwapToken(
+    mint: 'pumpCmXqMfrsAkQ5r49WcJnRayYRqmXz6ae8H7H9Dfn',
+    symbol: 'PUMP',
+    name: 'Pump',
+    decimals: 6,
+  );
+
   late SwapBloc bloc;
 
   setUp(() => bloc = SwapBloc());
@@ -45,6 +52,53 @@ void main() {
 
     expect(after.outputToken.symbol, 'JitoSOL');
     expect(after.inputToken.symbol, 'SOL');
+  });
+
+  test('buying a token pays with SOL, whatever was last sold', () async {
+    bloc.add(const LoadTokenListEvent());
+    await ready();
+
+    // Left over from a previous swap, which is exactly what preserving the
+    // pair across a reload makes possible.
+    bloc.add(const SelectInputTokenEvent(jitoSol));
+    await bloc.stream
+        .firstWhere((s) => s is SwapReady && s.inputToken.symbol == 'JitoSOL');
+
+    bloc.add(const OpenWithOutputEvent(pump));
+    final after = await bloc.stream.firstWhere(
+        (s) => s is SwapReady && s.outputToken.symbol == 'PUMP') as SwapReady;
+
+    expect(after.inputToken.symbol, 'SOL');
+    expect(after.outputToken.symbol, 'PUMP');
+    expect(after.inputAmount, isEmpty);
+  });
+
+  test('buying SOL pays with USDC, since nothing swaps for itself', () async {
+    bloc.add(const LoadTokenListEvent());
+    await ready();
+
+    bloc.add(const OpenWithOutputEvent(SwapToken.sol));
+    final after = await bloc.stream.firstWhere(
+        (s) => s is SwapReady && s.outputToken.symbol == 'SOL') as SwapReady;
+
+    expect(after.inputToken.symbol, 'USDC');
+  });
+
+  test('the reload after the address arrives keeps the bought pair', () async {
+    // The exact sequence the screen produces: list, preset, then the
+    // address-aware reload a moment later.
+    bloc.add(const LoadTokenListEvent());
+    await ready();
+    bloc.add(const OpenWithOutputEvent(pump));
+    await bloc.stream
+        .firstWhere((s) => s is SwapReady && s.outputToken.symbol == 'PUMP');
+
+    bloc.add(const LoadTokenListEvent(walletAddress: 'not-a-real-address'));
+    final after = await bloc.stream.firstWhere(
+        (s) => s is SwapReady && s.tokens.isNotEmpty) as SwapReady;
+
+    expect(after.inputToken.symbol, 'SOL');
+    expect(after.outputToken.symbol, 'PUMP');
   });
 
   test('a typed amount survives the reload too', () async {

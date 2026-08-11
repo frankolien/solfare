@@ -18,6 +18,20 @@ class LoadTokenListEvent extends SwapEvent {
   List<Object?> get props => [walletAddress];
 }
 
+/// Opened from a token's own screen: buy [output], paying with the default.
+///
+/// One event rather than an input selection followed by an output selection,
+/// because the two used to race — the list reload sat between them and the
+/// preset was lost.
+class OpenWithOutputEvent extends SwapEvent {
+  final SwapToken output;
+
+  const OpenWithOutputEvent(this.output);
+
+  @override
+  List<Object?> get props => [output];
+}
+
 class SelectInputTokenEvent extends SwapEvent {
   final SwapToken token;
   const SelectInputTokenEvent(this.token);
