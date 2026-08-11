@@ -32,8 +32,6 @@ class _SwapScreenState extends State<SwapScreen> {
     super.initState();
     final bloc = context.read<SwapBloc>();
     bloc.add(const LoadTokenListEvent());
-    // After the list, not before: loading it emits a fresh SwapReady with the
-    // default pair, which would overwrite the preset.
     final output = widget.initialOutput;
     if (output != null) bloc.add(SelectOutputTokenEvent(output));
     _loadAddress();

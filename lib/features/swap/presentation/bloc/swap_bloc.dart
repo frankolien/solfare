@@ -55,12 +55,21 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
   }
 
   Future<void> _onLoadTokens(LoadTokenListEvent event, Emitter<SwapState> emit) async {
+    // The pair the user is on, if they are on one. Reloading the list is about
+    // which tokens can be chosen, not about which are chosen — resetting to
+    // SOL/USDC here threw away a pair that had been preset from a token
+    // screen, or picked by hand a moment earlier.
+    final current = state;
+    final pair = current is SwapReady ? current : null;
+
     emit(const SwapLoading());
     final tokens = await _tokensFor(_walletAddress ?? event.walletAddress);
     emit(SwapReady(
       tokens: tokens,
-      inputToken: SwapToken.sol,
-      outputToken: SwapToken.usdc,
+      inputToken: pair?.inputToken ?? SwapToken.sol,
+      outputToken: pair?.outputToken ?? SwapToken.usdc,
+      inputAmount: pair?.inputAmount ?? '',
+      inputBalance: pair?.inputBalance,
     ));
   }
 
