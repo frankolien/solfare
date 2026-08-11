@@ -26,6 +26,9 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
   // one and is dropped.
   int _quoteId = 0;
 
+  // The same, for the token list.
+  int _loadId = 0;
+
   // The signed route waiting on the user.
   PreparedSwap? _prepared;
 
@@ -57,23 +60,44 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
   }
 
   Future<void> _onLoadTokens(LoadTokenListEvent event, Emitter<SwapState> emit) async {
-    // The pair the user is on, if they are on one. Reloading the list is about
-    // which tokens can be chosen, not about which are chosen — resetting to
-    // SOL/USDC here threw away a pair that had been preset from a token
-    // screen, or picked by hand a moment earlier.
+    // Numbered so a load that started earlier cannot land after a later one
+    // and replace a list of held tokens with the shorter curated set. Not
+    // covered by a test: faking the RPC that separates the two lists means
+    // implementing SolanaRpcDataSource, which nothing does yet.
+    final id = ++_loadId;
+
+    // Only claim to be loading when there is nothing to show. This is the line
+    // that matters: the screen loads the list twice — on mount, and again once
+    // the address resolves — and bloc runs same-typed events concurrently. The
+    // second does a network call, so it finishes last; blanking the state to
+    // SwapLoading meant it had no pair left to preserve and rebuilt the
+    // default. That is why buying a token opened on SOL/USDC.
+    if (state is! SwapReady) emit(const SwapLoading());
+
+    final tokens = await _tokensFor(_walletAddress ?? event.walletAddress);
+    if (id != _loadId) return;
+
+    // Read after the await, not before: the pair may have been set while this
+    // was in flight.
     final current = state;
     final pair = current is SwapReady ? current : null;
 
-    emit(const SwapLoading());
-    final tokens = await _tokensFor(_walletAddress ?? event.walletAddress);
-    emit(SwapReady(
+    var ready = SwapReady(
       tokens: tokens,
       inputToken: pair?.inputToken ?? SwapToken.sol,
       outputToken: pair?.outputToken ?? SwapToken.usdc,
       inputAmount: pair?.inputAmount ?? '',
       inputBalance: pair?.inputBalance,
       balanceUnknown: pair?.balanceUnknown ?? false,
-    ));
+    );
+
+    // A preset that arrived while this was still loading.
+    final pending = _pendingOutput;
+    if (pending != null) {
+      _pendingOutput = null;
+      ready = _withOutput(ready, pending);
+    }
+    emit(ready);
 
     // Whatever the list did, the balance still has to arrive. Without this a
     // reload leaves it null with nothing else scheduled to fill it in.
@@ -81,26 +105,37 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
   }
 
   void _onOpenWithOutput(OpenWithOutputEvent event, Emitter<SwapState> emit) {
-    if (state is! SwapReady) return;
-    final s = state as SwapReady;
     _quoteId++;
 
-    // Paying with SOL is the default, but nothing can be swapped for itself —
-    // so buying SOL is paid for with USDC instead.
-    final buyingSol = event.output.mint == SwapToken.sol.mint;
-    emit(s.copyWith(
-      inputToken: buyingSol ? SwapToken.usdc : SwapToken.sol,
-      outputToken: event.output,
-      inputAmount: '',
-      outputAmount: null,
-      rate: null,
-      priceImpact: null,
-      error: null,
-      inputBalance: null,
-      balanceUnknown: false,
-    ));
+    // Held, not dropped, when the list has not landed yet. Each on<E> in bloc
+    // has its own subscription, so this event and the list load run
+    // concurrently — the screen dispatches both from initState with nothing
+    // between them, and this one arrives while the state is still SwapLoading.
+    if (state is! SwapReady) {
+      _pendingOutput = event.output;
+      return;
+    }
+    emit(_withOutput(state as SwapReady, event.output));
     _refreshBalance();
   }
+
+  SwapToken? _pendingOutput;
+
+  // Paying with SOL is the default, but nothing can be swapped for itself — so
+  // buying SOL is paid for with USDC instead.
+  SwapReady _withOutput(SwapReady s, SwapToken output) => s.copyWith(
+        inputToken: output.mint == SwapToken.sol.mint
+            ? SwapToken.usdc
+            : SwapToken.sol,
+        outputToken: output,
+        inputAmount: '',
+        outputAmount: null,
+        rate: null,
+        priceImpact: null,
+        error: null,
+        inputBalance: null,
+        balanceUnknown: false,
+      );
 
   void _onSelectInput(SelectInputTokenEvent event, Emitter<SwapState> emit) {
     if (state is SwapReady) {

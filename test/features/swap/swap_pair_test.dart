@@ -47,8 +47,10 @@ void main() {
         (s) => s is SwapReady && s.outputToken.symbol == 'JitoSOL');
 
     bloc.add(const LoadTokenListEvent(walletAddress: 'not-a-real-address'));
-    final after = await bloc.stream.firstWhere(
-        (s) => s is SwapReady && s.tokens.isNotEmpty) as SwapReady;
+    // Settled rather than awaited: a reload that changes nothing now emits
+    // nothing, because the rebuilt state is equal to the current one.
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    final after = bloc.state as SwapReady;
 
     expect(after.outputToken.symbol, 'JitoSOL');
     expect(after.inputToken.symbol, 'SOL');
@@ -73,6 +75,25 @@ void main() {
     expect(after.inputAmount, isEmpty);
   });
 
+  test('the preset survives being dispatched before the list has loaded',
+      () async {
+    // What initState actually does: both events back to back, with no await
+    // between them. Different event types have separate handlers in bloc, so
+    // they run concurrently — the earlier tests awaited ready() first and so
+    // never reproduced this.
+    bloc.add(const LoadTokenListEvent());
+    bloc.add(const OpenWithOutputEvent(pump));
+    // And the reload once the address resolves, which is the one that does a
+    // network call and therefore lands last.
+    bloc.add(const LoadTokenListEvent(walletAddress: 'not-a-real-address'));
+
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    final after = bloc.state as SwapReady;
+
+    expect(after.outputToken.symbol, 'PUMP');
+    expect(after.inputToken.symbol, 'SOL');
+  });
+
   test('buying SOL pays with USDC, since nothing swaps for itself', () async {
     bloc.add(const LoadTokenListEvent());
     await ready();
@@ -94,8 +115,8 @@ void main() {
         .firstWhere((s) => s is SwapReady && s.outputToken.symbol == 'PUMP');
 
     bloc.add(const LoadTokenListEvent(walletAddress: 'not-a-real-address'));
-    final after = await bloc.stream.firstWhere(
-        (s) => s is SwapReady && s.tokens.isNotEmpty) as SwapReady;
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    final after = bloc.state as SwapReady;
 
     expect(after.inputToken.symbol, 'SOL');
     expect(after.outputToken.symbol, 'PUMP');
@@ -110,8 +131,8 @@ void main() {
         .firstWhere((s) => s is SwapReady && s.inputAmount == '1.5');
 
     bloc.add(const LoadTokenListEvent());
-    final after = await bloc.stream.firstWhere(
-        (s) => s is SwapReady && s.tokens.isNotEmpty) as SwapReady;
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    final after = bloc.state as SwapReady;
 
     expect(after.inputAmount, '1.5');
   });
