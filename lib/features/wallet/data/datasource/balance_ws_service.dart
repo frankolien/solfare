@@ -128,6 +128,11 @@ class BalanceWsService with WidgetsBindingObserver {
         _subscriptionId = msg['result'] as int;
         _reconnectAttempts = 0; // successful handshake resets backoff
         debugLog('[WS] subscribed, id=$_subscriptionId');
+        // On connect, not only on change. Notifications arrive when the
+        // balance moves, so a reconnect on its own never re-read it — a cold
+        // start whose fetch failed stayed stale until something happened on
+        // chain. Reconnecting is now itself a reason to refresh.
+        onChange();
         return;
       }
 

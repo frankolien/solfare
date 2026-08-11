@@ -46,12 +46,16 @@ class RequestAirdropEvent extends WalletEvent {
 }
 
 class FetchBalanceEvent extends WalletEvent {
+  /// True when the user pulled to refresh. A failure they asked for is worth
+  /// reporting; one we started on our own is not.
+  final bool userInitiated;
+
   final String address;
 
-  const FetchBalanceEvent(this.address);
+  const FetchBalanceEvent(this.address, {this.userInitiated = false});
 
   @override
-  List<Object?> get props => [address];
+  List<Object?> get props => [address, userInitiated];
 }
 
 class ResetWalletEvent extends WalletEvent {

@@ -53,6 +53,7 @@ class _HomepageScreenState extends State<HomepageScreen> {
 
   // Cached values so data persists across BLoC state changes
   double _cachedBalanceInSol = 0.0;
+  DateTime? _staleSince;
   String? _cachedAddress;
   double _cachedSolPriceUsd = 0.0;
   double _cachedSolPriceChange24h = 0.0;
@@ -86,7 +87,9 @@ class _HomepageScreenState extends State<HomepageScreen> {
   Future<void> _onRefresh(String? address) async {
     final bloc = context.read<WalletBloc>();
     if (address != null) {
-      bloc.add(FetchBalanceEvent(address));
+      // The user asked, so a failure is worth reporting — silence after a pull
+      // reads as the gesture doing nothing.
+      bloc.add(FetchBalanceEvent(address, userInitiated: true));
       bloc.add(FetchNftsEvent(address));
       bloc.add(FetchTokensEvent(address));
     }
@@ -343,6 +346,7 @@ class _HomepageScreenState extends State<HomepageScreen> {
         address = walletState.address;
         _cachedBalanceInSol = balanceInSol;
         _cachedAddress = address;
+        _staleSince = walletState.staleSince;
       }
     }
 
@@ -379,6 +383,7 @@ class _HomepageScreenState extends State<HomepageScreen> {
       address: address ?? _walletAddress,
       solPriceUsd: solPriceUsd,
       solPriceChange24h: solPriceChange24h,
+      staleSince: _staleSince,
     );
   }
 
@@ -440,6 +445,17 @@ class _HomepageScreenState extends State<HomepageScreen> {
       walletAddress: forcedAddress ?? data.address,
       solPriceUsd: showData ? data.solPriceUsd : 0,
       solPriceChange24h: showData ? data.solPriceChange24h : 0,
+      // Only the active card claims freshness; the inactive pages of the
+      // carousel render placeholders and have nothing to be stale about.
+      staleSince: showData ? data.staleSince : null,
+      onRetry: () {
+        final address = data.address;
+        if (address != null) {
+          context.read<WalletBloc>().add(
+                FetchBalanceEvent(address, userInitiated: true),
+              );
+        }
+      },
       walletName: name,
       cardBackground: card,
       onWalletTap: () {
@@ -593,11 +609,15 @@ class _HomeData {
   final double solPriceUsd;
   final double solPriceChange24h;
 
+  /// Non-null when the figure could not be confirmed on the last try.
+  final DateTime? staleSince;
+
   const _HomeData({
     required this.balanceInSol,
     required this.isLoadingBalance,
     this.address,
     required this.solPriceUsd,
     required this.solPriceChange24h,
+    this.staleSince,
   });
 }

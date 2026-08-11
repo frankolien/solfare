@@ -67,6 +67,49 @@ suppresses its own loading state and shows the old balance, and
 balance into the new wallet's cache, making it persist. The SOL price is the
 same everywhere and stays.
 
+## When the refresh fails
+
+Silent while it is working, which is nearly always — a normal launch shows no
+extra chrome at all. The signal only appears once we are showing a number we
+could not confirm:
+
+    ┌──────────────────────┐
+    │ Main Wallet          │
+    │ $30.40               │
+    │ 0.3523 SOL    +2.4%  │
+    │ Updated 2h ago    ⟳  │
+    └──────────────────────┘
+
+`BalanceFetched.staleSince` carries it: null means live, non-null means
+remembered, from that moment, unconfirmed.
+
+A background failure must not raise the red snackbar the homepage shows for
+`WalletError`. Before caching, a failed cold start put that error over an empty
+card — coherent, if unhelpful. With a balance on screen it becomes a confident
+number beside `Error: ClientException with SocketException`, which is the exact
+thing that reads as broken. So `FetchBalanceEvent.userInitiated` separates "the
+user pulled to refresh" — where silence would itself feel broken — from "we
+refreshed on our own", which fails quietly into the timestamp above.
+
+## Retrying, which is what makes the timestamp rare
+
+`_rpcCall` already goes through `HttpRetry`, so transient failures retry inside
+the call. When those are exhausted it throws and, until now, nothing tried
+again — the stale number sat there until the user did something.
+
+Two things fix that:
+
+- **The socket refreshes on connect, not only on change.** `onChange` fires on
+  `accountNotification`, so a *reconnect* never re-read the balance. Firing it
+  on subscribe confirmation too means every reconnect — and the backoff ladder
+  is `[1, 2, 4, 8, 16, 30]` seconds — pulls a fresh figure. A cold start that
+  missed by a second recovers a second later, without the user doing anything.
+- **A bounded retry for the case the socket is healthy and HTTP is not.** The
+  reconnect hook does nothing if the socket never dropped, so a failed fetch
+  schedules its own retry at 3s, 10s, 30s, then stops. Three attempts, because
+  past that the network is genuinely gone and the timestamp is the honest
+  answer.
+
 ## Staleness
 
 A cached balance is a claim about the past. Two places must not treat it as

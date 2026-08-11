@@ -43,7 +43,11 @@ class PortfolioContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final price = solPriceUsd > 0 ? solPriceUsd : 86.29;
+    // No invented price: a hardcoded one turns an unknown into a wrong number
+    // and renders it as the user's money. Zero totals read as unknown, which
+    // is what they are until the price lands — and it now arrives from cache
+    // on the first frame.
+    final price = solPriceUsd > 0 ? solPriceUsd : 0.0;
     final priceChange = solPriceChange24h;
     final isPositive = priceChange >= 0;
     final solValueUsd = balanceInSol * price;

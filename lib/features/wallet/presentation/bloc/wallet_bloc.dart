@@ -69,6 +69,13 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
   double? _lastSolPriceChange;
   int? _lastLamports;
 
+  // When the figure on screen was last known to be true. Set from the cache on
+  // activation, cleared once a live fetch lands.
+  DateTime? _cachedAt;
+
+  Timer? _balanceRetry;
+  int _balanceRetries = 0;
+
   WalletBloc({
     WalletRepositoryImpl? repository,
     SolanaRpcDataSource? rpcDataSource,
@@ -361,12 +368,16 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     // the widget push write it into the new wallet's cache. The SOL price is
     // the same everywhere, so it stays.
     _lastLamports = null;
+    _cachedAt = null;
+    _balanceRetry?.cancel();
+    _balanceRetries = 0;
 
     // Before any network call, so the first frame carries the numbers the user
     // came to see rather than a spinner standing in for them.
     final cached = await PortfolioCache.read(wallet.address);
     if (cached != null) {
       _lastLamports = cached.lamports;
+      _cachedAt = cached.at;
       _lastSolPriceUsd = cached.priceUsd;
       _lastSolPriceChange = cached.priceChange24h;
       emit(BalanceFetched(
@@ -513,6 +524,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
   Future<void> close() {
     NetworkConstants.removeListener(_onNetworkChanged);
     _stopPricePolling();
+    _balanceRetry?.cancel();
     _balanceWs.dispose();
     _priceWs.dispose();
     return super.close();
@@ -614,10 +626,50 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       }
       emit(BalanceFetched(balance: balance, address: event.address));
       _lastLamports = balance;
+      _cachedAt = null;
+      _balanceRetry?.cancel();
+      _balanceRetries = 0;
       await _pushWalletWidget(force: true);
     } catch (e) {
-      emit(WalletError(e.toString()));
+      debugLog('[Wallet] balance fetch failed: $e');
+
+      // Something is already on screen. Say when it was true rather than
+      // putting a raw exception in a red snackbar beside a confident number.
+      final cachedAt = _cachedAt;
+      if (_lastLamports != null && cachedAt != null) {
+        emit(BalanceFetched(
+          balance: _lastLamports!,
+          address: event.address,
+          fromCache: true,
+          staleSince: cachedAt,
+        ));
+      } else if (event.userInitiated) {
+        // Nothing to show and the user asked, so silence would read as the
+        // pull doing nothing at all.
+        emit(WalletError(e.toString()));
+      }
+
+      _scheduleBalanceRetry(event.address);
     }
+  }
+
+  // The socket refreshes on reconnect, which covers a dropped connection. This
+  // covers the other case: a healthy socket and an RPC that would not answer.
+  static const _balanceRetryDelays = [
+    Duration(seconds: 3),
+    Duration(seconds: 10),
+    Duration(seconds: 30),
+  ];
+
+  void _scheduleBalanceRetry(String address) {
+    if (_balanceRetries >= _balanceRetryDelays.length) return;
+    final delay = _balanceRetryDelays[_balanceRetries];
+    _balanceRetries++;
+    _balanceRetry?.cancel();
+    _balanceRetry = Timer(delay, () {
+      if (isClosed || _watchedAddress != address) return;
+      add(FetchBalanceEvent(address));
+    });
   }
 
   void _onResetWallet(

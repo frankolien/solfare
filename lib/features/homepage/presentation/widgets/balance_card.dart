@@ -32,6 +32,14 @@ class BalanceCard extends StatelessWidget {
   final String walletName;
   final String cardBackground;
 
+  /// Set once a refresh has failed: this figure is the last one we could
+  /// confirm, and the card says when that was rather than passing it off as
+  /// current.
+  final DateTime? staleSince;
+
+  /// Retry, offered next to the timestamp.
+  final VoidCallback? onRetry;
+
   const BalanceCard({
     super.key,
     required this.balanceInSol,
@@ -44,6 +52,8 @@ class BalanceCard extends StatelessWidget {
     this.onMoreAction,
     this.walletName = 'Main Wallet',
     this.cardBackground = 'card_1.png',
+    this.staleSince,
+    this.onRetry,
   });
 
   void _copyAddress(BuildContext context, String address) {
@@ -109,10 +119,8 @@ class BalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Calculate USD value, fallback to approximate price if API hasn't
-    // responded
-    final price = solPriceUsd > 0 ? solPriceUsd : 86.29;
-    final usdValue = balanceInSol * price;
+    final hasPrice = solPriceUsd > 0;
+    final usdValue = hasPrice ? balanceInSol * solPriceUsd : null;
     final textColor = _isLightCard ? Colors.black : Colors.white;
     final subtextColor = _isLightCard ? Colors.black54 : Colors.grey[400]!;
     final iconColor = _isLightCard ? Colors.black : Colors.white;
@@ -144,12 +152,24 @@ class BalanceCard extends StatelessWidget {
                 _buildHeader(context, iconColor, textColor, subtextColor),
                 const SizedBox(height: 32),
                 _buildBalanceLabel(subtextColor),
-                _AnimatedMoney(
-                  value: usdValue,
-                  textColor: textColor,
-                  centsColor: _isLightCard ? Colors.black45 : const Color(0xFFb8bbc1),
-                ),
-                _buildPriceChange(subtextColor),
+                if (usdValue != null)
+                  _AnimatedMoney(
+                    value: usdValue,
+                    textColor: textColor,
+                    centsColor: _isLightCard ? Colors.black45 : const Color(0xFFb8bbc1),
+                  )
+                else
+                  Text(
+                    '${balanceInSol.toStringAsFixed(4)} SOL',
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 32,
+                      fontFamily: 'FKGrotesk',
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                if (hasPrice) _buildPriceChange(subtextColor),
+                if (staleSince != null) _buildStaleNote(subtextColor),
               ],
             ),
           ),
@@ -225,8 +245,45 @@ class BalanceCard extends StatelessWidget {
     );
   }
 
+  // Shown only when a refresh has failed, so a working launch carries no extra
+  // chrome at all.
+  Widget _buildStaleNote(Color subtextColor) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Updated ${_ago(staleSince!)}',
+            style: TextStyle(
+              color: subtextColor,
+              fontSize: 11,
+              fontFamily: 'FKGrotesk',
+            ),
+          ),
+          if (onRetry != null) ...[
+            const SizedBox(width: 6),
+            GestureDetector(
+              onTap: onRetry,
+              behavior: HitTestBehavior.opaque,
+              child: Icon(Icons.refresh, size: 14, color: subtextColor),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static String _ago(DateTime at) {
+    final d = DateTime.now().difference(at);
+    if (d.isNegative || d.inMinutes < 1) return 'just now';
+    if (d.inHours < 1) return '${d.inMinutes}m ago';
+    if (d.inDays < 1) return '${d.inHours}h ago';
+    return '${d.inDays}d ago';
+  }
+
   Widget _buildPriceChange(Color subtextColor) {
-    final price = solPriceUsd > 0 ? solPriceUsd : 86.29;
+    final price = solPriceUsd;
     final dollarChange = balanceInSol * price * (solPriceChange24h / 100);
     final isPositive = dollarChange >= 0;
 

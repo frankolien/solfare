@@ -67,14 +67,19 @@ class BalanceFetched extends WalletState {
   /// A claim about the past, served before the network answered.
   final bool fromCache;
 
+  /// Null while this is live. Set once a refresh has failed and this is the
+  /// last figure we could confirm, so the card can say when that was.
+  final DateTime? staleSince;
+
   const BalanceFetched({
     required this.balance,
     required this.address,
     this.fromCache = false,
+    this.staleSince,
   });
 
   @override
-  List<Object?> get props => [balance, address, fromCache];
+  List<Object?> get props => [balance, address, fromCache, staleSince];
 
   double get balanceInSol => Lamports.toSol(balance);
 }
