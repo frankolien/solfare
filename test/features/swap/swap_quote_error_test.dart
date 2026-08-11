@@ -52,6 +52,24 @@ void main() {
     );
   });
 
+  test('no configured key means no key header, not an empty one', () async {
+    // Measured against the live API: no header answers 200, the header present
+    // and empty answers 401. An empty key is "no key", so the header has to
+    // disappear rather than be sent blank.
+    Map<String, String>? sent;
+    final source = JupiterDataSource(
+      client: MockClient((request) async {
+        sent = request.headers;
+        return http.Response(jsonEncode({'outAmount': '1'}), 200);
+      }),
+    );
+
+    await source.getQuote(inputMint: sol, outputMint: usdc, amount: 1);
+
+    final keys = sent!.keys.map((k) => k.toLowerCase());
+    expect(keys, isNot(contains('x-api-key')));
+  });
+
   test('a good order comes back whole', () async {
     final json = await quoteWith(http.Response(
         jsonEncode({'outAmount': '12345', 'requestId': 'abc'}), 200));

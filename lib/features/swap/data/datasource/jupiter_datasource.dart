@@ -10,6 +10,14 @@ class JupiterDataSource {
   static const _baseUrl = 'https://api.jup.ag/swap/v2';
   static String get _apiKey => ApiKeys.jupiter;
 
+  // Sending `x-api-key: ''` is a 401. Omitting the header entirely is the free
+  // tier and answers 200 — an empty key is "no key", not "a key that is
+  // empty", and the header has to disappear to say so.
+  static Map<String, String> get _headers => {
+        'Accept': 'application/json',
+        if (_apiKey.isNotEmpty) 'x-api-key': _apiKey,
+      };
+
   final http.Client client;
 
   JupiterDataSource({http.Client? client}) : client = client ?? http.Client();
@@ -37,10 +45,7 @@ class JupiterDataSource {
     final response = await HttpRetry.send(
       () => client.get(
         Uri.parse(url),
-        headers: {
-          'Accept': 'application/json',
-          'x-api-key': _apiKey,
-        },
+        headers: _headers,
       ),
     );
 
@@ -79,11 +84,7 @@ class JupiterDataSource {
     final response = await HttpRetry.send(
       () => client.post(
         Uri.parse('$_baseUrl/execute'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'x-api-key': _apiKey,
-        },
+        headers: {'Content-Type': 'application/json', ..._headers},
         body: jsonEncode({
           'signedTransaction': signedTransaction,
           'requestId': requestId,

@@ -71,7 +71,12 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
       outputToken: pair?.outputToken ?? SwapToken.usdc,
       inputAmount: pair?.inputAmount ?? '',
       inputBalance: pair?.inputBalance,
+      balanceUnknown: pair?.balanceUnknown ?? false,
     ));
+
+    // Whatever the list did, the balance still has to arrive. Without this a
+    // reload leaves it null with nothing else scheduled to fill it in.
+    _refreshBalance();
   }
 
   void _onSelectInput(SelectInputTokenEvent event, Emitter<SwapState> emit) {
@@ -189,8 +194,10 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
     LoadInputBalanceEvent event,
     Emitter<SwapState> emit,
   ) async {
-    if (state is! SwapReady) return;
+    // Recorded before the guard: returning early without it left
+    // _refreshBalance with no address to use, for the life of the screen.
     _walletAddress = event.walletAddress;
+    if (state is! SwapReady) return;
     final s = state as SwapReady;
     final balance = await _balanceOf(s.inputToken, event.walletAddress);
     if (state is SwapReady) {
