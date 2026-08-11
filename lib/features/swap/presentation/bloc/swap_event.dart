@@ -8,7 +8,14 @@ abstract class SwapEvent extends Equatable {
 }
 
 class LoadTokenListEvent extends SwapEvent {
-  const LoadTokenListEvent();
+  /// Whose holdings to put at the top of the list. Null falls back to the
+  /// curated set, which is all a screen without an address can offer.
+  final String? walletAddress;
+
+  const LoadTokenListEvent({this.walletAddress});
+
+  @override
+  List<Object?> get props => [walletAddress];
 }
 
 class SelectInputTokenEvent extends SwapEvent {

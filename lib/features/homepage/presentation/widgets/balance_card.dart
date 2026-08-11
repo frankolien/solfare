@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:solfare/core/currency/money.dart';
+import 'package:solfare/core/widgets/shimmer.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:solfare/core/util/copied_toast.dart';
@@ -23,6 +24,15 @@ String _customFilename(String path) => path.substring(_customPrefix.length);
 /// change.
 class BalanceCard extends StatelessWidget {
   final double balanceInSol;
+
+  /// Everything the wallet holds, in USD — SOL plus every token. The card is
+  /// the wallet's headline figure, and a headline that counts only SOL is
+  /// wrong for anyone holding anything else.
+  final double? totalUsd;
+
+  /// Weighted across the whole portfolio, not SOL's own 24h move.
+  final double portfolioChange24h;
+
   final bool isLoading;
   final String? walletAddress;
   final double solPriceUsd;
@@ -44,6 +54,8 @@ class BalanceCard extends StatelessWidget {
   const BalanceCard({
     super.key,
     required this.balanceInSol,
+    this.totalUsd,
+    this.portfolioChange24h = 0,
     required this.isLoading,
     this.walletAddress,
     required this.solPriceUsd,
@@ -124,7 +136,8 @@ class BalanceCard extends StatelessWidget {
     // and rendering the second when we mean the first tells the user their
     // wallet is empty.
     final hasPrice = solPriceUsd > 0;
-    final usdValue = (!isLoading && hasPrice) ? balanceInSol * solPriceUsd : null;
+    final usdValue =
+        (!isLoading && hasPrice) ? (totalUsd ?? balanceInSol * solPriceUsd) : null;
     final textColor = _isLightCard ? Colors.black : Colors.white;
     final subtextColor = _isLightCard ? Colors.black54 : Colors.grey[400]!;
     final iconColor = _isLightCard ? Colors.black : Colors.white;
@@ -251,18 +264,18 @@ class BalanceCard extends StatelessWidget {
     );
   }
 
-  // A muted placeholder rather than a zero. The card is 32pt type: whatever it
-  // says, the user believes.
+  // A placeholder the size of the figure it stands in for, rather than a zero.
+  // The card is 32pt type: whatever it says, the user believes.
   Widget _buildUnknown(Color textColor) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Text(
-        '\u2014',
-        style: TextStyle(
-          color: textColor.withValues(alpha: 0.35),
-          fontSize: 32,
-          fontFamily: 'FKGrotesk',
-          fontWeight: FontWeight.w600,
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: Shimmer(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ShimmerBox(width: 150, height: 30, radius: 8),
+          ],
         ),
       ),
     );
@@ -306,8 +319,9 @@ class BalanceCard extends StatelessWidget {
   }
 
   Widget _buildPriceChange(Color subtextColor) {
-    final price = solPriceUsd;
-    final dollarChange = balanceInSol * price * (solPriceChange24h / 100);
+    final total = totalUsd ?? balanceInSol * solPriceUsd;
+    final change = totalUsd == null ? solPriceChange24h : portfolioChange24h;
+    final dollarChange = total * (change / 100);
 
     return Row(
       children: [
@@ -317,7 +331,7 @@ class BalanceCard extends StatelessWidget {
         ),
         const SizedBox(width: 6),
         Text(
-          '${solPriceChange24h >= 0 ? '+' : ''}${solPriceChange24h.toStringAsFixed(2)}%',
+          '${change >= 0 ? '+' : ''}${change.toStringAsFixed(2)}%',
           style: TextStyle(color: subtextColor, fontSize: 13, fontFamily: 'FKGroteskSemiMono', fontWeight: FontWeight.w500),
         ),
       ],

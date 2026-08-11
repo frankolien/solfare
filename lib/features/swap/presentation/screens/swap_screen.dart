@@ -44,7 +44,11 @@ class _SwapScreenState extends State<SwapScreen> {
     if (!mounted) return;
     setState(() => _walletAddress = address);
     if (address != null) {
-      context.read<SwapBloc>().add(LoadInputBalanceEvent(address));
+      final bloc = context.read<SwapBloc>();
+      // Reload the list now the address is known, so what the wallet holds
+      // sits at the top rather than being absent entirely.
+      bloc.add(LoadTokenListEvent(walletAddress: address));
+      bloc.add(LoadInputBalanceEvent(address));
     }
   }
 

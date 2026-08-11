@@ -56,7 +56,7 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
 
   Future<void> _onLoadTokens(LoadTokenListEvent event, Emitter<SwapState> emit) async {
     emit(const SwapLoading());
-    final tokens = _jupiter.getTokenList();
+    final tokens = await _tokensFor(_walletAddress ?? event.walletAddress);
     emit(SwapReady(
       tokens: tokens,
       inputToken: SwapToken.sol,
@@ -182,6 +182,48 @@ class SwapBloc extends Bloc<SwapEvent, SwapState> {
 
   // Native SOL lives in the account itself; everything else is an SPL balance
   // spread over the owner's token accounts.
+  // The curated list is a starting point, not the universe. A wallet holding
+  // jitoSOL could not swap it, because the list of nine did not name it — the
+  // one token set that must always be swappable is the one the user owns.
+  Future<List<SwapToken>> _tokensFor(String? owner) async {
+    final popular = _jupiter.getTokenList();
+    if (owner == null || owner.isEmpty) return popular;
+
+    try {
+      final held = await _rpc.getTokens(owner);
+      final bySymbol = <String, SwapToken>{
+        for (final t in popular) t.mint: t,
+      };
+
+      // Held first, so what the user actually owns is at the top of the picker.
+      final ordered = <SwapToken>[SwapToken.sol];
+      for (final t in held) {
+        if (t.mint == SwapToken.sol.mint || t.balance <= 0) continue;
+        ordered.add(SwapToken(
+          mint: t.mint,
+          symbol: t.symbol.isEmpty ? _shortMint(t.mint) : t.symbol,
+          name: t.name.isEmpty ? t.symbol : t.name,
+          decimals: t.decimals,
+          logoUrl: t.imageUrl ?? bySymbol[t.mint]?.logoUrl,
+          priceUsd: t.priceUsd,
+        ));
+      }
+
+      final seen = {for (final t in ordered) t.mint};
+      for (final t in popular) {
+        if (seen.add(t.mint)) ordered.add(t);
+      }
+      return ordered;
+    } catch (e) {
+      debugLog('[Swap] could not read held tokens: $e');
+      return popular;
+    }
+  }
+
+  static String _shortMint(String mint) => mint.length <= 8
+      ? mint
+      : '${mint.substring(0, 4)}…${mint.substring(mint.length - 4)}';
+
   Future<double?> _balanceOf(SwapToken token, String owner) async {
     try {
       if (token.mint == SwapToken.sol.mint) {

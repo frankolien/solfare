@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:solfare/core/util/app_log.dart';
+import 'package:solfare/features/market/data/datasource/jupiter_token_datasource.dart';
 import 'package:solfare/features/swap/domain/entities/swap_token.dart';
 
 class TokenSelectorSheet extends StatefulWidget {
@@ -17,6 +21,11 @@ class TokenSelectorSheet extends StatefulWidget {
 
 class _TokenSelectorSheetState extends State<TokenSelectorSheet> {
   final _searchController = TextEditingController();
+  final _tokens = JupiterTokenDataSource();
+
+  // Bumped per keystroke; a response whose id no longer matches is stale.
+  int _searchSeq = 0;
+  bool _searching = false;
 
   @override
   void dispose() {
@@ -32,17 +41,52 @@ class _TokenSelectorSheetState extends State<TokenSelectorSheet> {
   }
 
   void _onSearch(String query) {
+    _searchSeq++;
+    final needle = query.trim().toLowerCase();
     setState(() {
-      if (query.isEmpty) {
-        _filtered = widget.tokens;
-      } else {
-        _filtered = widget.tokens
-            .where((t) =>
-                t.symbol.toLowerCase().contains(query.toLowerCase()) ||
-                t.name.toLowerCase().contains(query.toLowerCase()))
-            .toList();
-      }
+      _searching = false;
+      _filtered = needle.isEmpty
+          ? widget.tokens
+          : widget.tokens
+              .where((t) =>
+                  t.symbol.toLowerCase().contains(needle) ||
+                  t.name.toLowerCase().contains(needle) ||
+                  t.mint.toLowerCase() == needle)
+              .toList();
     });
+
+    // Nothing local: ask Jupiter, so a token the wallet does not hold and the
+    // curated list never named is still reachable. Anything shorter than two
+    // characters matches half the chain.
+    if (_filtered.isEmpty && needle.length >= 2) {
+      unawaited(_searchRemote(needle, _searchSeq));
+    }
+  }
+
+  Future<void> _searchRemote(String query, int seq) async {
+    setState(() => _searching = true);
+    try {
+      final found = await _tokens.search(query);
+      // A slower earlier search must not overwrite a later one's results.
+      if (!mounted || seq != _searchSeq) return;
+      setState(() {
+        _searching = false;
+        _filtered = [
+          for (final t in found)
+            SwapToken(
+              mint: t.id,
+              symbol: t.symbol,
+              name: t.name,
+              decimals: t.decimals,
+              logoUrl: t.imageUrl,
+              priceUsd: t.currentPrice,
+            ),
+        ];
+      });
+    } catch (e) {
+      debugLog('[Swap] token search failed: $e');
+      if (mounted && seq == _searchSeq) setState(() => _searching = false);
+    }
   }
 
   @override
@@ -111,7 +155,27 @@ class _TokenSelectorSheetState extends State<TokenSelectorSheet> {
           const SizedBox(height: 8),
 
           Expanded(
-            child: ListView.builder(
+            child: _searching && _filtered.isEmpty
+                ? const Center(
+                    child: SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.yellow),
+                    ),
+                  )
+                : _filtered.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No token found',
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 13,
+                            fontFamily: 'FKGrotesk',
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: _filtered.length,
               itemBuilder: (context, index) {

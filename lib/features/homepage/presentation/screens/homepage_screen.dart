@@ -6,6 +6,7 @@ import 'package:lottie/lottie.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solfare/core/constant/network.dart';
 import 'package:solfare/core/network/network_error.dart';
+import 'package:solfare/core/widgets/shimmer.dart';
 import 'package:solfare/core/solana/pay/pay_resolver.dart';
 import 'package:solfare/core/router/app_router.dart';
 import 'package:solfare/features/homepage/data/portfolio_history.dart';
@@ -343,6 +344,59 @@ class _HomepageScreenState extends State<HomepageScreen> {
     }
   }
 
+  // SOL plus every token the wallet holds.
+  double _totalUsd(_HomeData data) =>
+      data.balanceInSol * data.solPriceUsd +
+      _cachedTokens.fold<double>(0, (sum, t) => sum + t.valueUsd);
+
+  // Each holding's 24h move, weighted by what it is worth. An unweighted
+  // average would let a dust token swing the headline as hard as the balance.
+  double _portfolioChange24h(_HomeData data) {
+    final solValue = data.balanceInSol * data.solPriceUsd;
+    var total = solValue;
+    var weighted = solValue * data.solPriceChange24h;
+
+    for (final token in _cachedTokens) {
+      total += token.valueUsd;
+      weighted += token.valueUsd * token.priceChange24h;
+    }
+
+    if (total <= 0) return data.solPriceChange24h;
+    return weighted / total;
+  }
+
+  // Shaped like the portfolio it stands in for — a header, a total, and a few
+  // token rows — so the layout does not jump when the real thing arrives.
+  Widget _buildPortfolioSkeleton() {
+    return const Padding(
+      padding: EdgeInsets.fromLTRB(20, 24, 20, 60),
+      child: Shimmer(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                ShimmerBox(width: 60, height: 12),
+                SizedBox(width: 12),
+                ShimmerBox(width: 80, height: 12),
+              ],
+            ),
+            SizedBox(height: 20),
+            _SkeletonRow(),
+            SizedBox(height: 20),
+            _SkeletonRow(),
+            SizedBox(height: 20),
+            _SkeletonRow(),
+            SizedBox(height: 32),
+            ShimmerBox(width: 90, height: 12),
+            SizedBox(height: 16),
+            ShimmerBox(height: 56, radius: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
   _HomeData _resolveData(WalletState walletState) {
     double balanceInSol = _cachedBalanceInSol;
     bool isLoadingBalance = !_hasBalance;
@@ -468,6 +522,8 @@ class _HomepageScreenState extends State<HomepageScreen> {
       walletAddress: forcedAddress ?? data.address,
       solPriceUsd: showData ? data.solPriceUsd : 0,
       solPriceChange24h: showData ? data.solPriceChange24h : 0,
+      totalUsd: showData ? _totalUsd(data) : null,
+      portfolioChange24h: showData ? _portfolioChange24h(data) : 0,
       // Only the active card claims freshness; the inactive pages of the
       // carousel render placeholders and have nothing to be stale about.
       staleSince: showData ? data.staleSince : null,
@@ -607,7 +663,11 @@ class _HomepageScreenState extends State<HomepageScreen> {
                     }
                   },
                 )
-              else if (!data.isLoadingBalance)
+              else if (data.isLoadingBalance)
+                // Neither branch rendered while loading, so the page below the
+                // buttons was simply empty.
+                _buildPortfolioSkeleton()
+              else
                 GetStartedSection(
                   walletAddress: data.address,
                   onRequestAirdrop: _requestAirdrop,
@@ -643,4 +703,37 @@ class _HomeData {
     required this.solPriceChange24h,
     this.staleSince,
   });
+}
+
+
+class _SkeletonRow extends StatelessWidget {
+  const _SkeletonRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      children: [
+        ShimmerBox(width: 40, height: 40, radius: 20),
+        SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ShimmerBox(width: 90, height: 11),
+              SizedBox(height: 8),
+              ShimmerBox(width: 60, height: 9),
+            ],
+          ),
+        ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            ShimmerBox(width: 64, height: 11),
+            SizedBox(height: 8),
+            ShimmerBox(width: 44, height: 9),
+          ],
+        ),
+      ],
+    );
+  }
 }
