@@ -148,17 +148,26 @@ class TransactionsFetched extends WalletState {
 
 class NftsFetched extends WalletState {
   final List<Nft> nfts;
-  const NftsFetched(this.nfts);
+
+  /// Whose. Without it a slow response for the wallet the user just left
+  /// lands on the one they switched to.
+  final String? address;
+
+  const NftsFetched(this.nfts, {this.address});
   @override
-  List<Object?> get props => [nfts];
+  List<Object?> get props => [nfts, address];
 }
 
 /// SPL tokens fetched successfully
 class TokensFetched extends WalletState {
   final List<SplToken> tokens;
-  const TokensFetched(this.tokens);
+
+  /// As above.
+  final String? address;
+
+  const TokensFetched(this.tokens, {this.address});
   @override
-  List<Object?> get props => [tokens];
+  List<Object?> get props => [tokens, address];
 }
 
 /// Emitted whenever the list of wallets changes (add, remove, rename, card).

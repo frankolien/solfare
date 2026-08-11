@@ -216,7 +216,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     final cachedJson = prefs.getString(cacheKey);
     if (cachedJson != null) {
       final cached = _decodeNfts(cachedJson);
-      if (cached.isNotEmpty) emit(NftsFetched(cached));
+      if (cached.isNotEmpty) emit(NftsFetched(cached, address: event.address));
     }
 
     try {
@@ -226,11 +226,11 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       if (_watchedAddress != null && _watchedAddress != event.address) {
         return;
       }
-      emit(NftsFetched(nfts));
+      emit(NftsFetched(nfts, address: event.address));
     } catch (_) {
       // Keep whatever cached list we already emitted; only surface empty if
       // there was nothing cached either.
-      if (cachedJson == null) emit(NftsFetched(const []));
+      if (cachedJson == null) emit(NftsFetched(const [], address: event.address));
     }
   }
 
@@ -272,7 +272,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     final cachedJson = prefs.getString(cacheKey);
     if (cachedJson != null) {
       final cached = _decodeTokens(cachedJson);
-      if (cached.isNotEmpty) emit(TokensFetched(cached));
+      if (cached.isNotEmpty) emit(TokensFetched(cached, address: event.address));
     }
 
     try {
@@ -281,9 +281,9 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       if (_watchedAddress != null && _watchedAddress != event.address) {
         return;
       }
-      emit(TokensFetched(tokens));
+      emit(TokensFetched(tokens, address: event.address));
     } catch (_) {
-      if (cachedJson == null) emit(const TokensFetched([]));
+      if (cachedJson == null) emit(TokensFetched(const [], address: event.address));
     }
   }
 

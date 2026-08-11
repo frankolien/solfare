@@ -18,9 +18,14 @@ class StakingLoading extends StakingState {
 
 class StakeAccountsFetched extends StakingState {
   final List<StakeAccount> accounts;
-  const StakeAccountsFetched(this.accounts);
+
+  /// Whose, so a response for the wallet the user just left is dropped rather
+  /// than shown under the one they switched to.
+  final String? address;
+
+  const StakeAccountsFetched(this.accounts, {this.address});
   @override
-  List<Object?> get props => [accounts];
+  List<Object?> get props => [accounts, address];
 }
 
 class ValidatorsFetched extends StakingState {

@@ -64,13 +64,16 @@ class _HomepageScreenState extends State<HomepageScreen> {
   double _cachedSolPriceUsd = 0.0;
   double _cachedSolPriceChange24h = 0.0;
   List<Nft> _cachedNfts = [];
-  bool _hasFetchedNfts = false;
   List<SplToken> _cachedTokens = [];
-  bool _hasFetchedTokens = false;
+
+  // The wallet the lists below belong to. These used to be three one-shot
+  // bools set on the first wallet and never reset, so switching wallets
+  // refetched the balance and kept the previous wallet's tokens, NFTs and
+  // stake accounts on screen until the user pulled to refresh.
+  String? _fetchedFor;
   List<WalletAccount> _wallets = const [];
   String? _activeWalletId;
   List<StakeAccount> _cachedStakeAccounts = [];
-  bool _hasFetchedStakes = false;
 
   String _walletName = 'Main Wallet';
   String _cardBackground = 'card_1.png';
@@ -228,7 +231,10 @@ class _HomepageScreenState extends State<HomepageScreen> {
     return BlocListener<StakingBloc, StakingState>(
       listener: (context, stakingState) {
         if (stakingState is StakeAccountsFetched) {
-          setState(() => _cachedStakeAccounts = stakingState.accounts);
+          if (stakingState.address == null ||
+              stakingState.address == _walletAddress) {
+            setState(() => _cachedStakeAccounts = stakingState.accounts);
+          }
         } else if (stakingState is StakeDeactivated || stakingState is StakeWithdrawn) {
           if (_walletAddress != null) {
             context.read<StakingBloc>().add(FetchStakeAccountsEvent(_walletAddress!));
@@ -292,24 +298,36 @@ class _HomepageScreenState extends State<HomepageScreen> {
         }
       });
     } else if (state is WalletAddressLoaded) {
-      setState(() => _walletAddress = state.address);
+      final changed = _fetchedFor != state.address;
+      setState(() {
+        _walletAddress = state.address;
+        if (changed) {
+          // Dropped rather than left in place: holding them would show the
+          // previous wallet's holdings, and count them in the headline total,
+          // for as long as the new wallet's fetch takes.
+          _fetchedFor = state.address;
+          _hasBalance = false;
+          _cachedTokens = const [];
+          _cachedNfts = const [];
+          _cachedStakeAccounts = const [];
+        }
+      });
       context.read<WalletBloc>().add(FetchBalanceEvent(state.address));
-      if (!_hasFetchedNfts) {
-        _hasFetchedNfts = true;
+      if (changed) {
         context.read<WalletBloc>().add(FetchNftsEvent(state.address));
-      }
-      if (!_hasFetchedTokens) {
-        _hasFetchedTokens = true;
         context.read<WalletBloc>().add(FetchTokensEvent(state.address));
-      }
-      if (!_hasFetchedStakes) {
-        _hasFetchedStakes = true;
         context.read<StakingBloc>().add(FetchStakeAccountsEvent(state.address));
       }
     } else if (state is NftsFetched) {
-      setState(() => _cachedNfts = state.nfts);
+      // A response for the wallet the user just left must not land on the one
+      // they switched to.
+      if (state.address == null || state.address == _walletAddress) {
+        setState(() => _cachedNfts = state.nfts);
+      }
     } else if (state is TokensFetched) {
-      setState(() => _cachedTokens = state.tokens);
+      if (state.address == null || state.address == _walletAddress) {
+        setState(() => _cachedTokens = state.tokens);
+      }
     } else if (state is WalletsLoaded) {
       setState(() {
         _wallets = state.wallets;

@@ -57,7 +57,7 @@ class StakingBloc extends Bloc<StakingEvent, StakingState> {
           deactivationEpoch: deactivation,
         );
       }).toList();
-      emit(StakeAccountsFetched(accounts));
+      emit(StakeAccountsFetched(accounts, address: event.walletAddress));
     } catch (e) {
       emit(StakingError(e.toString()));
     }
