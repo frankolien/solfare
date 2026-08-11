@@ -64,13 +64,17 @@ class BalanceFetched extends WalletState {
   final int balance; // Balance in lamports
   final String address;
 
+  /// A claim about the past, served before the network answered.
+  final bool fromCache;
+
   const BalanceFetched({
     required this.balance,
     required this.address,
+    this.fromCache = false,
   });
 
   @override
-  List<Object?> get props => [balance, address];
+  List<Object?> get props => [balance, address, fromCache];
 
   double get balanceInSol => Lamports.toSol(balance);
 }
@@ -96,13 +100,17 @@ class SolPriceFetched extends WalletState {
   final double priceUsd;
   final double priceChange24h;
 
+  /// As above: shown immediately, replaced by the fetch.
+  final bool fromCache;
+
   const SolPriceFetched({
     required this.priceUsd,
     required this.priceChange24h,
+    this.fromCache = false,
   });
 
   @override
-  List<Object?> get props => [priceUsd, priceChange24h];
+  List<Object?> get props => [priceUsd, priceChange24h, fromCache];
 }
 
 /// Error state - something went wrong

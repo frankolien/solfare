@@ -54,9 +54,18 @@ Read at activation, before the network call:
 4. `WalletLoading` is emitted only when there is no cached value — a first-ever
    launch has nothing to show and should say so.
 
-The homepage seeds `_cachedBalanceInSol` and the price fields from the same
-store in `initState`, so the very first frame has real numbers rather than
-zeroes waiting to be replaced.
+The homepage needs no change of its own. `_resolveData` already folds
+`BalanceFetched` and `SolPriceFetched` into its `_cached*` fields, so the
+emission above populates them — one source of truth rather than the screen and
+the bloc each reading the store.
+
+**Reset on switch.** `_lastLamports` has to be cleared at the top of
+`_activateWallet`. It was not, and the consequence is worse than a stale
+number: with a value left over from the previous wallet, the new wallet
+suppresses its own loading state and shows the old balance, and
+`_pushWalletWidget` — which reads the *current* active wallet — can write that
+balance into the new wallet's cache, making it persist. The SOL price is the
+same everywhere and stays.
 
 ## Staleness
 
@@ -87,9 +96,12 @@ states.
 
 ## Tests
 
-- a cold read with a cached snapshot emits balance and price before any RPC call
-- with no cached snapshot the first emission is still `WalletLoading`
-- a snapshot written under address A is not served for address B
-- a fresh fetch overwrites the cached emission
-- the send screen does not accept an amount validated only against a cached
-  balance
+Covered at the store: round-trip, one address never serving another, a miss
+rather than a zero, truncated and unparseable entries surviving as misses.
+
+Not covered: the emission order inside `WalletBloc`, because there is no test
+harness for it — `SolanaRpcDataSource` is a wide interface with nothing mocking
+it today, which the audit already lists as a gap. The two behaviours that go
+unverified are "cached values are emitted before the first RPC call" and "no
+loading state is emitted when something is cached". Both were checked by hand,
+neither is pinned down.

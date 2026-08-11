@@ -54,7 +54,14 @@ class _SendSolScreenState extends State<SendSolScreen> {
         ? mint
         : '${mint.substring(0, 4)}…${mint.substring(mint.length - 4)}';
   }
-  double get _balance => _token?.balance ?? widget.balanceInSol;
+  // The screen is handed a balance at push time, which may be the cached one
+  // the homepage was showing. A send composed against a stale, higher figure
+  // only fails at simulation — safe, but the error arrives late and reads like
+  // a bug. So a fresh read replaces it as soon as one lands.
+  double? _freshBalance;
+
+  double get _balance =>
+      _token?.balance ?? _freshBalance ?? widget.balanceInSol;
   double get _priceUsd => _token?.priceUsd ?? widget.solPriceUsd;
 
   final TextEditingController _addressController = TextEditingController();
@@ -72,6 +79,9 @@ class _SendSolScreenState extends State<SendSolScreen> {
   void initState() {
     super.initState();
     _loadContacts();
+    if (_token == null && widget.senderAddress.isNotEmpty) {
+      context.read<WalletBloc>().add(FetchBalanceEvent(widget.senderAddress));
+    }
   }
 
   Future<void> _loadContacts() async {
@@ -250,6 +260,11 @@ class _SendSolScreenState extends State<SendSolScreen> {
   Widget build(BuildContext context) {
     return BlocListener<WalletBloc, WalletState>(
       listener: (context, state) {
+        if (state is BalanceFetched &&
+            !state.fromCache &&
+            state.address == widget.senderAddress) {
+          setState(() => _freshBalance = state.balanceInSol);
+        }
         // WalletBloc is app-wide and this screen shares it with the balance and
         // history fetches — which _onSendSol itself kicks off the moment a send
         // confirms. Without this gate a 429 on that follow-up fetch replaced

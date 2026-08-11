@@ -21,6 +21,7 @@ import 'package:solfare/core/solana/transaction_service.dart';
 import 'package:solfare/core/solana/tx_outcome.dart';
 import 'package:solfare/core/wallet/keyring.dart';
 import 'package:solfare/core/widgets/widget_bridge.dart';
+import 'package:solfare/features/wallet/data/datasource/portfolio_cache.dart';
 import 'package:solfare/features/wallet/data/datasource/balance_ws_service.dart';
 import 'package:solfare/features/wallet/data/datasource/binance_price_ws_service.dart';
 import 'package:solfare/features/wallet/data/datasource/crypto_price_datasource.dart';
@@ -354,6 +355,32 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
   ) async {
     emit(WalletAddressLoaded(wallet.address));
     _watchedAddress = wallet.address;
+
+    // Balance belongs to the wallet, not to the session. Carrying the previous
+    // one across a switch would show it under the new wallet's name, and let
+    // the widget push write it into the new wallet's cache. The SOL price is
+    // the same everywhere, so it stays.
+    _lastLamports = null;
+
+    // Before any network call, so the first frame carries the numbers the user
+    // came to see rather than a spinner standing in for them.
+    final cached = await PortfolioCache.read(wallet.address);
+    if (cached != null) {
+      _lastLamports = cached.lamports;
+      _lastSolPriceUsd = cached.priceUsd;
+      _lastSolPriceChange = cached.priceChange24h;
+      emit(BalanceFetched(
+        balance: cached.lamports,
+        address: wallet.address,
+        fromCache: true,
+      ));
+      emit(SolPriceFetched(
+        priceUsd: cached.priceUsd,
+        priceChange24h: cached.priceChange24h,
+        fromCache: true,
+      ));
+    }
+
     unawaited(_balanceWs.watch(wallet.address));
     _startPricePolling();
     unawaited(_priceWs.start());
@@ -574,7 +601,9 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     FetchBalanceEvent event,
     Emitter<WalletState> emit,
   ) async {
-    emit(const WalletLoading());
+    // A cached balance is already on screen, so a loading state here would
+    // replace a real number with a spinner — the exact flicker this avoids.
+    if (_lastLamports == null) emit(const WalletLoading());
 
     try {
       final balance = await _rpcDataSource.getBalance(event.address);
@@ -688,6 +717,13 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     try {
       final active = await _repository.getActiveWallet();
       if (active == null) return;
+      await PortfolioCache.write(
+        active.address,
+        lamports: lamports,
+        priceUsd: price,
+        priceChange24h: _lastSolPriceChange ?? 0,
+      );
+
       final balanceUsd = Lamports.toSol(lamports) * price;
       await WidgetBridge.pushWallet(
         walletName: active.name,
